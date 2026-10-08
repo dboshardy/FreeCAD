@@ -17,7 +17,7 @@ fork adds. Detailed Present / Partial / Missing inventories live in
 | Upstream repository | https://github.com/FreeCAD/FreeCAD |
 | Fork base commit | `16298004` (upstream `main`, `version.json` = 27.1.0dev) |
 | Deviation from §1 | §1 specifies the latest stable tag (1.1.x). The repository was created from upstream `main`, not a tag. Re-basing onto a stable tag is tracked in `docs/gaps/phase-0.md` (item 0.1.3). |
-| Upstream history in clone | Shallow (681 commits). Full history must be restored before release (§2 "keep full git history"). |
+| Upstream history in clone | Full (not shallow). |
 
 ## Upstream components by phase
 

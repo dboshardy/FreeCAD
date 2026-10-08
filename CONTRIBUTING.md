@@ -1,3 +1,25 @@
+<!-- FORK: CADApp clean-room section added above the upstream process. -->
+# CADApp Contribution Requirements
+
+These requirements apply to every contribution to this fork, in addition to the
+upstream process below. See `docs/DESIGN.md` §2 and §12.
+
+1. **Sign-off.** Every commit carries a `Signed-off-by:` line (`git commit -s`),
+   certifying the Developer Certificate of Origin 1.1 (https://developercertificate.org)
+   and the clean-room attestation below.
+2. **Clean-room attestation.** By signing off you also state that:
+   - your contribution is based only on `docs/DESIGN.md`, this repository, and
+     public literature;
+   - you did not copy code, icons, UI layouts, help text, sample files, or
+     tutorials from commercial CAD software or from GPL-only projects;
+   - you did not decompile, disassemble, or inspect the binaries or native
+     file formats of commercial CAD software to write it.
+3. **Headers.** New files carry `SPDX-License-Identifier: LGPL-2.1-or-later`.
+   Changes to upstream files carry a `FORK:` comment at the change site.
+4. **Checks.** `python3 tools/fork/check.py all` must pass.
+
+---
+
 # FreeCAD Contribution Process (FCP)
 
 FreeCAD's contribution process is inspired by the Collective Code Construction Contract which itself is an evolution of the github.com Fork and Pull Model.

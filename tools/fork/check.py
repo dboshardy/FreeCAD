@@ -175,7 +175,10 @@ def upstream_base(repo: Repo) -> str | None:
 
 def added_lines(repo: Repo, base: str, owned: PathSet) -> dict[str, list[tuple[int, str]]]:
     """Lines added to non-fork-owned files since base (working tree included)."""
-    out = repo.git("diff", "--no-color", "--unified=0", "--no-renames", base, "--")
+    # Explicit prefixes: user config such as diff.mnemonicPrefix changes "b/".
+    out = repo.git(
+        "diff", "--no-color", "--unified=0", "--no-renames", "--src-prefix=a/", "--dst-prefix=b/", base, "--"
+    )
     result: dict[str, list[tuple[int, str]]] = {}
     current = None
     lineno = 0
