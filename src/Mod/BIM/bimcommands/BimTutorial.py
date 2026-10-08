@@ -51,6 +51,12 @@ class BIM_Tutorial:
             ),
         }
 
+    def IsActive(self):
+        # FORK: network feature behind a runtime flag (docs/inherited-conflicts.md)
+        from freecad import fork_features
+
+        return fork_features.is_enabled("BIMTutorial")
+
     def Activated(self):
         from PySide import QtCore, QtGui
 

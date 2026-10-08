@@ -16,6 +16,7 @@ const std::vector<FeatureInfo>& features()
     static const std::vector<FeatureInfo> list {
         {Feature::NaviCube, "NaviCube", "R1", CADAPP_FEATURE_NAVICUBE != 0},
         {Feature::CamAdaptive, "CAMAdaptive", "R3", CADAPP_FEATURE_CAM_ADAPTIVE != 0},
+        {Feature::DownloadManager, "DownloadManager", "§1", true},
     };
     return list;
 }

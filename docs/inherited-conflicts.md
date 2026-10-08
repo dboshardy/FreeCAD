@@ -21,19 +21,20 @@ Flag code: `src/App/Fork/FeatureFlags.*`, `src/Ext/freecad/fork_features.py`.
 
 ## Network features (§1)
 
-Inherited code that makes network requests. Left enabled. Not yet behind flags.
-Isolating each one is tracked in `docs/gaps/phase-0.md` (item 0.4.3).
+Inherited code that makes network requests. Left enabled. Each is behind a flag
+(default on). Runtime flags are bools under `BaseApp/Preferences/Fork/Features`;
+with a flag off the feature behaves as if offline.
 
-| Feature | Location | What it fetches |
-|---|---|---|
-| Addon Manager | `src/Mod/AddonManager` (submodule) | Add-on index, add-on repositories, macros |
-| Online Help | `src/Mod/Help/Help.py` (`location_url`, `convert_github`) | Wiki pages; GitHub markdown rendering API |
-| Download manager | `src/Gui/DownloadManager.*`, `src/Gui/DownloadItem.*` (used from `MainWindow.cpp`, `ApplicationPy.cpp`) | Files from URLs dropped or opened in the app |
-| BIM Library | `src/Mod/BIM/bimcommands/BimLibrary.py` (`download`, `getOnlineContentsAPI`, `getThumbnail`) | Online BIM object library and thumbnails |
-| BIM Tutorial | `src/Mod/BIM/bimcommands/BimTutorial.py` | Tutorial pages and images from the wiki |
-| BIM shapefile import | `src/Mod/BIM/importers/importSHP.py` (`checkShapeFileLibrary`) | `pyshp` library download |
-| IFC schema download | `src/Mod/BIM/ArchCommands.py` (`download`), used by `importIFClegacy.py` | IFC schema files |
-| CAM MTConnect import | `src/Mod/CAM/Machine/ui/mtconnect_import_dialog.py` (`_fetch_url`) | Machine description from a user-given URL |
+| Feature | Location | What it fetches | Flag | Off means |
+|---|---|---|---|---|
+| Addon Manager | `src/Mod/AddonManager` (submodule) | Add-on index, add-on repositories, macros | CMake `BUILD_ADDONMGR` (upstream option) | Not built |
+| Online Help | `src/Mod/Help/Help.py` (`location_url`, `get_contents`, `convert_github`) | Wiki pages; GitHub markdown rendering API | `OnlineHelp` | No fetch; offline help location still works |
+| Download manager | `src/Gui/DownloadManager.*`, `src/Gui/DownloadItem.*` (used from `MainWindow.cpp`, `ApplicationPy.cpp`) | Files from URLs dropped or opened in the app | `DownloadManager` | URLs ignored |
+| BIM Library | `src/Mod/BIM/bimcommands/BimLibrary.py` (`download`, `getOnlineContentsAPI`, `getThumbnail`) | Online BIM object library and thumbnails | `BIMOnlineLibrary` | "Online" checkbox off and disabled; local library works |
+| BIM Tutorial | `src/Mod/BIM/bimcommands/BimTutorial.py` | Tutorial pages and images from the wiki | `BIMTutorial` | Command greyed out |
+| BIM shapefile import | `src/Mod/BIM/importers/importSHP.py` (`checkShapeFileLibrary`) | `pyshp` library download | `BIMShapefileDownload` | No download offer; manual install message |
+| IFC schema download | `src/Mod/BIM/ArchCommands.py` (`download`), used by `importIFClegacy.py` | IFC schema files | `BIMDownload` | Returns `None` (same as a failed download) |
+| CAM MTConnect import | `src/Mod/CAM/Machine/ui/mtconnect_import_dialog.py` (`_fetch_url`) | Machine description from a user-given URL | `CAMMTConnectURL` | URL import fails with a message; local files still work |
 
 Not counted: code that only opens a URL in the system browser, and build or
 maintainer scripts under `src/Tools/` that are not shipped.

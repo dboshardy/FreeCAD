@@ -18,6 +18,7 @@ enum class Feature
 {
     NaviCube,     ///< Clickable navigation cube (risk R1)
     CamAdaptive,  ///< CAM Adaptive clearing operation (risk R3)
+    DownloadManager,  ///< Download of URLs opened or dropped in the app (§1 network rule)
 };
 
 struct FeatureInfo
@@ -25,9 +26,10 @@ struct FeatureInfo
     Feature feature;
     /// Key used for the runtime parameter and the Config() entry.
     const char* key;
-    /// Risk register id in docs/DESIGN.md §12.
+    /// Risk register id in docs/DESIGN.md §12, or "§1" for network features.
     const char* riskId;
-    /// true when the feature is compiled in (CMake option, default ON).
+    /// true when the feature is compiled in (CMake option, default ON; always
+    /// true for runtime-only flags).
     bool compiled;
 };
 
