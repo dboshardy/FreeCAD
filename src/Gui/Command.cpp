@@ -47,6 +47,7 @@
 
 #include "Command.h"
 #include "Action.h"
+#include "Hotkeys/ContextHotkeys.h"  // FORK: hotkey context
 #include "App/Application.h"
 #include "Application.h"
 #include "BitmapFactory.h"
@@ -488,6 +489,8 @@ void Command::_invoke(int id, bool disablelog)
 
         // check if it really works NOW (could be a delay between click deactivation of the button)
         if (isActive()) {
+            // FORK: tools started by this command take its id as hotkey context (§8.1)
+            Hotkeys::CommandScope hotkeyScope(sName);
             auto manager = getGuiApplication()->macroManager();
 
             if (!logdisabler) {

@@ -40,7 +40,7 @@ class GuiExport ToolHandler
 {
 public:
     ToolHandler() = default;
-    virtual ~ToolHandler() = default;
+    virtual ~ToolHandler();  // FORK: out of line to end the hotkey context
 
     bool activate();
     virtual void deactivate();

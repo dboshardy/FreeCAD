@@ -428,6 +428,7 @@ SET(Command_CPP_SRCS
     CommandLink.cpp
     CommandPyImp.cpp
     ShortcutManager.cpp
+    Hotkeys/ContextHotkeys.cpp  # FORK: context-layered hotkeys
     CommandCompleter.cpp
     CommandActionPy.cpp
 )
@@ -438,6 +439,8 @@ SET(Command_SRCS
     Command.h
     CommandT.h
     ShortcutManager.h
+    Hotkeys/ContextHotkeys.h  # FORK: context-layered hotkeys
+    Hotkeys/HotkeyEngine.h
     CommandCompleter.h
     CommandActionPy.h
 )

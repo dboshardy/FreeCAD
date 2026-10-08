@@ -29,6 +29,7 @@
 #include <Base/Console.h>
 #include <Base/Tools.h>
 #include "ShortcutManager.h"
+#include "Hotkeys/ContextHotkeys.h"  // FORK: context-layered hotkeys
 #include "Command.h"
 #include "Window.h"
 #include "Action.h"
@@ -300,6 +301,10 @@ bool ShortcutManager::eventFilter(QObject* o, QEvent* ev)
     switch (ev->type()) {
         case QEvent::KeyPress:
             lastFocus = nullptr;
+            // FORK: swallow the press of a key consumed by the context layers
+            if (Hotkeys::handleKey(static_cast<QKeyEvent*>(ev))) {
+                return true;
+            }
             break;
         case QEvent::ShortcutOverride: {
             auto kev = static_cast<QKeyEvent*>(ev);
@@ -315,6 +320,10 @@ bool ShortcutManager::eventFilter(QObject* o, QEvent* ev)
                     ev->accept();
                     return true;
                 }
+            }
+            // FORK: context layers (§8.1) take precedence over Qt shortcuts
+            if (Hotkeys::handleKey(kev)) {
+                return true;
             }
             break;
         }

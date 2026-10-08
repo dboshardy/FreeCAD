@@ -87,6 +87,32 @@ TEST(HotkeyEngine, remapAndReset)
     EXPECT_FALSE(e.setUserKeys({{}, "No_Such_Command"}, {"Q"}));
 }
 
+TEST(ToolStack, innermostNamedToolIsActive)
+{
+    ToolStack s;
+    int sketch = 0, line = 0, dialog = 0;
+    EXPECT_EQ(s.active(), "");
+    s.start(&sketch, "Sketcher_EditSketch");
+    s.start(&line, "Sketcher_CreateLine");
+    EXPECT_EQ(s.active(), "Sketcher_CreateLine");
+    s.start(&dialog, "");  // opened without a command: does not hide the line tool
+    EXPECT_EQ(s.active(), "Sketcher_CreateLine");
+    s.finish(&line);
+    EXPECT_EQ(s.active(), "Sketcher_EditSketch");
+    s.finish(&sketch);
+    s.finish(&dialog);
+    EXPECT_EQ(s.active(), "");
+}
+
+TEST(SelectionType, stripsPathAndIndex)
+{
+    EXPECT_EQ(selectionType("Edge12"), "Edge");
+    EXPECT_EQ(selectionType("Body.Pad.Face3"), "Face");
+    EXPECT_EQ(selectionType(""), "");
+    EXPECT_EQ(selectionType("Body."), "");
+    EXPECT_EQ(selectionType("42"), "");
+}
+
 TEST(HotkeyEngine, conflictsPerLayer)
 {
     auto e = sampleEngine();
