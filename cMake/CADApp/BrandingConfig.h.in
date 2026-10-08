@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+// FORK: generated from branding/branding.cmake by cMake/CADApp/CADAppFork.cmake. Do not edit.
+
+#pragma once
+
+#define CADAPP_EXE_NAME "@CADAPP_EXE_NAME@"
+#define CADAPP_EXE_VENDOR "@CADAPP_EXE_VENDOR@"
+#define CADAPP_APP_ID "@CADAPP_APP_ID@"
+#define CADAPP_MAINTAINER_URL "@CADAPP_MAINTAINER_URL@"
+#define CADAPP_ATTRIBUTION "@CADAPP_ATTRIBUTION@"
+#define CADAPP_NON_AFFILIATION "@CADAPP_NON_AFFILIATION@"

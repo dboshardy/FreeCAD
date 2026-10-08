@@ -147,6 +147,8 @@ if(NOT FREECAD_LIBPACK_USE OR FREECAD_LIBPACK_CHECKFILE_CLBUNDLER OR FREECAD_LIB
 endif()
 
 SetLibraryVersions()
+# FORK: CADApp branding and feature flags
+include(cMake/CADApp/CADAppFork.cmake)
 SetGlobalCompilerAndLinkerSettings()
 
 add_subdirectory(src)

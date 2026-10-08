@@ -337,6 +337,8 @@ SET(FreeCADApp_CPP_SRCS
     StringHasher.cpp
     StringHasherPyImp.cpp
     StringIDPyImp.cpp
+    # FORK: CADApp feature flags
+    Fork/FeatureFlags.cpp
 )
 
 SET(FreeCADApp_HPP_SRCS
@@ -363,6 +365,8 @@ SET(FreeCADApp_HPP_SRCS
     Services.h
     StringHasher.h
     MainThreadSignal.h
+    # FORK: CADApp feature flags
+    Fork/FeatureFlags.h
 )
 
 # auto-generate resource file with all available translations

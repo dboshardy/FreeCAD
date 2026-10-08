@@ -61,7 +61,11 @@ def Startup():
 
         from Path.Main.Sanity import Sanity
 
-        from Path.Op.Gui import Adaptive
+        # FORK: Adaptive is isolated behind the R3 feature flag (docs/inherited-conflicts.md)
+        from freecad import fork_features
+
+        if fork_features.is_enabled("CAMAdaptive"):
+            from Path.Op.Gui import Adaptive
         from Path.Op.Gui import Array
         from Path.Op.Gui import Comment
         from Path.Op.Gui import Custom

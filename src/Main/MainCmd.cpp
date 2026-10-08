@@ -43,6 +43,7 @@
 
 // FreeCAD doc header
 #include <App/Application.h>
+#include <Fork/BrandingConfig.h>  // FORK: branding
 #include <App/ProgramInformation.h>
 
 using App::Application;
@@ -69,8 +70,9 @@ int main(int argc, char** argv)
 #endif
 
     // Name and Version of the Application
-    App::Application::Config()["ExeName"] = "FreeCAD";
-    App::Application::Config()["ExeVendor"] = "FreeCAD";
+    // FORK: product name from branding/branding.cmake
+    App::Application::Config()["ExeName"] = CADAPP_EXE_NAME;
+    App::Application::Config()["ExeVendor"] = CADAPP_EXE_VENDOR;
     App::Application::Config()["AppDataSkipVendor"] = "true";
 
     // set the banner (for logging and console)

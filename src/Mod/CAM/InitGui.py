@@ -149,6 +149,11 @@ class CAMWorkbench(Workbench):
             "CAM_Adaptive",
             "CAM_Slot",
         ]
+        # FORK: Adaptive is isolated behind the R3 feature flag (docs/inherited-conflicts.md)
+        from freecad import fork_features
+
+        if not fork_features.is_enabled("CAMAdaptive"):
+            twodopcmdlist.remove("CAM_Adaptive")
         threedopcmdlist = ["CAM_Pocket3D"]
         engravecmdlist = ["CAM_Engrave", "CAM_Deburr", "CAM_Vcarve"]
         drillingcmdlist = ["CAM_Drilling", "CAM_ThreadMilling"]

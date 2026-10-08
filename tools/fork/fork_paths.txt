@@ -19,3 +19,6 @@ src/Mod/Generative/**
 src/Mod/Render/**
 src/Mod/Freeform/**
 tests/src/Gui/Hotkeys/**
+cMake/CADApp/**
+src/App/Fork/**
+src/Ext/freecad/fork_features.py

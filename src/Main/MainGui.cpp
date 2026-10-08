@@ -54,6 +54,7 @@
 #include <Base/Exception.h>
 #include <Gui/Application.h>
 #include <Gui/ProgramInformation.h>
+#include <Fork/BrandingConfig.h>  // FORK: branding
 
 
 void PrintInitHelp();
@@ -203,10 +204,11 @@ int main(int argc, char** argv)
 #endif
 
     // Name and Version of the Application
-    App::Application::Config()["ExeName"] = "FreeCAD";
-    App::Application::Config()["ExeVendor"] = "FreeCAD";
+    // FORK: product name from branding/branding.cmake
+    App::Application::Config()["ExeName"] = CADAPP_EXE_NAME;
+    App::Application::Config()["ExeVendor"] = CADAPP_EXE_VENDOR;
     App::Application::Config()["AppDataSkipVendor"] = "true";
-    App::Application::Config()["MaintainerUrl"] = "https://freecad.org";
+    App::Application::Config()["MaintainerUrl"] = CADAPP_MAINTAINER_URL;  // FORK: branding
 
     // set the banner (for logging and console)
     App::Application::Config()["CopyrightInfo"] = sBanner;
@@ -219,7 +221,7 @@ int main(int argc, char** argv)
     App::Application::Config()["SplashWarningColor"] = "#CA333B";
     App::Application::Config()["SplashInfoColor"] = "#212529";
     App::Application::Config()["SplashInfoPosition"] = "6,75";
-    App::Application::Config()["DesktopFileName"] = "org.freecad.FreeCAD";
+    App::Application::Config()["DesktopFileName"] = CADAPP_APP_ID;  // FORK: branding
 
     try {
         // Init phase ===========================================================
