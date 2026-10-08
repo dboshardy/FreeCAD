@@ -38,6 +38,7 @@
 #include "View3DInventorViewer.h"
 
 #include "ToolHandler.h"
+#include "Hotkeys/ContextHotkeys.h"  // FORK: hotkey context
 #include "InputHint.h"
 
 using namespace Gui;
@@ -47,6 +48,12 @@ using namespace Gui;
 QString ToolHandler::getCrosshairCursorSVGName() const
 {
     return QStringLiteral("None");
+}
+
+// FORK: a handler destroyed without deactivate() must not stay the hotkey context
+ToolHandler::~ToolHandler()
+{
+    Hotkeys::toolFinished(this);
 }
 
 bool ToolHandler::activate()
@@ -61,6 +68,7 @@ bool ToolHandler::activate()
 
         this->preActivated();
         this->activated();
+        Hotkeys::toolStarted(this);  // FORK: hotkey context (§8.1)
         return true;
     }
 
@@ -69,6 +77,7 @@ bool ToolHandler::activate()
 
 void ToolHandler::deactivate()
 {
+    Hotkeys::toolFinished(this);  // FORK: hotkey context (§8.1)
     this->deactivated();
     this->postDeactivated();
 

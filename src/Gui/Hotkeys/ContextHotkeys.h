@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: LGPL-2.1-or-later
+// FORK: connects the hotkey engine (HotkeyEngine.h) to the GUI (design doc §8.1).
+
+#pragma once
+
+#include <string>
+
+class QKeyEvent;
+
+namespace Gui::Hotkeys
+{
+
+/// Names the command whose activated() is running, so tools it starts
+/// (tool handlers, task dialogs) take its id as their command context.
+class CommandScope
+{
+public:
+    explicit CommandScope(const char* commandId);
+    ~CommandScope();
+    CommandScope(const CommandScope&) = delete;
+    CommandScope& operator=(const CommandScope&) = delete;
+
+private:
+    std::string previous;
+};
+
+/// A tool handler or task dialog opened or closed.
+void toolStarted(const void* owner);
+void toolFinished(const void* owner);
+
+/// Offers a ShortcutOverride or KeyPress event to the context layers.
+/// Returns true when the event was consumed.
+bool handleKey(QKeyEvent* event);
+
+}  // namespace Gui::Hotkeys

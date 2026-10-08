@@ -69,16 +69,16 @@ widget), `src/Gui/InputHint*` (per-tool hints in the status bar),
 
 | # | Item | Status | Where / notes |
 |---|---|---|---|
-| 0.6.1 | Context-layered hotkey resolution (command → workspace → global) | Partial | Core engine `src/Gui/Hotkeys/HotkeyEngine.*` (no Qt, tested); not yet wired into `ShortcutManager` |
+| 0.6.1 | Context-layered hotkey resolution (command → workspace → global) | Partial | Engine `src/Gui/Hotkeys/HotkeyEngine.h` (Qt-free, tested). Wired in by `src/Gui/Hotkeys/ContextHotkeys.*`: hooks in `ShortcutManager` (key events), `Command::_invoke` (command scope), `ToolHandler` and `ControlSingleton::showDialog` (active tool). Context: workspace = active workbench name, command = command that started the innermost open tool handler or task dialog, selection = element type of the first selected item. Not yet built or run in the app (no local build environment) |
 | 0.6.2 | Chords and sequences | Partial | Engine supports sequences; upstream supports global sequences |
-| 0.6.3 | Per-layer conflict detection, user override, reset to default | Partial | Engine API; remapping UI not extended |
+| 0.6.3 | Per-layer conflict detection, user override, reset to default | Partial | Engine API. Bindings come from `<UserAppData>/Hotkeys.json`, read once at the first key press (restart to apply); conflicts logged as warnings. Remapping UI not extended |
 | 0.6.4 | Profile import/export (JSON) | Missing | |
 | 0.6.5 | Heads-up hotkey strip (`F1`) | Missing | Build on `InputHint` |
 | 0.6.6 | Next-tool suggestions | Missing | |
 | 0.6.7 | Command palette (`Space`) | Partial | `CommandCompleter` finds commands; no palette dialog |
 | 0.6.8 | Radial menu | Missing | |
 | 0.6.9 | Inline value entry framework | Partial | Sketcher on-view parameters; not generic |
-| 0.6.10 | Default keymaps (§8.2–8.4) | Missing | |
+| 0.6.10 | Default keymaps (§8.2–8.4) | Missing | Open question: §8.3 single keys (e.g. `G` construction toggle) shadow upstream Sketcher sequences (`G, L`, ...). Shipping §8 defaults changes inherited shortcuts |
 
 ## Exit criteria status
 

@@ -34,6 +34,7 @@
 #include <Gui/Document.h>
 
 #include "Control.h"
+#include "Hotkeys/ContextHotkeys.h"  // FORK: hotkey context
 #include "BitmapFactory.h"
 #include "Tree.h"
 #include "TaskView/TaskView.h"
@@ -189,7 +190,10 @@ void ControlSingleton::showDialog(Gui::TaskView::TaskDialog* dlg, App::Document*
         return;  // dialog is already defined
     }
 
-    connect(dlg, &TaskView::TaskDialog::aboutToBeDestroyed, this, [this, attachTo] {
+    // FORK: the dialog is the hotkey context of the command that opened it (§8.1)
+    Hotkeys::toolStarted(dlg);
+    connect(dlg, &TaskView::TaskDialog::aboutToBeDestroyed, this, [this, attachTo, dlg] {
+        Hotkeys::toolFinished(dlg);  // FORK
         closedDialog(attachTo);
     });
 }

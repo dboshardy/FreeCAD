@@ -206,4 +206,44 @@ private:
     std::map<Key, Keys> overrides;
 };
 
+/// Tools (tool handlers, task dialogs) currently open, innermost last. Each
+/// tool is named after the command that was running when it started.
+class ToolStack
+{
+public:
+    void start(const void* owner, std::string commandId)
+    {
+        finish(owner);
+        tools.emplace_back(owner, std::move(commandId));
+    }
+
+    /// Tools can finish in any order (a dialog may close under a handler).
+    void finish(const void* owner)
+    {
+        std::erase_if(tools, [owner](const auto& t) { return t.first == owner; });
+    }
+
+    /// Innermost tool with a known command, empty when none.
+    std::string active() const
+    {
+        for (auto it = tools.rbegin(); it != tools.rend(); ++it) {
+            if (!it->second.empty()) {
+                return it->second;
+            }
+        }
+        return {};
+    }
+
+private:
+    std::vector<std::pair<const void*, std::string>> tools;
+};
+
+/// Element type of a selection sub-name: "Body.Pad.Edge12" -> "Edge".
+inline std::string selectionType(const std::string& subName)
+{
+    auto name = subName.substr(subName.find_last_of('.') + 1);  // npos + 1 == 0
+    auto end = name.find_last_not_of("0123456789");
+    return end == std::string::npos ? std::string() : name.substr(0, end + 1);
+}
+
 }  // namespace Gui::Hotkeys
