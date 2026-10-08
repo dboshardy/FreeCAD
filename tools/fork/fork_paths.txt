@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# FORK: paths owned by the CADApp fork (design doc §4.2).
+# Every file matching these patterns is "fork-added code" for the CI checks in
+# tools/fork/check.py. Upstream files edited by the fork are detected through
+# `git diff` against tools/fork/UPSTREAM_BASE instead.
+# Patterns use fnmatch syntax relative to the repository root; "**" matches any
+# number of directories.
+
+SURVEY.md
+LEGAL.md
+THIRD_PARTY_LICENSES
+branding/**
+docs/**
+tools/fork/**
+.github/workflows/fork_checks.yml
+src/Gui/Hotkeys/**
+src/Mod/Construction/**
+src/Mod/Generative/**
+src/Mod/Render/**
+src/Mod/Freeform/**
+tests/src/Gui/Hotkeys/**

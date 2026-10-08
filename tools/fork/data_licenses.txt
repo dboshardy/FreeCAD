@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# FORK: allowed values for "data_license" in shipped library data
+# (design doc §9, §12 R13). One value per line, compared case-insensitively.
+public-domain
+CC0-1.0
+CC0
+CC-BY-4.0
+CC-BY-3.0
+CC-BY
+GPL-compatible
+LGPL-2.1-or-later

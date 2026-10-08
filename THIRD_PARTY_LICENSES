@@ -1,0 +1,100 @@
+CADApp third-party components
+==============================
+
+CADApp is based on FreeCAD and is distributed under LGPL-2.1-or-later (see LICENSE).
+Binaries that link Apache-2.0 components are distributed under the terms of
+LGPL-3.0, as permitted by the "or later" clause.
+
+GPL-licensed programs listed with linkage "external" are separate executables
+invoked as child processes. They are not linked into CADApp.
+
+Version "build" means the version is taken from the build environment; the
+exact versions of a given binary are listed in Help > About > Libraries.
+
+Generated from tools/fork/dependencies.json by
+tools/fork/gen_third_party_licenses.py. Do not edit by hand.
+
+Component                   Version           License (SPDX)                         Linkage
+--------------------------------------------------------------------------------------------
+3Dconnexion navlib headers  SDK v4 (partial)  LGPL-2.0-or-later                      bundled-source
+Boost                       build             BSL-1.0                                linked
+CalculiX                    user-installed    GPL-2.0-only                           external  (optional)
+Clipper2                    bundled           BSL-1.0                                bundled-source
+Coin3D                      build             BSD-3-Clause                           linked
+Eigen                       build             MPL-2.0                                linked
+Elmer                       user-installed    GPL-2.0-or-later                       external  (optional)
+FastSignals                 bundled           MIT                                    bundled-source
+FreeType                    build             FTL                                    linked
+Gmsh                        user-installed    GPL-2.0-or-later                       external  (optional)
+IfcOpenShell                build             LGPL-3.0-or-later                      linked  (optional)
+Khronos OpenGL API headers  bundled           MIT                                    bundled-source
+lazy_loader                 bundled           Apache-2.0                             bundled-source
+libarea                     bundled           BSD-3-Clause                           bundled-source
+libE57Format                bundled           BSL-1.0                                bundled-source
+libkdtree++                 bundled           Artistic-2.0                           bundled-source
+LibreDWG                    user-installed    GPL-3.0-or-later                       external  (optional)
+lru-cache                   bundled           MIT                                    bundled-source
+Microsoft GSL               bundled           MIT                                    bundled-source
+Netgen                      build             LGPL-2.1-only                          linked  (optional)
+nlohmann/json               bundled           MIT                                    bundled-source
+OndselSolver                1.0.1             LGPL-2.1-or-later                      bundled-source
+Open CASCADE Technology     build             LGPL-2.1-only WITH OCCT-exception-1.0  linked
+OpenCAMLib                  build             LGPL-2.1-or-later                      linked  (optional)
+Orocos KDL                  build             LGPL-2.1-or-later                      linked
+Pivy                        build             ISC                                    linked
+Point Cloud Library         build             BSD-3-Clause                           linked  (optional)
+PyCXX                       bundled           BSD-3-Clause                           bundled-source
+PySide                      build             LGPL-3.0-only                          linked
+Python                      build             PSF-2.0                                linked
+Qt                          build             LGPL-3.0-only                          linked
+Salome SMESH                bundled           LGPL-2.1-or-later                      bundled-source
+Shiboken                    build             LGPL-3.0-only                          linked
+URW Gothic font             2.00              OFL-1.1                                asset
+VTK                         build             BSD-3-Clause                           linked
+Wild Magic 4                bundled           LGPL-2.1-or-later                      bundled-source
+Xerces-C++                  build             Apache-2.0                             linked
+Zipios++                    bundled           LGPL-2.0-or-later                      bundled-source
+zlib                        build             Zlib                                   linked
+
+Sources
+-------
+3Dconnexion navlib headers: https://3dconnexion.com (in tree: src/3rdParty/3Dconnexion)
+    Headers only. The navlib runtime is part of the vendor's driver and is loaded only if installed by the user; see docs/inherited-conflicts.md C-DEP-1.
+Boost: https://www.boost.org
+CalculiX: http://www.calculix.de
+Clipper2: https://github.com/AngusJohnson/Clipper2 (in tree: src/3rdParty/Clipper2)
+Coin3D: https://coin3d.github.io (in tree: src/3rdParty/coin)
+Eigen: https://eigen.tuxfamily.org
+Elmer: https://www.elmerfem.org
+FastSignals: https://github.com/ispringtech/FastSignals (in tree: src/3rdParty/FastSignals)
+FreeType: https://freetype.org
+Gmsh: https://gmsh.info
+IfcOpenShell: https://ifcopenshell.org
+Khronos OpenGL API headers: https://registry.khronos.org/OpenGL (in tree: src/3rdParty/OpenGL)
+lazy_loader: https://github.com/scientific-python/lazy-loader (in tree: src/3rdParty/lazy_loader)
+libarea: https://github.com/danielfalck/libarea (in tree: src/Mod/CAM/libarea)
+libE57Format: https://github.com/asmaloney/libE57Format (in tree: src/3rdParty/libE57Format)
+libkdtree++: https://github.com/nvmd/libkdtree (in tree: src/3rdParty/libkdtree)
+LibreDWG: https://www.gnu.org/software/libredwg
+lru-cache: https://github.com/goldsborough/lru-cache (in tree: src/3rdParty/lru-cache)
+Microsoft GSL: https://github.com/microsoft/GSL (in tree: src/3rdParty/GSL)
+Netgen: https://ngsolve.org
+nlohmann/json: https://github.com/nlohmann/json (in tree: src/3rdParty/json)
+OndselSolver: https://github.com/FreeCAD/OndselSolver (in tree: src/3rdParty/OndselSolver)
+Open CASCADE Technology: https://dev.opencascade.org
+OpenCAMLib: https://github.com/aewallin/opencamlib
+Orocos KDL: https://orocos.org/kdl.html
+Pivy: https://github.com/coin3d/pivy (in tree: src/3rdParty/pivy)
+Point Cloud Library: https://pointclouds.org
+PyCXX: https://cxx.sourceforge.net (in tree: src/3rdParty/PyCXX)
+PySide: https://wiki.qt.io/Qt_for_Python
+Python: https://www.python.org
+Qt: https://www.qt.io
+Salome SMESH: https://github.com/SalomePlatform/smesh (in tree: src/3rdParty/salomesmesh)
+Shiboken: https://wiki.qt.io/Qt_for_Python
+URW Gothic font: https://www.urwpp.de
+VTK: https://vtk.org
+Wild Magic 4: https://www.geometrictools.com (in tree: src/3rdParty/WildMagic4)
+Xerces-C++: https://xerces.apache.org/xerces-c
+Zipios++: https://zipios.sourceforge.net (in tree: src/3rdParty/zipios++)
+zlib: https://zlib.net

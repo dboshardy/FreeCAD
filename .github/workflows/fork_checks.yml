@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# FORK: compliance checks for the CADApp fork (design doc §1, §9, §10, §12).
+
+name: Fork compliance
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  compliance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history, needed to diff against tools/fork/UPSTREAM_BASE)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          submodules: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v6.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Unit tests for the check tooling
+        run: python3 -m unittest discover -s tools/fork/tests -v
+
+      - name: Network APIs in fork-added code (§1)
+        run: python3 tools/fork/check.py network
+
+      - name: Reserved terms in fork-added UI strings (§12 R21)
+        run: python3 tools/fork/check.py terms
+
+      - name: Library data source and license (§9)
+        run: python3 tools/fork/check.py data
+
+      - name: SPDX headers and FORK markers (§2, §4.2)
+        run: python3 tools/fork/check.py headers
+
+      - name: Dependency licenses and THIRD_PARTY_LICENSES (§1, §12 R23)
+        run: python3 tools/fork/check.py deps
+
+      - name: Inherited reserved-term inventory (report only)
+        run: python3 tools/fork/check.py inventory
+
+  hotkeys:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake g++ libgtest-dev
+
+      - name: Build and test hotkey engine core
+        run: |
+          cmake -S tests/src/Gui/Hotkeys -B build-hotkeys
+          cmake --build build-hotkeys -j4
+          ctest --test-dir build-hotkeys --output-on-failure

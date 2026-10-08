@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# FORK: reserved terms (design doc §12 R21). Not to be used in fork-added
+# feature names, command names or UI strings. One term per line; matching is
+# case-insensitive on word boundaries. "/" and spaces in a term also match
+# "-", "_", or no separator (e.g. "Push/Pull" matches "PushPull", "push-pull").
+Push/Pull
+Press Pull
+Follow Me
+Hole Wizard
+Pack and Go
+Rollback Bar
+Smart Dimension
+SmartMates
+Design Table
+Configurations
+Toolbox
+Weldments
+FeatureManager
+ViewCube
+Adaptive Clearing
+Dynamic Milling
+VoluMill
+T-Splines
+Live Rules
+Synchronous
