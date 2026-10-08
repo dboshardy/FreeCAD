@@ -37,6 +37,7 @@
 #include "ui_DownloadManager.h"
 #include "DockWindowManager.h"
 #include "DownloadItem.h"
+#include <App/Fork/FeatureFlags.h>  // FORK: feature flags
 #include "MainWindow.h"
 
 
@@ -148,6 +149,10 @@ QUrl DownloadManager::redirectUrl(const QUrl& url) const
 void DownloadManager::download(const QNetworkRequest& request, bool requestFileName)
 {
     if (request.url().isEmpty()) {
+        return;
+    }
+    // FORK: network feature behind a runtime flag (docs/inherited-conflicts.md)
+    if (!App::Fork::isEnabled(App::Fork::Feature::DownloadManager)) {
         return;
     }
 

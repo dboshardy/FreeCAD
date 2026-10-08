@@ -4,7 +4,10 @@
 
 A feature is enabled when it is compiled in (CMake option, default ON) and the
 runtime parameter BaseApp/Preferences/Fork/Features/<key> is not set to false.
-Keys: "NaviCube" (risk R1), "CAMAdaptive" (risk R3).
+Keys: "NaviCube" (risk R1), "CAMAdaptive" (risk R3); runtime-only network
+features (design doc §1): "OnlineHelp", "BIMOnlineLibrary", "BIMTutorial",
+"BIMShapefileDownload", "BIMDownload", "CAMMTConnectURL", "DownloadManager".
+See docs/inherited-conflicts.md.
 """
 
 PARAM_PATH = "User parameter:BaseApp/Preferences/Fork/Features"
