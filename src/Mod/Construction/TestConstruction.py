@@ -503,6 +503,16 @@ class TestFraming(unittest.TestCase):
         with self.assertRaises(ValueError):  # no stud within a 500 mm piece of 600 mm spacing
             Framing.Wall(length=3600, max_piece=500).pieces()
 
+    def test_corner_studs(self):
+        wall = Framing.Wall(length=3600, corners=(95, 95))
+        pieces = self.check_no_overlap(wall)
+        corner = sorted(p.start[0] for p in pieces if p.name == "Corner stud")
+        self.assertEqual(corner, [95 + 22.5, 3600 - 95 - 22.5])  # just past the butting walls
+        with self.assertRaises(ValueError):  # a door into the corner backing
+            Framing.Wall(
+                length=3600, corners=(95, 0), openings=Framing.parse_openings("door 900x2100 @ 150")
+            ).pieces()
+
     def test_us_wall_16_on_centre(self):
         wall = Framing.Wall(
             length=3657.6,
@@ -733,6 +743,7 @@ class TestShed(unittest.TestCase):
             parts["Front wall"],
             {
                 "Stud": 6,
+                "Corner stud": 2,
                 "King stud": 2,
                 "Jack stud": 2,
                 "Header": 2,
@@ -742,7 +753,11 @@ class TestShed(unittest.TestCase):
             },
         )
         # Back 3600: ends + 600..3000 (5) = 7.
-        self.assertEqual(parts["Back wall"], {"Stud": 7, "Bottom plate": 1, "Top plate": 2})
+        # Front and back also get a corner stud at each end, just inside the side
+        # walls (centre 95 + 22.5 from each end).
+        self.assertEqual(
+            parts["Back wall"], {"Stud": 7, "Corner stud": 2, "Bottom plate": 1, "Top plate": 2}
+        )
         # Sides 3000 - 2 x 95 = 2810: ends + 600..2400 (4) = 6.
         for side in ("Left wall", "Right wall"):
             self.assertEqual(parts[side], {"Stud": 6, "Bottom plate": 1, "Top plate": 2})

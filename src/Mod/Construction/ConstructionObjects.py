@@ -526,6 +526,8 @@ class WallFrameFeature(FramingFeature):
         _length("Height", "Bottom of the bottom plate to top of the top plates", _d.height),
         _length("StudSpacing", "Stud centres, e.g. 400 / 600 mm or 406.4 (16 in)", _d.spacing),
         (INTEGER, "TopPlates", "1 or 2", _d.top_plates),
+        _length("CornerStart", "Depth of a wall butting at the start; 0 = none", 0.0),
+        _length("CornerEnd", "Depth of a wall butting at the end; 0 = none", 0.0),
         (
             "App::PropertyFloat",
             "HeaderLoad",
@@ -560,6 +562,7 @@ class WallFrameFeature(FramingFeature):
             header=lumber_section(obj.HeaderMaterial),
             openings=openings,
             max_piece=longest_stock(obj.StudMaterial),
+            corners=(float(obj.CornerStart.Value), float(obj.CornerEnd.Value)),
         )
 
     def checks(self, obj, rules):

@@ -60,7 +60,7 @@ class Shed:
         z_walls = self.joist[1] + self.floor_sheet
         door = Framing.Opening("door", (L - self.door_width) / 2, self.door_width, self.door_height)
 
-        def wall(length, openings=()):
+        def wall(length, openings=(), corners=(0.0, 0.0)):
             return Framing.Wall(
                 length=length,
                 height=H,
@@ -69,6 +69,7 @@ class Shed:
                 header=self.header,
                 openings=list(openings),
                 max_piece=self.max_piece,
+                corners=corners,
             )
 
         side = W - 2 * d
@@ -86,8 +87,10 @@ class Shed:
                 (0.0, 0.0, 0.0),
                 0.0,
             ),
-            Component("Front wall", wall(L, [door]), (0.0, 0.0, z_walls), 0.0),
-            Component("Back wall", wall(L), (L, W, z_walls), 180.0),
+            # Front and back walls run through; the side walls butt against them,
+            # so each end gets a corner stud backing the inside corner.
+            Component("Front wall", wall(L, [door], (d, d)), (0.0, 0.0, z_walls), 0.0),
+            Component("Back wall", wall(L, (), (d, d)), (L, W, z_walls), 180.0),
             Component("Left wall", wall(side), (0.0, W - d, z_walls), -90.0, (wrap, wrap)),
             Component("Right wall", wall(side), (L, d, z_walls), 90.0, (wrap, wrap)),
             Component(

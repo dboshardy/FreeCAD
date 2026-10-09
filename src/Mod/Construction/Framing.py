@@ -53,6 +53,9 @@ class Wall:
     header: tuple = (45.0, 195.0)  # (thickness, depth) of one header ply
     openings: list = field(default_factory=list)
     max_piece: float = 6000.0  # longest stock length: plates longer are spliced
+    # Depth of a wall butting against this wall's start / end face (0 = none):
+    # a corner stud just past it backs the inside corner.
+    corners: tuple = (0.0, 0.0)
 
     # ----------------------------------------------------------------- checks
 
@@ -71,7 +74,11 @@ class Wall:
             raise ValueError("wall shorter than two studs")
         if self.stud_length() <= 0:
             raise ValueError("wall too low for its plates")
-        previous_end = t  # right face of the start stud
+        if min(self.corners) < 0:
+            raise ValueError("corner wall depths must not be negative")
+        if sum(self.corners) + 4 * t > self.length:
+            raise ValueError("wall too short for its corner studs")
+        previous_end = self._corner_x()[0] + t / 2 if self.corners[0] else t
         for o in sorted(self.openings, key=lambda o: o.x):
             label = f"{o.kind} at {o.x:g}"
             if o.kind not in OPENING_KINDS:
@@ -88,13 +95,19 @@ class Wall:
                 raise ValueError(f"{label}: sill too low for the bottom plate and rough sill")
             if self.header_top(o) > self.height - self.top_plates * t + 1e-6:
                 raise ValueError(f"{label}: opening and header taller than the wall")
-        if previous_end > self.length - t + 1e-6:
+        end_limit = self._corner_x()[1] - t / 2 if self.corners[1] else self.length - t
+        if previous_end > end_limit + 1e-6:
             raise ValueError("last opening too close to the wall end")
 
     # ----------------------------------------------------------------- sizes
 
     def stud_length(self):
         return self.height - (1 + self.top_plates) * self.stud[0]
+
+    def _corner_x(self):
+        """Centres of the corner studs at the start and end (where corners apply)."""
+        t = self.stud[0]
+        return self.corners[0] + t / 2, self.length - self.corners[1] - t / 2
 
     def header_top(self, o):
         return o.sill + o.height + self.header[1]
@@ -125,6 +138,8 @@ class Wall:
 
         # End studs, layout studs outside the openings' framing zones, king studs.
         zones = [(o.x - 2 * t, o.x + o.width + 2 * t) for o in self.openings]
+        corner_studs = [x for x, c in zip(self._corner_x(), self.corners) if c]
+        zones += [(x - t, x + t) for x in corner_studs]  # no layout stud against them
         studs = [t / 2, L - t / 2] + [
             c
             for c in self.layout()
@@ -135,6 +150,9 @@ class Wall:
         jacks = [x for o in self.openings for x in (o.x - t / 2, o.x + o.width + t / 2)]
         for x in sorted(studs):
             vertical("Stud", x, bottom, top_of_studs)
+        for x in corner_studs:
+            vertical("Corner stud", x, bottom, top_of_studs)
+        studs += corner_studs  # plates may be spliced over them
 
         # Plates, spliced over stud centres when longer than the stock. The
         # bottom plate is cut out at doors; the upper top plate's joints stay at
