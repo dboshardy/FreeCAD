@@ -6,6 +6,7 @@ import Part
 
 import Cabinet
 import CutList
+import Framing
 import Library
 import Member
 
@@ -93,6 +94,56 @@ def add_property(obj, kind, prop, group, tip, value):
     setattr(obj, prop, value)
 
 
+def add_library_choice(obj, prop, category, default, group, tip):
+    """Enumeration of library item ids of one category. A value whose item is
+    gone (user library changed) stays selectable and fails in execute()."""
+    ids = [i["id"] for i in Library.of_category(items(), category)]
+    if prop in obj.PropertiesList:
+        current = getattr(obj, prop)
+    else:
+        obj.addProperty(ENUM, prop, group, tip)
+        current = default
+    setattr(obj, prop, ids if current in ids else ids + [current])
+    setattr(obj, prop, current)
+
+
+def library_item(material_id):
+    item = items().get(material_id)
+    if item is None:
+        raise ValueError(f"material '{material_id}' not found in the construction library")
+    return item
+
+
+def member_part(name, start, end, section):
+    """Cut-list Part of a member: grain along its length."""
+    length = Member.frame(start, end)[0]
+    return Cabinet.Part(name, "member", (*section, length), (0, 0, 0), "z")
+
+
+def lumber_section(material_id):
+    """(thickness, depth) in mm."""
+    item = library_item(material_id)
+    return Library.mm(item, "w"), Library.mm(item, "h")
+
+
+def member_box(start, end, roll, section):
+    """Solid of a member (see Member.py), placed in the object's coordinates."""
+    length, x, y, z = Member.frame(start, end, roll)
+    w, h = section
+    box = Part.makeBox(w, h, length, FreeCAD.Vector(-w / 2, -h / 2, 0))
+    V = FreeCAD.Vector
+    box.Placement = FreeCAD.Placement(V(*start), FreeCAD.Rotation(V(*x), V(*y), V(*z), "ZXY"))
+    return box
+
+
+def set_shape(obj, shapes):
+    """Sets the object's shape without disturbing its Placement. The compound
+    keeps each child's own placement."""
+    placement = obj.Placement
+    obj.Shape = Part.makeCompound(shapes)
+    obj.Placement = placement
+
+
 class CabinetFeature:
     """Frameless cabinet. Every size is a property; edit in the property view."""
 
@@ -107,16 +158,10 @@ class CabinetFeature:
         for prop, field, ptype, group, tip in PROPERTIES:
             if prop not in self.skip:
                 add_property(obj, ptype, prop, group, tip, getattr(defaults, field))
-        sheet_ids = [i["id"] for i in Library.of_category(items(), Library.SHEET_GOODS)]
         for prop, default in DEFAULT_MATERIALS.items():
-            if prop in obj.PropertiesList:
-                current = getattr(obj, prop)
-            else:
-                obj.addProperty(ENUM, prop, "Materials", MATERIAL_TIPS[prop])
-                current = default
-            # A value whose library item is gone stays selectable, and fails in execute().
-            setattr(obj, prop, sheet_ids if current in sheet_ids else sheet_ids + [current])
-            setattr(obj, prop, current)
+            add_library_choice(
+                obj, prop, Library.SHEET_GOODS, default, "Materials", MATERIAL_TIPS[prop]
+            )
 
     def onDocumentRestored(self, obj):
         self.setProperties(obj, obj.Kind)
@@ -149,10 +194,9 @@ class CabinetFeature:
 
     def execute(self, obj):
         # ValueError from validate() marks the object as failed with its message.
-        boxes = [Part.makeBox(*p.size, FreeCAD.Vector(*p.pos)) for p in self.model_parts(obj)]
-        placement = obj.Placement
-        obj.Shape = Part.makeCompound(boxes)
-        obj.Placement = placement
+        set_shape(
+            obj, [Part.makeBox(*p.size, FreeCAD.Vector(*p.pos)) for p in self.model_parts(obj)]
+        )
 
     def dumps(self):
         return None
@@ -223,10 +267,7 @@ class CabinetRunFeature(CabinetFeature):
 
 
 def sheet_thickness(material_id):
-    item = items().get(material_id)
-    if item is None:
-        raise ValueError(f"material '{material_id}' not found in the construction library")
-    return Library.mm(item, "t")
+    return Library.mm(library_item(material_id), "t")
 
 
 def _make(feature, preset, name, doc):
@@ -271,12 +312,7 @@ class MemberFeature:
                 obj.addProperty(ptype, prop, "Member", tip)
         if obj.Start == obj.End:
             obj.End = FreeCAD.Vector(0, 0, 2400)  # a stud
-        lumber_ids = [i["id"] for i in Library.of_category(items(), Library.LUMBER)]
-        current = obj.Material if "Material" in obj.PropertiesList else DEFAULT_LUMBER
-        if "Material" not in obj.PropertiesList:
-            obj.addProperty(ENUM, "Material", "Member", "Lumber size from the library")
-        obj.Material = lumber_ids if current in lumber_ids else lumber_ids + [current]
-        obj.Material = current
+        add_library_choice(obj, "Material", Library.LUMBER, DEFAULT_LUMBER, "Member", "Lumber size")
 
     def onDocumentRestored(self, obj):
         self.setProperties(obj)
@@ -290,28 +326,13 @@ class MemberFeature:
             return tuple(edge.Vertexes[0].Point), tuple(edge.Vertexes[-1].Point)
         return tuple(obj.Start), tuple(obj.End)
 
-    def section(self, obj):
-        item = items().get(obj.Material)
-        if item is None:
-            raise ValueError(f"material '{obj.Material}' not found in the construction library")
-        return Library.mm(item, "w"), Library.mm(item, "h")
-
     def parts(self, obj):
         start, end = self.endpoints(obj)
-        length = Member.frame(start, end)[0]
-        w, h = self.section(obj)
-        return [(obj.Material, Cabinet.Part(obj.Label, "member", (w, h, length), (0, 0, 0), "z"))]
+        return [(obj.Material, member_part(obj.Label, start, end, lumber_section(obj.Material)))]
 
     def execute(self, obj):
         start, end = self.endpoints(obj)
-        length, x, y, z = Member.frame(start, end, obj.Roll.Value)
-        w, h = self.section(obj)
-        box = Part.makeBox(w, h, length, FreeCAD.Vector(-w / 2, -h / 2, 0))
-        V = FreeCAD.Vector
-        box.Placement = FreeCAD.Placement(V(*start), FreeCAD.Rotation(V(*x), V(*y), V(*z), "ZXY"))
-        placement = obj.Placement
-        obj.Shape = Part.makeCompound([box])  # the compound keeps the box's own placement
-        obj.Placement = placement
+        set_shape(obj, [member_box(start, end, obj.Roll.Value, lumber_section(obj.Material))])
 
     def dumps(self):
         return None
@@ -336,8 +357,91 @@ def make_member(base=None, doc=None, name="Member"):
     return obj
 
 
+class WallFrameFeature:
+    """Stud wall framing along the object's local X axis (see Framing.py)."""
+
+    def __init__(self, obj):
+        obj.Proxy = self
+        self.setProperties(obj)
+
+    def setProperties(self, obj):
+        d = Framing.Wall()
+        props = [
+            (LENGTH, "Length", "Wall length", d.length),
+            (LENGTH, "Height", "Bottom of the bottom plate to top of the top plates", d.height),
+            (LENGTH, "StudSpacing", "Stud centres, e.g. 400 / 600 mm or 406.4 (16 in)", d.spacing),
+            (INTEGER, "TopPlates", "1 or 2", d.top_plates),
+            (
+                "App::PropertyString",
+                "Openings",
+                "Rough openings, e.g. 'door 900x2100 @ 600, window 1200x1000 @ 2400 sill 900' "
+                "(mm; @ = left edge from the wall start)",
+                "",
+            ),
+        ]
+        for ptype, prop, tip, value in props:
+            add_property(obj, ptype, prop, "Wall", tip, value)
+        add_library_choice(
+            obj, "StudMaterial", Library.LUMBER, DEFAULT_LUMBER, "Wall", "Studs and plates"
+        )
+        add_library_choice(
+            obj, "HeaderMaterial", Library.LUMBER, DEFAULT_HEADER, "Wall", "One header ply"
+        )
+
+    def onDocumentRestored(self, obj):
+        self.setProperties(obj)
+
+    def wall(self, obj):
+        try:
+            openings = Framing.parse_openings(obj.Openings)
+        except ValueError as e:
+            raise ValueError(f"Openings: {e}")
+        stock = library_item(obj.StudMaterial).get("stock_lengths_mm") or [6000.0]
+        return Framing.Wall(
+            length=float(obj.Length.Value),
+            height=float(obj.Height.Value),
+            spacing=float(obj.StudSpacing.Value),
+            top_plates=int(obj.TopPlates),
+            stud=lumber_section(obj.StudMaterial),
+            header=lumber_section(obj.HeaderMaterial),
+            openings=openings,
+            max_piece=max(stock),
+        )
+
+    def _pieces(self, obj):
+        wall = self.wall(obj)
+        sections = {"stud": wall.stud, "header": wall.header}
+        materials = {"stud": obj.StudMaterial, "header": obj.HeaderMaterial}
+        return [(p, sections[p.section], materials[p.section]) for p in wall.pieces()]
+
+    def parts(self, obj):
+        return [(m, member_part(p.name, p.start, p.end, s)) for p, s, m in self._pieces(obj)]
+
+    def execute(self, obj):
+        set_shape(obj, [member_box(p.start, p.end, p.roll, s) for p, s, _ in self._pieces(obj)])
+
+    def dumps(self):
+        return None
+
+    def loads(self, state):
+        return None
+
+
+DEFAULT_HEADER = "lumber.metric.45x195"
+
+
+def make_wall_frame(doc=None, name="WallFrame"):
+    doc = doc or FreeCAD.ActiveDocument or FreeCAD.newDocument()
+    obj = doc.addObject("Part::FeaturePython", name)
+    WallFrameFeature(obj)
+    if FreeCAD.GuiUp:
+        obj.ViewObject.Proxy = 0
+    doc.recompute()
+    return obj
+
+
 def construction_objects(doc):
-    kinds = (CabinetFeature, MemberFeature)
+    kinds = (CabinetFeature, MemberFeature, WallFrameFeature)
     return [o for o in doc.Objects if isinstance(getattr(o, "Proxy", None), kinds)]
 
 

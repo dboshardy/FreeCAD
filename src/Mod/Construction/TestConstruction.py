@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import Cabinet  # noqa: E402
 import CutList  # noqa: E402
+import Framing  # noqa: E402
 import Library  # noqa: E402
 import Member  # noqa: E402
 
@@ -393,6 +394,146 @@ class TestLumberPlan(unittest.TestCase):
     def test_rejects_too_long(self):
         with self.assertRaises(ValueError):
             CutList.plan_lengths([("Ridge", 7000)], [2400, 6000])
+
+
+def piece_box(piece, wall):
+    """Axis-aligned bounds (lo, hi) of a framing piece."""
+    w, h = wall.stud if piece.section == "stud" else wall.header
+    _, x, y, z = Member.frame(piece.start, piece.end, piece.roll)
+    lo, hi = [], []
+    for i in range(3):
+        half = abs(x[i]) * w / 2 + abs(y[i]) * h / 2
+        a, b = sorted((piece.start[i], piece.end[i]))
+        lo.append(a - half)
+        hi.append(b + half)
+    return lo, hi
+
+
+def boxes_overlap(a, b):
+    return all(a[0][i] < b[1][i] - 1e-6 and b[0][i] < a[1][i] - 1e-6 for i in range(3))
+
+
+class TestFraming(unittest.TestCase):
+    def check_no_overlap(self, wall):
+        pieces = wall.pieces()
+        boxes = [piece_box(p, wall) for p in pieces]
+        for (pa, a), (pb, b) in itertools.combinations(zip(pieces, boxes), 2):
+            self.assertFalse(
+                boxes_overlap(a, b), f"{pa.name} {pa.start} overlaps {pb.name} {pb.start}"
+            )
+        for lo, hi in boxes:  # inside the wall
+            self.assertGreaterEqual(min(lo[0], lo[1], lo[2]), -1e-6)
+            self.assertLessEqual(hi[0], wall.length + 1e-6)
+            self.assertLessEqual(hi[1], wall.stud[1] + 1e-6)
+            self.assertLessEqual(hi[2], wall.height + 1e-6)
+        return pieces
+
+    def test_plain_wall(self):
+        wall = Framing.Wall(length=3600, height=2440, spacing=600, top_plates=2)
+        pieces = self.check_no_overlap(wall)
+        names = [p.name for p in pieces]
+        self.assertEqual(names.count("Bottom plate"), 1)
+        self.assertEqual(names.count("Top plate"), 2)
+        studs = sorted(p.start[0] for p in pieces if p.name == "Stud")
+        # Ends plus centres 600..3000; 3600 is the end stud itself.
+        self.assertEqual(studs, [22.5, 600, 1200, 1800, 2400, 3000, 3577.5])
+        stud = next(p for p in pieces if p.name == "Stud")
+        self.assertAlmostEqual(stud.length(), 2440 - 3 * 45)
+
+    def test_door_and_window(self):
+        wall = Framing.Wall(
+            length=4800,
+            openings=Framing.parse_openings(
+                "door 900x2100 @ 700, window 1200x1000 @ 2600 sill 900"
+            ),
+        )
+        pieces = self.check_no_overlap(wall)
+        names = [p.name for p in pieces]
+        self.assertEqual(names.count("King stud"), 4)
+        self.assertEqual(names.count("Jack stud"), 4)
+        self.assertEqual(names.count("Header"), 2 * 2)  # 2 plies per opening in a 95 mm wall
+        self.assertEqual(names.count("Sill"), 1)
+        self.assertEqual(names.count("Bottom plate"), 2)  # cut at the door
+        door_jack = next(p for p in pieces if p.name == "Jack stud")
+        self.assertAlmostEqual(max(door_jack.start[2], door_jack.end[2]), 2100)
+        # Door: one cripple at 1200 above its header. Window: 3000 and 3600, above
+        # the header and below the sill.
+        cripples = sorted(p.start[0] for p in pieces if p.name == "Cripple")
+        self.assertEqual(cripples, [1200, 3000, 3000, 3600, 3600])
+        header = next(p for p in pieces if p.name == "Header" and p.start[0] > 2000)
+        self.assertAlmostEqual(header.length(), 1200 + 2 * 45)
+
+    def test_long_wall_plates_spliced_over_studs(self):
+        wall = Framing.Wall(
+            length=12000,
+            max_piece=4800,
+            openings=Framing.parse_openings(
+                "door 900x2100 @ 1000, window 1200x1000 @ 7000 sill 900"
+            ),
+        )
+        pieces = self.check_no_overlap(wall)
+        plates = [p for p in pieces if "plate" in p.name]
+        self.assertTrue(all(p.length() <= 4800 + 1e-6 for p in plates))
+        stud_x = {p.start[0] for p in pieces if p.name in ("Stud", "King stud", "Jack stud")}
+        for name in ("Bottom plate", "Top plate"):
+            for p in plates:
+                if p.name == name:
+                    for x in (p.start[0], p.end[0]):
+                        self.assertTrue(
+                            x in (0, 12000)
+                            or x in stud_x
+                            or any(abs(x - o) < 1e-6 for o in (1000, 1900)),
+                            f"{name} joint at {x} not over a stud",
+                        )
+        lower = sorted(p.end[0] for p in plates if p.name == "Top plate" and p.start[2] < 2400 - 45)
+        upper = sorted(p.end[0] for p in plates if p.name == "Top plate" and p.start[2] > 2400 - 45)
+        for a in lower[:-1]:
+            for b in upper[:-1]:
+                self.assertGreaterEqual(abs(a - b), wall.spacing - 1e-6)  # staggered
+        self.assertEqual(sum(p.length() for p in plates if p.name == "Top plate"), 2 * 12000)
+
+    def test_plate_that_cannot_be_spliced(self):
+        with self.assertRaises(ValueError):  # no stud within a 500 mm piece of 600 mm spacing
+            Framing.Wall(length=3600, max_piece=500).pieces()
+
+    def test_us_wall_16_on_centre(self):
+        wall = Framing.Wall(
+            length=3657.6,
+            height=2438.4,
+            spacing=406.4,
+            stud=(38.1, 88.9),
+            header=(38.1, 184.15),
+            openings=Framing.parse_openings("door 914x2083 @ 1219"),
+        )
+        self.check_no_overlap(wall)
+
+    def test_rejects_impossible_walls(self):
+        for kwargs, text in (
+            ({"length": 50}, ""),
+            ({"height": 100}, ""),
+            ({"spacing": 60}, ""),
+            ({"top_plates": 3}, ""),
+            ({}, "door 900x2100 @ 50"),  # no room for king and jack at the wall start
+            ({}, "door 900x2100 @ 3000"),  # runs past the wall end
+            ({}, "door 900x2100 @ 600, window 900x900 @ 1550 sill 900"),  # overlapping framing
+            ({}, "window 900x900 @ 800 sill 40"),  # sill below the plate
+            ({}, "door 900x2300 @ 800"),  # header hits the top plates
+        ):
+            with self.assertRaises(ValueError, msg=f"{kwargs} {text}"):
+                Framing.Wall(openings=Framing.parse_openings(text), **kwargs).pieces()
+
+    def test_parse_openings(self):
+        self.assertEqual(
+            Framing.parse_openings("Door 900x2100 @ 600; window 1200 × 1000 @ 2400 sill 900"),
+            [
+                Framing.Opening("door", 600, 900, 2100),
+                Framing.Opening("window", 2400, 1200, 1000, 900),
+            ],
+        )
+        self.assertEqual(Framing.parse_openings(" , "), [])
+        for text in ("door 900 @ 600", "garage 900x2100 @ 600", "door 900x2100"):
+            with self.assertRaises(ValueError, msg=text):
+                Framing.parse_openings(text)
 
 
 class TestLibrary(unittest.TestCase):

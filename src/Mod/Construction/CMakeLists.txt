@@ -8,6 +8,7 @@ set(Construction_SRCS
     ConstructionCommands.py
     ConstructionObjects.py
     CutList.py
+    Framing.py
     Library.py
     Member.py
     TestConstruction.py
