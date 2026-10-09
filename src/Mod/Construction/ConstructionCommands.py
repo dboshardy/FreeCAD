@@ -336,6 +336,17 @@ FreeCADGui.addCommand(
 )
 FreeCADGui.addCommand("Construction_Sheathing", SheathingCommand())
 FreeCADGui.addCommand(
+    "Construction_Deck",
+    FramingCommand(
+        "make_deck",
+        QT_TRANSLATE_NOOP("Construction_Deck", "Deck"),
+        QT_TRANSLATE_NOOP(
+            "Construction_Deck",
+            "Creates a deck against a house: ledger, joists, rim, beam on posts, decking",
+        ),
+    ),
+)
+FreeCADGui.addCommand(
     "Construction_Stair",
     FramingCommand(
         "make_stair",

@@ -690,6 +690,60 @@ class StairFeature(FramingFeature):
         return Checks.stair(self.model(obj), rules)
 
 
+class DeckFeature(FramingFeature):
+    """Deck against a house: ledger, joists, rim, dropped beam on posts, decking."""
+
+    GROUP = "Deck"
+    _d = Framing.Deck()
+    PROPERTIES = [
+        _length("Length", "Along the house", _d.length),
+        _length("Projection", "Out from the house face to the outside of the rim", _d.projection),
+        _length("Height", "Top of the decking above grade", _d.height),
+        _length("JoistSpacing", "Joist centres", _d.spacing),
+        (INTEGER, "BeamPlies", "Beam plies side by side", _d.beam_plies),
+        _length("Cantilever", "Joists past the beam's outer face", _d.cantilever),
+        _length("PostSpacing", "Largest distance between posts", _d.max_post_spacing),
+        _length("DeckingGap", "Gap between decking boards", _d.decking_gap),
+        ("App::PropertyFloat", "DeckLoad", "kPa on the deck, " + LOAD_TIP, 0.0),
+    ]
+    MATERIALS = [
+        ("JoistMaterial", "joist", "lumber.metric.45x195", "Joists, ledger and rim"),
+        ("BeamMaterial", "beam", "lumber.metric.45x195", "One beam ply"),
+        ("PostMaterial", "post", "lumber.metric.95x95", "Posts"),
+        ("DeckingMaterial", "decking", "lumber.metric.28x120", "Decking boards"),
+    ]
+
+    def model(self, obj):
+        return Framing.Deck(
+            length=float(obj.Length.Value),
+            projection=float(obj.Projection.Value),
+            height=float(obj.Height.Value),
+            spacing=float(obj.JoistSpacing.Value),
+            joist=lumber_section(obj.JoistMaterial),
+            beam=lumber_section(obj.BeamMaterial),
+            beam_plies=int(obj.BeamPlies),
+            cantilever=float(obj.Cantilever.Value),
+            post=lumber_section(obj.PostMaterial),
+            max_post_spacing=float(obj.PostSpacing.Value),
+            decking=lumber_section(obj.DeckingMaterial),
+            decking_gap=float(obj.DeckingGap.Value),
+            max_piece=self.max_piece(obj),
+        )
+
+    def checks(self, obj, rules):
+        return Checks.deck(
+            self.model(obj),
+            rules,
+            self.design_values(obj, "JoistMaterial"),
+            self.design_values(obj, "BeamMaterial"),
+            float(obj.DeckLoad),
+        )
+
+
+def make_deck(doc=None, name="Deck"):
+    return _make_framing(DeckFeature, name, doc)
+
+
 def make_stair(doc=None, name="Stair"):
     return _make_framing(StairFeature, name, doc)
 

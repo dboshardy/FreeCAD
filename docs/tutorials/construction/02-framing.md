@@ -188,7 +188,41 @@ Guards: required
 Headroom: not checked
 ```
 
-## 6. Sheathing
+## 6. A deck
+
+Click **Deck**. Its origin is at grade, against the house face, with **Length**
+along the house and **Projection** out from it.
+
+- A **ledger** against the house, joists every **JoistSpacing** to a **rim**.
+- A **beam** of **BeamPlies** plies under the joists, **Cantilever** in from the
+  rim, on **posts** no further apart than **PostSpacing**, down to grade.
+- **Decking** boards across the joists with **DeckingGap** between them, joints
+  over joists and staggered between rows; the outer board ends within half a
+  board of the rim face.
+
+```pycon
+>>> deck = Framing.Deck(length=3600, projection=3000, height=600)
+>>> sorted(Counter(p.name for p in deck.pieces()).items())
+[('Beam', 2), ('Decking', 24), ('Joist', 10), ('Ledger', 1), ('Post', 3), ('Rim joist', 1)]
+```
+
+Fastenings, the ledger's connection to the house, footings and guards are not
+generated. **Check** lists the ledger attachment and footings as **required**
+for every deck, guards as **required** when the deck is higher than the rule
+set's `guard_min_rise_mm`, and checks the joists and beam when you enter
+**DeckLoad** and the lumber's design values:
+
+```pycon
+>>> for check, status, _ in Checks.deck(Framing.Deck(height=1200), rules):
+...     print(f"{check}: {status}")
+Joists: not checked
+Beam: not checked
+Ledger attachment: required
+Footings: required
+Guards: required
+```
+
+## 7. Sheathing
 
 Select a wall, floor or roof framing object and click **Sheathing**:
 
@@ -207,7 +241,7 @@ follows its framing when you move it. Pick the sheet in **Material**.
 [(0.0, 0, 2440.0, 1220), (2440.0, 0, 1160.0, 1220), (0.0, 1220, 1220.0, 1220), (1220.0, 1220, 2380.0, 1220), (0.0, 2440, 2440.0, 560), (2440.0, 2440, 1160.0, 560)]
 ```
 
-## 7. The lumber buying plan
+## 8. The lumber buying plan
 
 **Cut List** includes every member and framing object. For lumber it writes:
 

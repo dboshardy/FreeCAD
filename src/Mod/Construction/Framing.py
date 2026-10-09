@@ -572,6 +572,116 @@ class Stair:
         return out
 
 
+@dataclass
+class Deck:
+    """Deck against a house: ledger on the house side, joists on centres to a
+    rim joist, carried by a dropped beam on posts, decking boards across the
+    joists. Coordinates: x along the house, y out from the house face, z up
+    from grade. Footings and guards are not generated (see Checks.deck)."""
+
+    length: float = 3600.0  # along the house
+    projection: float = 3000.0  # out from the house face, to the outside of the rim
+    height: float = 600.0  # top of the decking above grade
+    spacing: float = 400.0
+    joist: tuple = (45.0, 195.0)
+    beam: tuple = (45.0, 195.0)  # one ply, on edge
+    beam_plies: int = 2
+    cantilever: float = 400.0  # joists past the beam's outer face
+    post: tuple = (95.0, 95.0)
+    max_post_spacing: float = 1800.0
+    decking: tuple = (28.0, 120.0)  # (thickness, width) of a board, laid flat
+    decking_gap: float = 5.0
+    max_piece: float = 6000.0
+
+    def joist_top(self):
+        return self.height - self.decking[0]
+
+    def beam_bottom(self):
+        return self.joist_top() - self.joist[1] - self.beam[1]
+
+    def beam_y(self):
+        """Centre of the beam, under the joists."""
+        plies = self.beam_plies * self.beam[0]
+        return self.projection - self.cantilever - plies / 2
+
+    def joist_centres(self):
+        return end_and_layout(self.length, self.spacing, self.joist[0])
+
+    def post_centres(self):
+        t = self.post[0]
+        bays = max(1, math.ceil((self.length - t) / self.max_post_spacing - 1e-9))
+        return [t / 2 + i * (self.length - t) / bays for i in range(bays + 1)]
+
+    def validate(self):
+        names = ("length", "projection", "height", "spacing", "max_post_spacing", "max_piece")
+        for name in names:
+            if getattr(self, name) <= 0:
+                raise ValueError(f"{name} must be positive")
+        if min(self.joist + self.beam + self.post + self.decking) <= 0:
+            raise ValueError("lumber sizes must be positive")
+        if self.beam_plies < 1 or self.cantilever < 0 or self.decking_gap < 0:
+            raise ValueError("beam plies, cantilever and decking gap must be sensible")
+        if self.spacing < 2 * self.joist[0]:
+            raise ValueError("joist spacing too small for the joist thickness")
+        if self.beam_bottom() <= 0:
+            raise ValueError("deck too low for its joists and beam (use a ground-level deck)")
+        inner = self.joist[0] + self.beam_plies * self.beam[0] / 2
+        if not inner <= self.beam_y() <= self.projection - self.joist[0]:
+            raise ValueError("cantilever too long for the projection")
+        if self.projection - 2 * self.joist[0] > self.max_piece + 1e-6:
+            raise ValueError("joists longer than the longest stock length")
+
+    def pieces(self):
+        self.validate()
+        t, d = self.joist
+        L, P = self.length, self.projection
+        top = self.joist_top()
+        zj = top - d / 2
+        centres = self.joist_centres()
+        out = []
+        for name, y in (("Ledger", t / 2), ("Rim joist", P - t / 2)):
+            for a, b in splice(0.0, L, centres, self.max_piece):
+                out.append(Piece(name, (a, y, zj), (b, y, zj), 0.0, "joist"))
+        for x in centres:
+            out.append(Piece("Joist", (x, t, zj), (x, P - t, zj), 0.0, "joist"))
+
+        # Beam plies on edge under the joists, spliced over posts.
+        bt, bd = self.beam
+        zb = self.beam_bottom() + bd / 2
+        posts = self.post_centres()
+        first = self.beam_y() - self.beam_plies * bt / 2
+        for k in range(self.beam_plies):
+            y = first + (k + 0.5) * bt
+            for a, b in splice(0.0, L, posts, self.max_piece):
+                out.append(Piece("Beam", (a, y, zb), (b, y, zb), 0.0, "beam"))
+        for x in posts:
+            out.append(
+                Piece(
+                    "Post",
+                    (x, self.beam_y(), 0.0),
+                    (x, self.beam_y(), self.beam_bottom()),
+                    0.0,
+                    "post",
+                )
+            )
+
+        # Decking across the joists from the house, joints over joists and
+        # staggered between neighbouring rows. The nearest whole number of rows:
+        # the outer board ends within half a board of the rim face.
+        dt, dw = self.decking
+        rows = max(1, round((P + self.decking_gap) / (dw + self.decking_gap)))
+        joints = []
+        for r in range(rows):
+            y = r * (dw + self.decking_gap) + dw / 2
+            segments = splice(0.0, L, centres, self.max_piece, joints, self.spacing)
+            for a, b in segments:
+                out.append(
+                    Piece("Decking", (a, y, top + dt / 2), (b, y, top + dt / 2), 90.0, "decking")
+                )
+            joints = [b for _, b in segments[:-1]]
+        return out
+
+
 def parse_openings(text):
     """'door 900x2100 @ 600, window 1200x1000 @ 2400 sill 900' -> [Opening].
     Raises ValueError with a usage hint."""

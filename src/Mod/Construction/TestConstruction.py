@@ -3,6 +3,7 @@
 # test runner (registered in Init.py) or standalone: python3 TestConstruction.py
 
 import itertools
+from collections import Counter
 import math
 import os
 import sys
@@ -877,6 +878,53 @@ class TestStair(unittest.TestCase):
                 Framing.Stair(**kwargs).boards()
 
 
+class TestDeck(unittest.TestCase):
+    SECTIONS = {
+        "joist": (45, 195),
+        "beam": (45, 195),
+        "post": (95, 95),
+        "decking": (28, 120),
+    }
+
+    def test_counts_and_heights(self):
+        deck = Framing.Deck(length=3600, projection=3000, height=600)
+        pieces = deck.pieces()
+        counts = Counter(p.name for p in pieces)
+        # Joists at 400: ends + 400..3200 = 10. Posts within 1800: 3.
+        # Decking: (3000 + 5) / (120 + 5) = 24 rows, one board each (3600 <= 6000).
+        self.assertEqual(
+            dict(counts),
+            {"Ledger": 1, "Rim joist": 1, "Joist": 10, "Beam": 2, "Post": 3, "Decking": 24},
+        )
+        boxes = assert_pieces_apart(self, pieces, self.SECTIONS)
+        self.assertAlmostEqual(max(b[1][2] for b in boxes), 600)  # decking top
+        self.assertAlmostEqual(min(b[0][2] for b in boxes), 0)  # posts on grade
+        outer = max(b[1][1] for b in boxes)
+        self.assertLessEqual(abs(outer - 3000), 120 / 2)  # within half a board of the rim
+
+    def test_long_deck_splices_staggered(self):
+        deck = Framing.Deck(length=9000, max_piece=4800)
+        decking = [p for p in deck.pieces() if p.name == "Decking"]
+        self.assertTrue(all(p.length() <= 4800 + 1e-6 for p in decking))
+        rows = {}
+        for p in decking:
+            rows.setdefault(round(p.start[1], 3), []).append(p)
+        joints = [sorted(p.end[0] for p in row)[:-1] for _, row in sorted(rows.items())]
+        for a, b in zip(joints, joints[1:]):
+            for x in a:
+                for y in b:
+                    self.assertGreaterEqual(abs(x - y), deck.spacing - 1e-6)
+        centres = deck.joist_centres()
+        for row in joints:
+            for x in row:
+                self.assertTrue(any(abs(x - c) < 1e-6 for c in centres))  # over a joist
+
+    def test_rejects(self):
+        for kwargs in ({"height": 300}, {"cantilever": 3000}, {"projection": 7000}):
+            with self.assertRaises(ValueError, msg=str(kwargs)):
+                Framing.Deck(**kwargs).pieces()
+
+
 class TestChecks(unittest.TestCase):
     RULES = Library.load()["rules.generic-example"]
 
@@ -960,6 +1008,28 @@ class TestChecks(unittest.TestCase):
         long_treads = Framing.Stair(tread_boards=3)  # run 422: 2 x 185.7 + 422 = 793
         comfort = {c: s for c, s, _ in Checks.stair(long_treads, self.RULES)}
         self.assertEqual(comfort["Comfort (2 x riser + tread)"], Checks.WARNING)
+
+    def test_deck(self):
+        results = {c: s for c, s, _ in Checks.deck(Framing.Deck(height=600), self.RULES)}
+        self.assertEqual(results["Joists"], Checks.NOT_CHECKED)
+        self.assertEqual(results["Beam"], Checks.NOT_CHECKED)
+        self.assertEqual(results["Ledger attachment"], Checks.REQUIRED)
+        self.assertEqual(results["Footings"], Checks.REQUIRED)
+        self.assertNotIn("Guards", results)  # 600 mm <= 750 mm
+        high = {c: s for c, s, _ in Checks.deck(Framing.Deck(height=1200), self.RULES)}
+        self.assertEqual(high["Guards"], Checks.REQUIRED)
+        values = {"Fb_MPa": 10, "E_MPa": 10000}
+        # Joists: span 2555 - 45 = 2510, 2 kPa x 400 = 0.8 N/mm -> 2.2 MPa, 1.5 of 7.0 mm.
+        # Beam: posts 1752.5 apart, tributary 1255 + 400 + 45 = 1700 -> 3.4 N/mm on two
+        # 45 x 195 plies -> 2.3 MPa, 0.75 mm.
+        values = {"Fb_MPa": 10, "E_MPa": 10000}
+        loaded = {
+            c: (s, d) for c, s, d in Checks.deck(Framing.Deck(), self.RULES, values, values, 2)
+        }
+        self.assertEqual(loaded["Joists"][0], Checks.OK)
+        self.assertIn("bending 2.2 of 10 MPa; deflection 1.5 of 7.0 mm", loaded["Joists"][1])
+        self.assertEqual(loaded["Beam"][0], Checks.OK)
+        self.assertIn("bending 2.3 of 10 MPa; deflection 0.8 of 4.9 mm", loaded["Beam"][1])
 
     def test_cabinet_anchoring(self):
         for kind, expected in (("wall", 1), ("tall", 1), ("base", 0), ("sink", 0)):

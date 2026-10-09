@@ -13,6 +13,7 @@
     {"id": "lumber.us.2x10", "name": "2x10", "nominal": {"w": 2, "h": 10, "unit": "in"}, "actual": {"w": 38.1, "h": 234.95, "unit": "mm"}, "stock_lengths_mm": [2438.4, 3048, 3657.6, 4267.2, 4876.8, 5486.4, 6096]},
     {"id": "lumber.us.2x12", "name": "2x12", "nominal": {"w": 2, "h": 12, "unit": "in"}, "actual": {"w": 38.1, "h": 285.75, "unit": "mm"}, "stock_lengths_mm": [2438.4, 3048, 3657.6, 4267.2, 4876.8, 5486.4, 6096]},
     {"id": "lumber.us.4x4", "name": "4x4", "nominal": {"w": 4, "h": 4, "unit": "in"}, "actual": {"w": 88.9, "h": 88.9, "unit": "mm"}, "stock_lengths_mm": [2438.4, 3048, 3657.6, 4876.8]},
+    {"id": "lumber.us.5-4x6", "name": "5/4x6 decking", "actual": {"w": 25.4, "h": 139.7, "unit": "mm"}, "stock_lengths_mm": [2438.4, 3048, 3657.6, 4267.2, 4876.8], "source": "Common US decking trade size (1 x 5-1/2 in actual); original compilation of facts", "data_license": "CC0-1.0"},
     {"id": "lumber.us.4x6", "name": "4x6", "nominal": {"w": 4, "h": 6, "unit": "in"}, "actual": {"w": 88.9, "h": 139.7, "unit": "mm"}, "stock_lengths_mm": [2438.4, 3048, 3657.6, 4876.8]}
   ]
 }
