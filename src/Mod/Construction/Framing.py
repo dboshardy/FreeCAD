@@ -459,6 +459,119 @@ class GableRoof:
         ]
 
 
+@dataclass
+class Stair:
+    """Straight stair on cut stringers. Coordinates: x across the stair, y along
+    the run from the face of the first riser, z up from the lower floor.
+
+    Risers are all equal: total_rise split into the fewest risers no higher than
+    max_riser. The tread run is set by the tread boards (no ripping):
+    boards x depth + gaps - nosing. Treads sit on the stringer cuts; stringers
+    are dropped by the tread thickness so every riser is equal, and their top
+    ends bear against the upper floor at y = run.
+    """
+
+    total_rise: float = 2600.0  # finished floor to finished floor
+    width: float = 900.0  # outside of the stringers
+    max_riser: float = 190.0  # from the rule set
+    tread_boards: int = 2
+    tread_gap: float = 6.0
+    nosing: float = 25.0
+    tread: tuple = (45.0, 145.0)  # (thickness, depth) of a tread board, laid flat
+    stringer: tuple = (45.0, 220.0)
+    max_stringer_spacing: float = 450.0
+    max_piece: float = 6000.0
+
+    def risers(self):
+        return math.ceil(self.total_rise / self.max_riser - 1e-9)
+
+    def riser(self):
+        return self.total_rise / self.risers()
+
+    def run(self):
+        """Horizontal depth of one tread, riser face to riser face."""
+        boards = self.tread_boards * self.tread[1] + (self.tread_boards - 1) * self.tread_gap
+        return boards - self.nosing
+
+    def total_run(self):
+        return (self.risers() - 1) * self.run()
+
+    def angle(self):
+        return math.degrees(math.atan2(self.riser(), self.run()))
+
+    def throat(self):
+        """Stringer depth left under the cuts, square to the stringer."""
+        return self.stringer[1] - self.riser() * math.cos(math.radians(self.angle()))
+
+    def validate(self):
+        for name in ("total_rise", "width", "max_riser", "max_stringer_spacing", "max_piece"):
+            if getattr(self, name) <= 0:
+                raise ValueError(f"{name} must be positive")
+        if self.tread_boards < 1 or self.tread_gap < 0 or self.nosing < 0:
+            raise ValueError("tread boards, gap and nosing must be sensible")
+        if min(self.tread + self.stringer) <= 0:
+            raise ValueError("lumber sizes must be positive")
+        if self.risers() < 2:
+            raise ValueError("a stair needs at least two risers")
+        if self.run() <= 0:
+            raise ValueError("nosing deeper than the tread boards")
+        if self.throat() <= 0:
+            raise ValueError("stringer too shallow for the riser and run: cuts go through it")
+        if self.width < 2 * self.stringer[0]:
+            raise ValueError("stair narrower than two stringers")
+        longest = max(b.cut_length() for b in self._stringers())
+        if longest > self.max_piece + 1e-6:
+            raise ValueError(f"stringers ({longest:.0f} mm) longer than the longest stock length")
+
+    def stringer_centres(self):
+        t = self.stringer[0]
+        count = max(2, math.ceil((self.width - t) / self.max_stringer_spacing - 1e-9) + 1)
+        step = (self.width - t) / (count - 1)
+        return [t / 2 + i * step for i in range(count)]
+
+    def outline(self):
+        """Stringer outline (y, z): sawtooth on top, a straight edge below at the
+        stringer depth from the line through the cut corners."""
+        n, r, t, tt = self.risers(), self.riser(), self.run(), self.tread[0]
+        a = math.radians(self.angle())
+        depth = self.stringer[1] / math.cos(a)  # vertical depth below the nosing line
+
+        def under(y):
+            return r / t * y + r - tt - depth
+
+        foot = (depth - r + tt) * t / r  # where the underside meets the floor
+        top_y = (n - 1) * t
+        points = [(0.0, 0.0), (max(foot, 0.0), 0.0), (top_y, under(top_y))]
+        for i in range(n - 1, 0, -1):
+            points.append((i * t, i * r - tt))  # back of tread i, against riser i + 1
+            points.append(((i - 1) * t, i * r - tt))  # front of tread i
+        return points
+
+    def _stringers(self):
+        outline = self.outline()
+        return [
+            ProfilePiece("Stringer", x, outline, self.angle(), "stringer")
+            for x in self.stringer_centres()
+        ]
+
+    def boards(self):
+        self.validate()
+        return self._stringers()
+
+    def pieces(self):
+        """Tread boards (members along x, laid flat)."""
+        self.validate()
+        r, t, tt, bd = self.riser(), self.run(), self.tread[0], self.tread[1]
+        out = []
+        for i in range(1, self.risers()):
+            front = (i - 1) * t - self.nosing
+            for j in range(self.tread_boards):
+                y = front + j * (bd + self.tread_gap) + bd / 2
+                z = i * r - tt / 2
+                out.append(Piece("Tread", (0.0, y, z), (self.width, y, z), 90.0, "tread"))
+        return out
+
+
 def parse_openings(text):
     """'door 900x2100 @ 600, window 1200x1000 @ 2400 sill 900' -> [Opening].
     Raises ValueError with a usage hint."""

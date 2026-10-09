@@ -276,6 +276,18 @@ FreeCADGui.addCommand(
 )
 FreeCADGui.addCommand("Construction_Sheathing", SheathingCommand())
 FreeCADGui.addCommand(
+    "Construction_Stair",
+    FramingCommand(
+        "make_stair",
+        QT_TRANSLATE_NOOP("Construction_Stair", "Stair"),
+        QT_TRANSLATE_NOOP(
+            "Construction_Stair",
+            "Creates a straight stair on cut stringers: equal risers within the rule set's "
+            "limit, treads from whole boards",
+        ),
+    ),
+)
+FreeCADGui.addCommand(
     "Construction_Shed",
     FramingCommand(
         "make_shed",

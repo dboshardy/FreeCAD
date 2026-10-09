@@ -1,6 +1,6 @@
 {
   "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp construction rule sets (design doc §5.5, §12 R14). Advisory checks only. These are EXAMPLE values: they are not taken from any building code and do not show code compliance. Copy this item to your user library under a new id with the values adopted where you build, and have the design reviewed by your building official or a qualified professional.",
-  "source": "Generic example values from conventional framing practice and engineering mechanics (beam bending and deflection; column slenderness l/d); not copied from any code or standard",
+  "source": "Generic example values from conventional framing practice and engineering mechanics (beam bending and deflection; column slenderness l/d) and the stair comfort rule 2 x riser + tread (F. Blondel, Cours d'architecture, 1675); not copied from any code or standard",
   "data_license": "CC0-1.0",
   "items": [
     {
@@ -14,6 +14,13 @@
       "floor_joist_deflection_limit": 360,
       "rafter_deflection_limit": 240,
       "birdsmouth_max_fraction": 0.333,
+      "stair_riser_max_mm": 190,
+      "stair_tread_min_mm": 250,
+      "stair_comfort_min_mm": 600,
+      "stair_comfort_max_mm": 660,
+      "stair_throat_min_mm": 90,
+      "handrail_min_risers": 4,
+      "guard_min_rise_mm": 750,
       "anchor_cabinet_kinds": ["wall", "tall"]
     }
   ]

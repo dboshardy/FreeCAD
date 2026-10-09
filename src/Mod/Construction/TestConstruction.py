@@ -834,6 +834,49 @@ class TestShed(unittest.TestCase):
             Shed.Shed(door_width=3500).components()
 
 
+class TestStair(unittest.TestCase):
+    def test_equal_risers_and_run(self):
+        stair = Framing.Stair(total_rise=2600, max_riser=190)
+        self.assertEqual(stair.risers(), 14)  # 2600 / 190 = 13.7 -> 14
+        self.assertAlmostEqual(stair.riser() * stair.risers(), 2600)
+        self.assertLessEqual(stair.riser(), 190)
+        self.assertEqual(stair.run(), 2 * 145 + 6 - 25)  # boards + gap - nosing
+        self.assertEqual(stair.total_run(), 13 * 271)
+
+    def test_treads_rest_on_the_stringer_cuts(self):
+        stair = Framing.Stair()
+        r, t, tt = stair.riser(), stair.run(), stair.tread[0]
+        treads = stair.pieces()
+        self.assertEqual(len(treads), (stair.risers() - 1) * stair.tread_boards)
+        tops = sorted({round(p.start[2] + tt / 2, 6) for p in treads})
+        self.assertEqual(tops, [round(i * r, 6) for i in range(1, stair.risers())])
+        cut_heights = {round(z, 6) for y, z in stair.outline()[3:]}
+        self.assertEqual(cut_heights, {round(i * r - tt, 6) for i in range(1, stair.risers())})
+        # Front tread boards overhang the riser face by the nosing.
+        first = min(p.start[1] for p in treads) - stair.tread[1] / 2
+        self.assertAlmostEqual(first, -stair.nosing)
+
+    def test_stringers(self):
+        stair = Framing.Stair(width=900, max_stringer_spacing=450)
+        self.assertEqual([round(x, 1) for x in stair.stringer_centres()], [22.5, 450.0, 877.5])
+        outline = stair.outline()
+        self.assertEqual(outline[0], (0.0, 0.0))  # foot on the floor at the first riser
+        self.assertTrue(all(z >= -1e-9 for _, z in outline))
+        us = Framing.Stair(stringer=(38.1, 285.75))  # a 2x12 leaves more throat
+        self.assertGreater(us.throat(), stair.throat())
+
+    def test_rejects(self):
+        for kwargs in (
+            {"total_rise": 150},  # one riser
+            {"nosing": 400},
+            {"stringer": (45, 95)},  # cuts go through
+            {"width": 60},
+            {"total_rise": 6000, "max_piece": 4800},  # stringer too long
+        ):
+            with self.assertRaises(ValueError, msg=str(kwargs)):
+                Framing.Stair(**kwargs).boards()
+
+
 class TestChecks(unittest.TestCase):
     RULES = Library.load()["rules.generic-example"]
 
@@ -898,6 +941,25 @@ class TestChecks(unittest.TestCase):
         self.assertEqual(results["Ridge board depth"], Checks.WARNING)
         self.assertEqual(results["Birdsmouth"], Checks.WARNING)  # 140 sin 26.6 = 63 > 48
         self.assertEqual(results["Rafter ties"], Checks.WARNING)
+
+    def test_stair(self):
+        good = Framing.Stair(stringer=(38.1, 285.75))
+        results = {c: s for c, s, _ in Checks.stair(good, self.RULES)}
+        self.assertEqual(results["Riser height"], Checks.OK)  # 185.7 <= 190
+        self.assertEqual(results["Tread run"], Checks.OK)  # 271 >= 250
+        self.assertEqual(results["Comfort (2 x riser + tread)"], Checks.OK)  # 2 x 185.7 + 271 = 642
+        self.assertEqual(results["Stringer throat"], Checks.OK)
+        self.assertEqual(results["Handrail"], Checks.REQUIRED)  # 14 risers
+        self.assertEqual(results["Guards"], Checks.REQUIRED)  # 2600 mm rise
+        self.assertEqual(results["Headroom"], Checks.NOT_CHECKED)
+        shallow = {c: s for c, s, _ in Checks.stair(Framing.Stair(), self.RULES)}
+        self.assertEqual(shallow["Stringer throat"], Checks.WARNING)  # 45x220: 67 < 90
+        low = {c: s for c, s, _ in Checks.stair(Framing.Stair(total_rise=500), self.RULES)}
+        self.assertNotIn("Guards", low)  # 500 mm rise
+        self.assertNotIn("Handrail", low)  # 3 risers
+        long_treads = Framing.Stair(tread_boards=3)  # run 422: 2 x 185.7 + 422 = 793
+        comfort = {c: s for c, s, _ in Checks.stair(long_treads, self.RULES)}
+        self.assertEqual(comfort["Comfort (2 x riser + tread)"], Checks.WARNING)
 
     def test_cabinet_anchoring(self):
         for kind, expected in (("wall", 1), ("tall", 1), ("base", 0), ("sink", 0)):
