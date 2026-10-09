@@ -17,6 +17,8 @@ set(Construction_SRCS
     TestConstruction.py
 )
 file(GLOB_RECURSE Construction_DATA RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} Resources/libraries/*.json)
+# Tutorials (docs/tutorials/construction) ship with the workbench, opened from its menu.
+file(GLOB Construction_TUTORIALS ${CMAKE_SOURCE_DIR}/docs/tutorials/construction/*.md)
 
 add_custom_target(Construction ALL SOURCES ${Construction_SRCS} ${Construction_DATA})
 
@@ -24,6 +26,8 @@ fc_copy_sources(Construction "${CMAKE_BINARY_DIR}/Mod/Construction"
     ${Construction_SRCS} ${Construction_DATA})
 
 install(FILES ${Construction_SRCS} DESTINATION Mod/Construction)
+install(FILES ${Construction_TUTORIALS} DESTINATION Mod/Construction/Tutorials)
+file(COPY ${Construction_TUTORIALS} DESTINATION "${CMAKE_BINARY_DIR}/Mod/Construction/Tutorials")
 foreach(_file ${Construction_DATA})
     get_filename_component(_dir ${_file} DIRECTORY)
     install(FILES ${_file} DESTINATION Mod/Construction/${_dir})
