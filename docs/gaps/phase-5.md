@@ -85,11 +85,11 @@ advisory checks. Nothing here certifies building-code compliance:
 | 5.4.4 | Stairs | Partial | Upstream `ArchStairs` (straight, landing, curved); no rule checks |
 | 5.4.5 | Decks | Missing | |
 | 5.4.6 | Foundations | Partial | Upstream `ArchStructure` slabs/footings; no concrete-volume report |
-| 5.4.7 | Sheathing / cladding layers | Partial | `Construction_Sheathing` (`Sheathing.py`): sheet goods on floor (long side across joists), wall (upright, openings cut out) and both roof slopes, seams staggered; panels go through the panel-saw layout (whole sheets counted as whole). Missing: seam-over-framing alignment, siding, roofing, membranes |
+| 5.4.7 | Sheathing / cladding layers | Partial | `Construction_Sheathing` (`Sheathing.py`): sheet goods on floor (long side across joists), wall (upright, openings cut out) and both roof slopes, seams staggered when a row needs more than one sheet; laid out on sheets with no edge trim (factory edges), whole sheets counted as whole. Missing: seam-over-framing alignment, siding, roofing, membranes |
 | 5.4.8 | Cabinets | Partial | `Construction/Cabinet.py`, `ConstructionObjects.py`. Frameless base / wall / tall / sink cabinets (base: top stretchers + plinth; wall / tall: full top; wall cabinets created at 1400 mm; sink: front stretcher only, no back, false front over doors) and blind-corner cabinets (any kind; blind panel left or right, doors on the open width). Butt-jointed carcass, adjustable shelves, full-overlay fronts: doors, drawer bank, drawer over doors, false front over doors. Drawer boxes sized from slide clearances (side, height, rear), depth rounded down to 50 mm slide lengths. Runs along a wall (`Construction_BaseRun`, `Construction_WallRun`): given widths, or widths chosen from a standard list to leave the least filler, fillers left / right / both; per-cabinet styles in Widths (`1000 blind_left, 600 drawers, 800 sink, 600`), a blind corner at a run end keeps the filler off the corner side. Missing: diagonal and L-shaped corner cabinets, corner fillers between meeting runs, face-frame, dado/rabbet/confirmat options, shaker doors, drawer slides and hinges in the BOM, toe-kick notch option, per-cabinet sizes other than width inside a run |
 | 5.4.9 | Furniture primitives | Missing | |
 | 5.4.10 | Building elements (walls, doors, windows, levels, rooms) | Present | Upstream BIM |
-| 5.4.11 | Templates (shed, garage, kitchen run, bookcase, workbench) | Missing | |
+| 5.4.11 | Templates (shed, garage, kitchen run, bookcase, workbench) | Partial | `Construction_Shed` (`Shed.py`, `ShedFeature`): gable shed from one object — floor platform, front wall with a centred door, back and side walls, gable roof with ceiling joists, sheathing on floor, walls (side sheathing wraps the corners) and roof; every size, spacing, lumber and sheet is a property and everything regenerates. Missing: gable-end studs and sheathing above the side walls, corner nailers, garage / kitchen / bookcase / workbench templates |
 
 ## 5.5 Analysis (advisory)
 
@@ -114,8 +114,8 @@ advisory checks. Nothing here certifies building-code compliance:
 
 | Criterion | Status |
 |---|---|
-| Gable shed from template; edit wall height and door width; framing regenerates | Not met (5.4.1, 5.4.3, 5.4.11) |
-| BOM, optimized cut list, sheet nesting, framing drawings match hand count | Not met (5.6.1–5.6.5) |
+| Gable shed from template; edit wall height and door width; framing regenerates | Met in tests (`TestShed.test_editing_regenerates`); not yet run in the app (no local build) |
+| BOM, optimized cut list, sheet nesting, framing drawings match hand count | Partial: framing quantities (`TestShed.test_hand_count`) and sheathing sheets (`test_sheathing_hand_count`) match hand counts; lumber plan places every piece. Framing drawings (TechDraw views with member tags) not done; gable-end framing missing (5.4.11) |
 
 ## Verification
 

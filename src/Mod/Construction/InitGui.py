@@ -22,6 +22,7 @@ class ConstructionWorkbench(Workbench):
             "Construction_FloorFrame",
             "Construction_GableRoof",
             "Construction_Sheathing",
+            "Construction_Shed",
             "Construction_CutList",
             "Construction_Check",
         ]

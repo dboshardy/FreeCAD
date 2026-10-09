@@ -17,6 +17,7 @@ import Framing  # noqa: E402
 import Library  # noqa: E402
 import Member  # noqa: E402
 import Sheathing  # noqa: E402
+import Shed  # noqa: E402
 
 FRONT_ROLES = ("door", "drawer_front", "filler", "blind_panel")
 
@@ -638,9 +639,10 @@ class TestSheathing(unittest.TestCase):
             self.assertLessEqual(v + dv, 3000 + 1e-6)
 
     def test_cover_upright(self):
-        panels = Sheathing.cover((3600, 2440), (2440, 1220), long_along="v", stagger=False)
-        self.assertEqual(len(panels), 3)
-        self.assertEqual(panels[0], (0, 0, 1220, 2440))
+        for stagger in (False, True):  # one sheet tall: staggering would only waste
+            panels = Sheathing.cover((3600, 2440), (2440, 1220), long_along="v", stagger=stagger)
+            self.assertEqual(len(panels), 3)
+            self.assertEqual(panels[0], (0, 0, 1220, 2440))
 
     def test_surfaces_right_handed_and_sized(self):
         roof = Framing.GableRoof(length=3600, span=3000, overhang=300)
@@ -660,6 +662,116 @@ class TestSheathing(unittest.TestCase):
         sheets = CutList.layout_sheets(pieces, 1220, 2440, kerf=3.2, trim=10)
         self.assertEqual(len(sheets), 4)
         self.assertEqual([len(s) for s in sheets[:3]], [1, 1, 1])
+
+
+def to_world(box, component):
+    """Axis-aligned box in a component's frame -> world (rotations of 90 deg)."""
+    (lo, hi), (ox, oy, oz) = box, component.origin
+    a = math.radians(component.rotation)
+    c, s = round(math.cos(a)), round(math.sin(a))
+    corners = [
+        (x * c - y * s + ox, x * s + y * c + oy) for x in (lo[0], hi[0]) for y in (lo[1], hi[1])
+    ]
+    xs, ys = [p[0] for p in corners], [p[1] for p in corners]
+    return [min(xs), min(ys), lo[2] + oz], [max(xs), max(ys), hi[2] + oz]
+
+
+class TestShed(unittest.TestCase):
+    """Phase 5 exit test: a 3.6 x 3.0 m gable shed, quantities against a hand count."""
+
+    def counts(self, component):
+        names = [p.name for p in component.model.pieces()]
+        names += [b.name for b in getattr(component.model, "boards", list)()]
+        return {n: names.count(n) for n in set(names)}
+
+    def test_hand_count(self):
+        parts = {c.name: self.counts(c) for c in Shed.Shed().components()}
+        # Floor 3600 x 3000, joists at 400: ends + 400..3200 (8) = 10; 2 rims.
+        self.assertEqual(parts["Floor"], {"Joist": 10, "Rim joist": 2})
+        # Front 3600, studs at 600, door 900 centred (1350..2250): ends + 600, 1200,
+        # 2400, 3000 (1800 falls in the door framing) = 6; kings 2, jacks 2,
+        # header 2 plies, 1 cripple at 1800; bottom plate cut in 2; 2 top plates.
+        self.assertEqual(
+            parts["Front wall"],
+            {
+                "Stud": 6,
+                "King stud": 2,
+                "Jack stud": 2,
+                "Header": 2,
+                "Cripple": 1,
+                "Bottom plate": 2,
+                "Top plate": 2,
+            },
+        )
+        # Back 3600: ends + 600..3000 (5) = 7.
+        self.assertEqual(parts["Back wall"], {"Stud": 7, "Bottom plate": 1, "Top plate": 2})
+        # Sides 3000 - 2 x 95 = 2810: ends + 600..2400 (4) = 6.
+        for side in ("Left wall", "Right wall"):
+            self.assertEqual(parts[side], {"Stud": 6, "Bottom plate": 1, "Top plate": 2})
+        # Roof 3600, rafters at 600: ends + 600..3000 (5) = 7 pairs, 7 ceiling joists.
+        self.assertEqual(parts["Roof"], {"Rafter": 14, "Ceiling joist": 7, "Ridge board": 1})
+
+    def test_framing_fits_together(self):
+        shed = Shed.Shed()
+        sections = shed.sections()
+        boxes = []
+        for c in shed.components():
+            if isinstance(c.model, Framing.GableRoof):
+                continue  # sloped profiles: their bounding boxes are not the solids
+            for p in c.model.pieces():
+                boxes.append((f"{c.name} {p.name}", to_world(piece_box(p, sections), c)))
+        for (na, a), (nb, b) in itertools.combinations(boxes, 2):
+            self.assertFalse(boxes_overlap(a, b), f"{na} overlaps {nb}")
+        lo = [min(b[0][i] for _, b in boxes) for i in range(3)]
+        hi = [max(b[1][i] for _, b in boxes) for i in range(3)]
+        for got, want in zip(lo + hi, [0, 0, 0, 3600, 3000, 195 + 18 + 2440]):
+            self.assertAlmostEqual(got, want)
+
+    def test_roof_sits_on_the_walls(self):
+        components = {c.name: c for c in Shed.Shed().components()}
+        roof, front = components["Roof"], components["Front wall"]
+        self.assertAlmostEqual(roof.origin[2], front.origin[2] + front.model.height)
+        self.assertEqual(roof.model.seat, front.model.stud[1])
+        self.assertEqual(roof.model.span, 3000)
+
+    def test_side_sheathing_wraps_the_corners(self):
+        left = {c.name: c for c in Shed.Shed().components()}["Left wall"]
+        surface = Shed.sheathing_surfaces(left)[0]
+        self.assertAlmostEqual(surface.size[0], 3000 + 2 * 12)  # 2810 + 2 x (95 + 12)
+
+    def test_sheathing_hand_count(self):
+        # Sheets 1220 x 2440, no trim (factory edges), kerf 3.2. Hand count:
+        # floor 3600 x 3000, staggered: 4 (area alone needs 3.63);
+        # front/back 3600 x 2440 upright: 2 whole + 1160 wide = 3;
+        # sides 2810 + 2 x 107 wrap = 3024: 2 whole + 584 wide = 3;
+        # roof slopes 3600 x 2012.5: per slope 1 whole, 1160 x 1220, 1220 x 792.5,
+        # 2380 x 792.5; both slopes: 2 whole + 2 (1160 x 1220 with 1220 x 792.5)
+        # + 2 (one 2380 x 792.5 each) = 6.
+        expected = {
+            "Floor": 4,
+            "Front wall": 3,
+            "Back wall": 3,
+            "Left wall": 3,
+            "Right wall": 3,
+            "Roof": 6,
+        }
+        for c in Shed.Shed().components():
+            pieces = []
+            for surface in Shed.sheathing_surfaces(c):
+                for _, _, du, dv in Sheathing.cover(surface.size, (2440, 1220), surface.long_along):
+                    # Grain (the sheet's long side) along u or v, as the cut list does.
+                    length, width = (du, dv) if surface.long_along == "u" else (dv, du)
+                    pieces.append((surface.name, length, width, True))
+            sheets = CutList.layout_sheets(pieces, 1220, 2440, kerf=3.2, trim=0)
+            self.assertEqual(len(sheets), expected[c.name], c.name)
+
+    def test_editing_regenerates(self):
+        tall = {c.name: c for c in Shed.Shed(wall_height=2700, door_width=1200).components()}
+        self.assertAlmostEqual(tall["Roof"].origin[2], 195 + 18 + 2700)
+        header = next(p for p in tall["Front wall"].model.pieces() if p.name == "Header")
+        self.assertAlmostEqual(header.length(), 1200 + 2 * 45)
+        with self.assertRaises(ValueError):
+            Shed.Shed(door_width=3500).components()
 
 
 class TestChecks(unittest.TestCase):
