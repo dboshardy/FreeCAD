@@ -76,6 +76,10 @@ You get, from conventional practice:
 [('Bottom plate', 2), ('Cripple', 5), ('Header', 4), ('Jack stud', 4), ('King stud', 4), ('Sill', 1), ('Stud', 5), ('Top plate', 2)]
 ```
 
+Corners: where another wall butts against this one, set **CornerStart** or
+**CornerEnd** to that wall's depth (e.g. `95`). A corner stud is added just
+past it, so the inside corner has backing for the interior lining.
+
 Long walls: a plate longer than the longest stock length of the stud lumber is
 spliced over a stud centre, and the two top plates' joints are kept at least a
 stud bay apart.

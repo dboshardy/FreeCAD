@@ -15,7 +15,8 @@ Click **Gable Shed**. One object appears with:
 
 - a floor platform (joists at 400 mm) with sheathing;
 - four stud walls: front and back run the full length, the sides fit between
-  them; a door centred in the front wall;
+  them, and a corner stud at each end of the front and back walls backs the
+  inside corners; a door centred in the front wall;
 - a gable roof with the ridge along the front, ceiling joists as rafter ties,
   and studs in the gable triangles over the side walls;
 - sheathing on the walls (the side walls' sheathing wraps the corners), the
@@ -32,8 +33,8 @@ What it contains, counted:
 ...     names += [b.name for b in getattr(c.model, "boards", list)()]
 ...     print(c.name, sorted(Counter(names).items()))
 Floor [('Joist', 10), ('Rim joist', 2)]
-Front wall [('Bottom plate', 2), ('Cripple', 1), ('Header', 2), ('Jack stud', 2), ('King stud', 2), ('Stud', 6), ('Top plate', 2)]
-Back wall [('Bottom plate', 1), ('Stud', 7), ('Top plate', 2)]
+Front wall [('Bottom plate', 2), ('Corner stud', 2), ('Cripple', 1), ('Header', 2), ('Jack stud', 2), ('King stud', 2), ('Stud', 6), ('Top plate', 2)]
+Back wall [('Bottom plate', 1), ('Corner stud', 2), ('Stud', 7), ('Top plate', 2)]
 Left wall [('Bottom plate', 1), ('Stud', 6), ('Top plate', 2)]
 Right wall [('Bottom plate', 1), ('Stud', 6), ('Top plate', 2)]
 Roof [('Ceiling joist', 7), ('Gable stud', 8), ('Rafter', 14), ('Ridge board', 1)]
@@ -109,7 +110,6 @@ values of your lumber grade. Tutorial 4 shows how to enter them.
 
 ## Not in the template yet
 
-- Corner nailers inside the wall corners.
 - Foundation (skids, piers), roofing, trim, windows.
 
 Add those yourself with **Member** and **Sheathing**, or as ordinary FreeCAD
