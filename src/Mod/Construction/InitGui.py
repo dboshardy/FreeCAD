@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# FORK: Construction workbench (design doc §5).
+
+
+class ConstructionWorkbench(Workbench):
+    MenuText = "Construction"
+    ToolTip = "Plan cabinets and construction: parametric generators, cut lists"
+
+    def Initialize(self):
+        import ConstructionCommands  # registers the commands
+
+        commands = ["Construction_BaseCabinet", "Construction_CutList"]
+        self.appendToolbar("Construction", commands)
+        self.appendMenu("&Construction", commands)
+
+    def GetClassName(self):
+        return "Gui::PythonWorkbench"
+
+
+Gui.addWorkbench(ConstructionWorkbench())

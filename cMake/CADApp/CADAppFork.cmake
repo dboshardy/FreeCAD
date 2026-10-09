@@ -9,6 +9,9 @@ include(${CMAKE_SOURCE_DIR}/branding/branding.cmake)
 option(CADAPP_FEATURE_NAVICUBE "Build the clickable navigation cube (risk R1)" ON)
 option(CADAPP_FEATURE_CAM_ADAPTIVE "Build the CAM Adaptive operation (risk R3)" ON)
 
+# Fork workbenches (design doc §4.2).
+option(BUILD_CONSTRUCTION "Build the Construction workbench (cabinets, framing, cut lists)" ON)
+
 foreach(_flag NAVICUBE CAM_ADAPTIVE)
     if(CADAPP_FEATURE_${_flag})
         set(CADAPP_FEATURE_${_flag}_VALUE 1)
