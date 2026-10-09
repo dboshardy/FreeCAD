@@ -29,7 +29,7 @@ class ConstructionWorkbench(Workbench):
             "Construction_Drawing",
         ]
         self.appendToolbar("Construction", commands)
-        self.appendMenu("&Construction", commands)
+        self.appendMenu("&Construction", commands + ["Separator", "Construction_Tutorials"])
 
     def GetClassName(self):
         return "Gui::PythonWorkbench"

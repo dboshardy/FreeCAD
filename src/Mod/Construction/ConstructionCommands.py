@@ -190,6 +190,32 @@ class DrawingCommand:
         doc.commitTransaction()
 
 
+class TutorialsCommand:
+    def GetResources(self):
+        return {
+            "MenuText": QT_TRANSLATE_NOOP("Construction_Tutorials", "Tutorials"),
+            "ToolTip": QT_TRANSLATE_NOOP(
+                "Construction_Tutorials", "Opens the Construction workbench tutorials"
+            ),
+        }
+
+    def Activated(self):
+        import os
+
+        import Help
+
+        here = os.path.dirname(os.path.abspath(__file__))
+        for folder in (
+            os.path.join(here, "Tutorials"),  # installed
+            os.path.join(here, "..", "..", "..", "docs", "tutorials", "construction"),  # source
+        ):
+            index = os.path.join(folder, "README.md")
+            if os.path.exists(index):
+                Help.show(os.path.normpath(index))
+                return
+        FreeCAD.Console.PrintError("Construction tutorials not found\n")
+
+
 class CutListCommand:
     def GetResources(self):
         return {
@@ -336,3 +362,4 @@ FreeCADGui.addCommand(
 FreeCADGui.addCommand("Construction_CutList", CutListCommand())
 FreeCADGui.addCommand("Construction_Check", CheckCommand())
 FreeCADGui.addCommand("Construction_Drawing", DrawingCommand())
+FreeCADGui.addCommand("Construction_Tutorials", TutorialsCommand())
