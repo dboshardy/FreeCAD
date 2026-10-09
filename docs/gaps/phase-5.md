@@ -68,7 +68,7 @@ workspace layer can be bound in `Hotkeys.json` (Phase 0 decision 0.6.10).
 | 5.4.5 | Decks | Missing | |
 | 5.4.6 | Foundations | Partial | Upstream `ArchStructure` slabs/footings; no concrete-volume report |
 | 5.4.7 | Sheathing / cladding layers | Partial | Upstream `ArchCovering`; no seam layout |
-| 5.4.8 | Cabinets | Partial | `Construction_BaseCabinet`: frameless base cabinet on a plinth, butt-jointed carcass, adjustable shelves, full-overlay slab doors, all sizes as properties (`Construction/Cabinet.py`, `ConstructionObjects.py`). Missing: wall/tall/drawer/corner cabinets, face-frame, dado/rabbet/confirmat options, shaker doors, drawers, runs along a wall, toe-kick notch option |
+| 5.4.8 | Cabinets | Partial | `Construction/Cabinet.py`, `ConstructionObjects.py`. Frameless base / wall / tall cabinets (base: top stretchers + plinth; wall / tall: full top; wall cabinets created at 1400 mm), butt-jointed carcass, adjustable shelves, full-overlay fronts: doors, drawer bank, or one drawer over doors. Drawer boxes sized from slide clearances (side, height, rear), depth rounded down to 50 mm slide lengths. Runs along a wall (`Construction_BaseRun`, `Construction_WallRun`): given widths, or widths chosen from a standard list to leave the least filler, fillers left / right / both. Missing: corner and sink cabinets, face-frame, dado/rabbet/confirmat options, shaker doors, drawer slide hardware in the BOM, toe-kick notch option, per-cabinet overrides inside a run |
 | 5.4.9 | Furniture primitives | Missing | |
 | 5.4.10 | Building elements (walls, doors, windows, levels, rooms) | Present | Upstream BIM |
 | 5.4.11 | Templates (shed, garage, kitchen run, bookcase, workbench) | Missing | |
@@ -102,7 +102,7 @@ workspace layer can be bound in `Hotkeys.json` (Phase 0 decision 0.6.10).
 ## Verification
 
 `python3 src/Mod/Construction/TestConstruction.py` (no FreeCAD needed) tests cabinet
-geometry (outer size, no overlapping parts, door widths, shelves, invalid sizes),
+geometry (outer size, no overlapping parts for every kind / front style, front and door coverage, drawer box sizes, invalid sizes), run layout and fillers,
 cut-list grouping, sheet estimate, and the library. The FreeCAD object and
 commands (`ConstructionObjects.py`, `ConstructionCommands.py`, `InitGui.py`) have
 not been run in the app yet (no local build environment).

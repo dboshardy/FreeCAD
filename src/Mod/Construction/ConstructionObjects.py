@@ -8,8 +8,22 @@ import Cabinet
 import CutList
 import Library
 
-DEFAULT_CARCASS = "sheet.metric.plywood.18"
-DEFAULT_BACK = "sheet.metric.plywood.6"
+DEFAULT_MATERIALS = {
+    "CarcassMaterial": "sheet.metric.plywood.18",
+    "BackMaterial": "sheet.metric.plywood.6",
+    "DrawerMaterial": "sheet.metric.plywood.12",
+}
+MATERIAL_TIPS = {
+    "CarcassMaterial": "Sides, bottom, top, shelves, fronts, plinth, fillers",
+    "BackMaterial": "Back panel and drawer bottoms",
+    "DrawerMaterial": "Drawer box sides, fronts and backs",
+}
+# Cabinet part role -> material property; anything else uses CarcassMaterial.
+ROLE_MATERIAL = {
+    "back": "BackMaterial",
+    "drawer_bottom": "BackMaterial",
+    "drawer_box": "DrawerMaterial",
+}
 
 _items = None
 
@@ -22,75 +36,106 @@ def items():
     return _items
 
 
-# (property, BaseCabinet field, type, group, tooltip). Thicknesses come from the materials.
+# (property, Cabinet field, type, group, tooltip). Thicknesses come from the materials.
 LENGTH = "App::PropertyLength"
 INTEGER = "App::PropertyInteger"
+ENUM = "App::PropertyEnumeration"
 PROPERTIES = [
+    ("Kind", "kind", ENUM, "Cabinet", "base: top stretchers; wall / tall: full top panel"),
     ("Width", "width", LENGTH, "Size", "Outside width of the carcass"),
-    ("Height", "height", LENGTH, "Size", "Floor to top of the carcass, plinth included"),
-    ("Depth", "depth", LENGTH, "Size", "Carcass and back, doors excluded"),
+    ("Height", "height", LENGTH, "Size", "Base to top of the carcass, plinth included"),
+    ("Depth", "depth", LENGTH, "Size", "Carcass and back, fronts excluded"),
     ("PlinthHeight", "plinth_height", LENGTH, "Plinth", "0 for no plinth"),
     ("PlinthSetback", "plinth_setback", LENGTH, "Plinth", "Kick board behind the carcass front"),
-    ("StretcherWidth", "stretcher_width", LENGTH, "Carcass", "Front and back top stretchers"),
-    ("Shelves", "shelves", INTEGER, "Interior", "Number of adjustable shelves"),
+    ("StretcherWidth", "stretcher_width", LENGTH, "Carcass", "Top stretchers (base cabinets)"),
+    ("Shelves", "shelves", INTEGER, "Interior", "Adjustable shelves behind the doors"),
     ("ShelfSetback", "shelf_setback", LENGTH, "Interior", "Shelf front behind the carcass front"),
     ("ShelfClearance", "shelf_clearance", LENGTH, "Interior", "Gap at each shelf end"),
-    ("Doors", "doors", INTEGER, "Doors", "0 = one door up to 600 mm wide, else two"),
-    ("DoorGap", "door_gap", LENGTH, "Doors", "Gap between doors; half of it at the outer edges"),
+    ("Fronts", "fronts", ENUM, "Fronts", "Doors, a drawer bank, or one drawer over doors"),
+    ("Doors", "doors", INTEGER, "Fronts", "0 = one door up to 600 mm wide, else two"),
+    ("FrontGap", "door_gap", LENGTH, "Fronts", "Gap between fronts; half of it at outer edges"),
+    ("Drawers", "drawers", INTEGER, "Drawers", "Drawers in a drawer bank"),
+    ("DrawerFrontHeight", "drawer_front_height", LENGTH, "Drawers", "Top drawer over doors"),
+    ("SlideClearance", "drawer_side_clearance", LENGTH, "Drawers", "Per side; see slide data"),
+    (
+        "DrawerHeightClearance",
+        "drawer_height_clearance",
+        LENGTH,
+        "Drawers",
+        "Drawer opening height minus box height",
+    ),
+    ("DrawerRearClearance", "drawer_rear_clearance", LENGTH, "Drawers", "Behind the drawer box"),
 ]
-MATERIALS = [
-    ("CarcassMaterial", DEFAULT_CARCASS, "Sides, bottom, stretchers, shelves, doors, plinth"),
-    ("BackMaterial", DEFAULT_BACK, "Back panel"),
-]
+CHOICES = {"Kind": Cabinet.KINDS, "Fronts": Cabinet.FRONTS, "FillerSide": Cabinet.FILLER_SIDES}
 
 
-class BaseCabinetFeature:
-    """Frameless base cabinet. Every size is a property; edit in the property view."""
+def add_property(obj, kind, prop, group, tip, value):
+    """Adds prop when missing (new object or older file) and sets its default."""
+    if prop in obj.PropertiesList:
+        return
+    obj.addProperty(kind, prop, group, tip)
+    if kind == ENUM:
+        setattr(obj, prop, list(CHOICES[prop]))
+    setattr(obj, prop, value)
 
-    def __init__(self, obj):
+
+class CabinetFeature:
+    """Frameless cabinet. Every size is a property; edit in the property view."""
+
+    skip = ()  # Cabinet properties a subclass does not use
+
+    def __init__(self, obj, kind="base"):
         obj.Proxy = self
-        self.setProperties(obj)
+        self.setProperties(obj, kind)
 
-    def setProperties(self, obj):
-        defaults = Cabinet.BaseCabinet()
-        for prop, field, kind, group, tip in PROPERTIES:
-            if prop not in obj.PropertiesList:
-                obj.addProperty(kind, prop, group, tip)
-                setattr(obj, prop, getattr(defaults, field))
+    def setProperties(self, obj, kind="base"):
+        defaults = Cabinet.defaults(kind)
+        for prop, field, ptype, group, tip in PROPERTIES:
+            if prop not in self.skip:
+                add_property(obj, ptype, prop, group, tip, getattr(defaults, field))
         sheet_ids = [i["id"] for i in Library.sheets(items())]
-        for prop, default, tip in MATERIALS:
+        for prop, default in DEFAULT_MATERIALS.items():
             if prop in obj.PropertiesList:
                 current = getattr(obj, prop)
             else:
-                obj.addProperty("App::PropertyEnumeration", prop, "Materials", tip)
+                obj.addProperty(ENUM, prop, "Materials", MATERIAL_TIPS[prop])
                 current = default
             # A value whose library item is gone stays selectable, and fails in execute().
             setattr(obj, prop, sheet_ids if current in sheet_ids else sheet_ids + [current])
             setattr(obj, prop, current)
 
     def onDocumentRestored(self, obj):
-        self.setProperties(obj)
+        self.setProperties(obj, obj.Kind)
 
     def spec(self, obj):
         kwargs = {}
-        for prop, field, kind, _, _ in PROPERTIES:
+        for prop, field, ptype, _, _ in PROPERTIES:
+            if prop in self.skip:
+                continue
             value = getattr(obj, prop)
-            kwargs[field] = int(value) if kind == INTEGER else float(value.Value)
+            if ptype == LENGTH:
+                value = float(value.Value)
+            elif ptype == INTEGER:
+                value = int(value)
+            kwargs[field] = value
         kwargs["thickness"] = sheet_thickness(obj.CarcassMaterial)
         kwargs["back_thickness"] = sheet_thickness(obj.BackMaterial)
-        return Cabinet.BaseCabinet(**kwargs)
+        kwargs["drawer_thickness"] = sheet_thickness(obj.DrawerMaterial)
+        return Cabinet.Cabinet(**kwargs)
+
+    def model_parts(self, obj):
+        return self.spec(obj).parts()
 
     def parts(self, obj):
         """[(material id, Part)] for the cut list."""
-        out = []
-        for part in self.spec(obj).parts():
-            material = obj.BackMaterial if part.role == "back" else obj.CarcassMaterial
-            out.append((material, part))
-        return out
+        return [
+            (getattr(obj, ROLE_MATERIAL.get(p.role, "CarcassMaterial")), p)
+            for p in self.model_parts(obj)
+        ]
 
     def execute(self, obj):
         # ValueError from validate() marks the object as failed with its message.
-        boxes = [Part.makeBox(*p.size, FreeCAD.Vector(*p.pos)) for _, p in self.parts(obj)]
+        boxes = [Part.makeBox(*p.size, FreeCAD.Vector(*p.pos)) for p in self.model_parts(obj)]
         placement = obj.Placement
         obj.Shape = Part.makeCompound(boxes)
         obj.Placement = placement
@@ -102,6 +147,67 @@ class BaseCabinetFeature:
         return None
 
 
+def parse_widths(text, prop):
+    """'600, 600, 900' -> (600.0, 600.0, 900.0). Raises ValueError naming prop."""
+    try:
+        values = tuple(float(v) for v in text.replace(";", ",").split(",") if v.strip())
+    except ValueError:
+        raise ValueError(f"{prop}: use comma-separated numbers in mm, e.g. 600, 600, 900")
+    if any(v <= 0 for v in values):
+        raise ValueError(f"{prop}: widths must be positive")
+    return values
+
+
+class CabinetRunFeature(CabinetFeature):
+    """Cabinets side by side along a wall; all share the cabinet properties."""
+
+    skip = ("Width",)
+
+    def setProperties(self, obj, kind="base"):
+        super().setProperties(obj, kind)
+        standard = ", ".join(f"{w:g}" for w in Cabinet.STANDARD_WIDTHS)
+        run = [
+            ("App::PropertyLength", "Length", "Run", "Wall length to fill", 2400.0),
+            (
+                "App::PropertyString",
+                "Widths",
+                "Run",
+                "Cabinet widths in mm, left to right; empty = chosen from StandardWidths",
+                "",
+            ),
+            (
+                "App::PropertyString",
+                "StandardWidths",
+                "Run",
+                "Widths to choose from when Widths is empty",
+                standard,
+            ),
+            (ENUM, "FillerSide", "Run", "Where the leftover length goes", "both"),
+            ("App::PropertyString", "Layout", "Run", "Result: widths and fillers", ""),
+        ]
+        for ptype, prop, group, tip, value in run:
+            add_property(obj, ptype, prop, group, tip, value)
+        obj.setEditorMode("Layout", 1)  # read-only
+
+    def run(self, obj):
+        return Cabinet.Run(
+            self.spec(obj),
+            length=float(obj.Length.Value),
+            widths=parse_widths(obj.Widths, "Widths"),
+            standard=parse_widths(obj.StandardWidths, "StandardWidths"),
+            filler_side=obj.FillerSide,
+        )
+
+    def model_parts(self, obj):
+        return self.run(obj).parts()
+
+    def execute(self, obj):
+        widths, left, right = self.run(obj).layout()
+        layout = ", ".join(f"{w:g}" for w in widths)
+        obj.Layout = f"{layout} | fillers {left:g} / {right:g}"
+        super().execute(obj)
+
+
 def sheet_thickness(material_id):
     item = items().get(material_id)
     if item is None:
@@ -109,18 +215,30 @@ def sheet_thickness(material_id):
     return Library.mm(item, "t")
 
 
-def make_base_cabinet(doc=None, name="BaseCabinet"):
+def _make(feature, kind, name, doc):
     doc = doc or FreeCAD.ActiveDocument or FreeCAD.newDocument()
     obj = doc.addObject("Part::FeaturePython", name)
-    BaseCabinetFeature(obj)
+    feature(obj, kind)
+    if kind == "wall":
+        placement = obj.Placement  # a copy: modify, then assign back
+        placement.Base.z = Cabinet.WALL_ELEVATION
+        obj.Placement = placement
     if FreeCAD.GuiUp:
         obj.ViewObject.Proxy = 0
     doc.recompute()
     return obj
 
 
+def make_cabinet(kind="base", doc=None):
+    return _make(CabinetFeature, kind, kind.capitalize() + "Cabinet", doc)
+
+
+def make_cabinet_run(kind="base", doc=None):
+    return _make(CabinetRunFeature, kind, kind.capitalize() + "Run", doc)
+
+
 def construction_objects(doc):
-    return [o for o in doc.Objects if isinstance(getattr(o, "Proxy", None), BaseCabinetFeature)]
+    return [o for o in doc.Objects if isinstance(getattr(o, "Proxy", None), CabinetFeature)]
 
 
 def write_cut_list(doc):
