@@ -848,6 +848,40 @@ class TestChecks(unittest.TestCase):
         self.assertEqual(hw[items["hardware.wall_anchor"]["name"]], 6)
 
 
+TUTORIALS = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "docs", "tutorials", "construction"
+)
+
+
+class TestTutorials(unittest.TestCase):
+    """Runs every ```pycon block in docs/tutorials/construction with doctest, so
+    the tutorials' examples and printed results stay true."""
+
+    def test_examples(self):
+        import doctest
+        import re
+
+        if not os.path.isdir(TUTORIALS):
+            self.skipTest("tutorials not installed (source tree only)")
+        parser = doctest.DocTestParser()
+        runner = doctest.DocTestRunner(optionflags=doctest.NORMALIZE_WHITESPACE)
+        blocks = 0
+        for name in sorted(os.listdir(TUTORIALS)):
+            if not name.endswith(".md"):
+                continue
+            with open(os.path.join(TUTORIALS, name), encoding="utf-8") as f:
+                text = f.read()
+            # One namespace per tutorial: later blocks build on earlier ones.
+            source = "\n".join(re.findall(r"```pycon\n(.*?)```", text, re.S))
+            if not source:
+                continue
+            test = parser.get_doctest(source, {}, name, name, 0)
+            blocks += 1
+            result = runner.run(test)
+            self.assertEqual(result.failed, 0, f"{name}: {result.failed} example(s) failed")
+        self.assertGreater(blocks, 0)
+
+
 class TestModulesImport(unittest.TestCase):
     """The FreeCAD-facing modules cannot run here; importing them against stubs
     still catches definition-order and name errors before a build does."""

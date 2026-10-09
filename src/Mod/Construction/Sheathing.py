@@ -46,7 +46,7 @@ def cover(size, sheet, long_along="u", stagger=True):
         da = min(short, across - a0)
         # Staggering only helps when a row needs more than one sheet.
         offset = long / 2 if stagger and row % 2 and along > long + 1e-6 else 0.0
-        s = -offset
+        s = 0.0 - offset  # not -offset: that gives -0.0 for an unstaggered row
         while s < along - 1e-6:
             s0, s1 = max(s, 0.0), min(s + long, along)
             if s1 - s0 >= 1.0:  # no slivers
