@@ -80,12 +80,12 @@ advisory checks. Nothing here certifies building-code compliance:
 | # | Item | Status | Where / notes |
 |---|---|---|---|
 | 5.4.1 | Wall framing | Partial | `Construction_WallFrame` (`Framing.py`, `WallFrameFeature`): bottom plate (cut at doors), 1 or 2 top plates, studs on centres from the wall start, door and window rough openings with king and jack studs, header plies on edge, cripples above headers and below sills, rough sill. Plates longer than the stud lumber's longest stock are spliced over stud centres, upper top plate joints at least one bay from the lower. Openings typed as text. Missing: corners (3-stud, California), T-intersections, blocking rows, header sizing (header size is chosen by the user), following a sketch line |
-| 5.4.2 | Floor framing | Missing | |
-| 5.4.3 | Roof framing, truss layout | Partial | Upstream `ArchRoof` (solid), `ArchTruss` (truss object) |
+| 5.4.2 | Floor framing | Partial | `Construction_FloorFrame` (`Framing.Floor`): rim joists (spliced over joists to fit stock) and joists on centres. Missing: beams, posts, blocking/bridging, openings, joist splices over beams |
+| 5.4.3 | Roof framing, truss layout | Partial | `Construction_GableRoof` (`Framing.GableRoof`): common rafters with plumb ridge and tail cuts and birdsmouth seats, ridge board (spliced over rafter pairs), ceiling joists as rafter ties with ends cut to the slope (default on). Missing: hip, shed, gambrel, rake overhangs, collar ties, fascia, gable-end studs, trusses (upstream `ArchTruss` remains) |
 | 5.4.4 | Stairs | Partial | Upstream `ArchStairs` (straight, landing, curved); no rule checks |
 | 5.4.5 | Decks | Missing | |
 | 5.4.6 | Foundations | Partial | Upstream `ArchStructure` slabs/footings; no concrete-volume report |
-| 5.4.7 | Sheathing / cladding layers | Partial | Upstream `ArchCovering`; no seam layout |
+| 5.4.7 | Sheathing / cladding layers | Partial | `Construction_Sheathing` (`Sheathing.py`): sheet goods on floor (long side across joists), wall (upright, openings cut out) and both roof slopes, seams staggered; panels go through the panel-saw layout (whole sheets counted as whole). Missing: seam-over-framing alignment, siding, roofing, membranes |
 | 5.4.8 | Cabinets | Partial | `Construction/Cabinet.py`, `ConstructionObjects.py`. Frameless base / wall / tall / sink cabinets (base: top stretchers + plinth; wall / tall: full top; wall cabinets created at 1400 mm; sink: front stretcher only, no back, false front over doors) and blind-corner cabinets (any kind; blind panel left or right, doors on the open width). Butt-jointed carcass, adjustable shelves, full-overlay fronts: doors, drawer bank, drawer over doors, false front over doors. Drawer boxes sized from slide clearances (side, height, rear), depth rounded down to 50 mm slide lengths. Runs along a wall (`Construction_BaseRun`, `Construction_WallRun`): given widths, or widths chosen from a standard list to leave the least filler, fillers left / right / both; per-cabinet styles in Widths (`1000 blind_left, 600 drawers, 800 sink, 600`), a blind corner at a run end keeps the filler off the corner side. Missing: diagonal and L-shaped corner cabinets, corner fillers between meeting runs, face-frame, dado/rabbet/confirmat options, shaker doors, drawer slides and hinges in the BOM, toe-kick notch option, per-cabinet sizes other than width inside a run |
 | 5.4.9 | Furniture primitives | Missing | |
 | 5.4.10 | Building elements (walls, doors, windows, levels, rooms) | Present | Upstream BIM |
@@ -95,7 +95,7 @@ advisory checks. Nothing here certifies building-code compliance:
 
 | # | Item | Status | Where / notes |
 |---|---|---|---|
-| 5.5.1 | Beam span / deflection (simple, cantilever, continuous) | Partial | `Checks.header`: simply supported headers, bending and deflection (span/limit) from beam mechanics; needs the header lumber `design_values` (Fb, E) in the user library and a `HeaderLoad` on the wall, otherwise "not checked". No cantilever / continuous, no joists or rafters yet |
+| 5.5.1 | Beam span / deflection (simple, cantilever, continuous) | Partial | `Checks.beam` (simply supported): headers (`HeaderLoad` kN/m), floor joists rim to rim (`FloorLoad` kPa, span/360), rafters on plan (`RoofLoad` kPa, span/240); plus birdsmouth depth, ridge depth vs. plumb cut, rafter ties. All need user design values (Fb, E) and loads, otherwise "not checked". No cantilever / continuous |
 | 5.5.2 | Rise/run, headroom, guardrail rule sets | Partial | Rule set framework (`Checks.py`, library category `rule_set`, preference `Mod/Construction/RuleSet`); shipped `rules.generic-example` covers stud spacing, stud slenderness (l/d), header deflection limit, cabinets needing wall anchors. Stairs and guards not generated yet, so no rise/run, headroom or guard checks |
 
 ## 5.6 Outputs

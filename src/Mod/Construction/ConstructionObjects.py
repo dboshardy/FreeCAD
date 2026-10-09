@@ -12,6 +12,7 @@ import CutList
 import Framing
 import Library
 import Member
+import Sheathing
 
 DEFAULT_MATERIALS = {
     "CarcassMaterial": "sheet.metric.plywood.18",
@@ -383,82 +384,81 @@ def make_member(base=None, doc=None, name="Member"):
     return obj
 
 
-class WallFrameFeature:
-    """Stud wall framing along the object's local X axis (see Framing.py)."""
+def longest_stock(*material_ids):
+    """Longest piece every listed lumber comes in (the shortest of their maxima)."""
+    return min(max(library_item(m).get("stock_lengths_mm") or [6000.0]) for m in material_ids)
+
+
+def profile_solid(piece, thickness):
+    """Solid of a Framing.ProfilePiece: its (y, z) outline extruded along x."""
+    x0 = piece.x - thickness / 2
+    points = [FreeCAD.Vector(x0, y, z) for y, z in piece.profile]
+    face = Part.Face(Part.makePolygon(points + points[:1]))
+    return face.extrude(FreeCAD.Vector(thickness, 0, 0))
+
+
+class FramingFeature:
+    """Base of framing objects. A subclass defines PROPERTIES and MATERIALS
+    (property, section name, default lumber, tip) and model(obj), which returns
+    a Framing.Wall / Floor / GableRoof."""
+
+    GROUP = "Framing"
+    PROPERTIES = []
+    MATERIALS = []
 
     def __init__(self, obj):
         obj.Proxy = self
         self.setProperties(obj)
 
     def setProperties(self, obj):
-        d = Framing.Wall()
-        props = [
-            (LENGTH, "Length", "Wall length", d.length),
-            (LENGTH, "Height", "Bottom of the bottom plate to top of the top plates", d.height),
-            (LENGTH, "StudSpacing", "Stud centres, e.g. 400 / 600 mm or 406.4 (16 in)", d.spacing),
-            (INTEGER, "TopPlates", "1 or 2", d.top_plates),
-            (
-                "App::PropertyFloat",
-                "HeaderLoad",
-                "Uniform load on each header in kN/m, from your load calculation; "
-                "0 = headers not checked",
-                0.0,
-            ),
-            (
-                "App::PropertyString",
-                "Openings",
-                "Rough openings, e.g. 'door 900x2100 @ 600, window 1200x1000 @ 2400 sill 900' "
-                "(mm; @ = left edge from the wall start)",
-                "",
-            ),
-        ]
-        for ptype, prop, tip, value in props:
-            add_property(obj, ptype, prop, "Wall", tip, value)
-        add_library_choice(
-            obj, "StudMaterial", Library.LUMBER, DEFAULT_LUMBER, "Wall", "Studs and plates"
-        )
-        add_library_choice(
-            obj, "HeaderMaterial", Library.LUMBER, DEFAULT_HEADER, "Wall", "One header ply"
-        )
+        for ptype, prop, tip, value in self.PROPERTIES:
+            add_property(obj, ptype, prop, self.GROUP, tip, value)
+        for prop, _, default, tip in self.MATERIALS:
+            add_library_choice(obj, prop, Library.LUMBER, default, self.GROUP, tip)
 
     def onDocumentRestored(self, obj):
         self.setProperties(obj)
 
-    def wall(self, obj):
-        try:
-            openings = Framing.parse_openings(obj.Openings)
-        except ValueError as e:
-            raise ValueError(f"Openings: {e}")
-        stock = library_item(obj.StudMaterial).get("stock_lengths_mm") or [6000.0]
-        return Framing.Wall(
-            length=float(obj.Length.Value),
-            height=float(obj.Height.Value),
-            spacing=float(obj.StudSpacing.Value),
-            top_plates=int(obj.TopPlates),
-            stud=lumber_section(obj.StudMaterial),
-            header=lumber_section(obj.HeaderMaterial),
-            openings=openings,
-            max_piece=max(stock),
-        )
+    def materials(self, obj):
+        """section name -> (lumber id, (thickness, depth))."""
+        return {
+            section: (getattr(obj, prop), lumber_section(getattr(obj, prop)))
+            for prop, section, _, _ in self.MATERIALS
+        }
 
-    def _pieces(self, obj):
-        wall = self.wall(obj)
-        sections = {"stud": wall.stud, "header": wall.header}
-        materials = {"stud": obj.StudMaterial, "header": obj.HeaderMaterial}
-        return [(p, sections[p.section], materials[p.section]) for p in wall.pieces()]
+    def max_piece(self, obj):
+        return longest_stock(*(getattr(obj, prop) for prop, _, _, _ in self.MATERIALS))
+
+    def _all(self, obj):
+        """[(piece, (material id, section))] of members and profile boards."""
+        model, mats = self.model(obj), self.materials(obj)
+        pieces = list(model.pieces()) + list(getattr(model, "boards", list)())
+        return [(p, mats[p.section]) for p in pieces]
 
     def parts(self, obj):
-        return [(m, member_part(p.name, p.start, p.end, s)) for p, s, m in self._pieces(obj)]
+        out = []
+        for p, (material, section) in self._all(obj):
+            if isinstance(p, Framing.ProfilePiece):
+                part = Cabinet.Part(p.name, "member", (*section, p.cut_length()), (0, 0, 0), "z")
+            else:
+                part = member_part(p.name, p.start, p.end, section)
+            out.append((material, part))
+        return out
 
-    def checks(self, obj, rules):
-        values = library_item(obj.HeaderMaterial).get("design_values")
-        return Checks.wall(self.wall(obj), rules, values, float(obj.HeaderLoad))
+    def execute(self, obj):
+        shapes = []
+        for p, (_, section) in self._all(obj):
+            if isinstance(p, Framing.ProfilePiece):
+                shapes.append(profile_solid(p, section[0]))
+            else:
+                shapes.append(member_box(p.start, p.end, p.roll, section))
+        set_shape(obj, shapes)
+
+    def design_values(self, obj, prop):
+        return library_item(getattr(obj, prop)).get("design_values")
 
     def anchored(self, obj, rules):
         return 0
-
-    def execute(self, obj):
-        set_shape(obj, [member_box(p.start, p.end, p.roll, s) for p, s, _ in self._pieces(obj)])
 
     def dumps(self):
         return None
@@ -467,13 +467,243 @@ class WallFrameFeature:
         return None
 
 
-DEFAULT_HEADER = "lumber.metric.45x195"
+def _length(prop, tip, value):
+    return (LENGTH, prop, tip, value)
+
+
+class WallFrameFeature(FramingFeature):
+    """Stud wall framing along the object's local X axis (see Framing.py)."""
+
+    GROUP = "Wall"
+    _d = Framing.Wall()
+    PROPERTIES = [
+        _length("Length", "Wall length", _d.length),
+        _length("Height", "Bottom of the bottom plate to top of the top plates", _d.height),
+        _length("StudSpacing", "Stud centres, e.g. 400 / 600 mm or 406.4 (16 in)", _d.spacing),
+        (INTEGER, "TopPlates", "1 or 2", _d.top_plates),
+        (
+            "App::PropertyFloat",
+            "HeaderLoad",
+            "Uniform load on each header in kN/m, from your load calculation; "
+            "0 = headers not checked",
+            0.0,
+        ),
+        (
+            "App::PropertyString",
+            "Openings",
+            "Rough openings, e.g. 'door 900x2100 @ 600, window 1200x1000 @ 2400 sill 900' "
+            "(mm; @ = left edge from the wall start)",
+            "",
+        ),
+    ]
+    MATERIALS = [
+        ("StudMaterial", "stud", "lumber.metric.45x95", "Studs and plates"),
+        ("HeaderMaterial", "header", "lumber.metric.45x195", "One header ply"),
+    ]
+
+    def model(self, obj):
+        try:
+            openings = Framing.parse_openings(obj.Openings)
+        except ValueError as e:
+            raise ValueError(f"Openings: {e}")
+        return Framing.Wall(
+            length=float(obj.Length.Value),
+            height=float(obj.Height.Value),
+            spacing=float(obj.StudSpacing.Value),
+            top_plates=int(obj.TopPlates),
+            stud=lumber_section(obj.StudMaterial),
+            header=lumber_section(obj.HeaderMaterial),
+            openings=openings,
+            max_piece=longest_stock(obj.StudMaterial),
+        )
+
+    def checks(self, obj, rules):
+        values = self.design_values(obj, "HeaderMaterial")
+        return Checks.wall(self.model(obj), rules, values, float(obj.HeaderLoad))
+
+
+LOAD_TIP = "from your load calculation; 0 = not checked"
+
+
+class FloorFrameFeature(FramingFeature):
+    """Floor platform: joists along local Y between rim joists along X."""
+
+    GROUP = "Floor"
+    _d = Framing.Floor()
+    PROPERTIES = [
+        _length("Length", "Along the rim joists", _d.length),
+        _length("Width", "Along the joists (rim to rim)", _d.width),
+        _length("JoistSpacing", "Joist centres", _d.spacing),
+        ("App::PropertyFloat", "FloorLoad", "Floor load in kPa, " + LOAD_TIP, 0.0),
+    ]
+    MATERIALS = [("JoistMaterial", "joist", "lumber.metric.45x195", "Joists and rims")]
+
+    def model(self, obj):
+        return Framing.Floor(
+            length=float(obj.Length.Value),
+            width=float(obj.Width.Value),
+            spacing=float(obj.JoistSpacing.Value),
+            joist=lumber_section(obj.JoistMaterial),
+            max_piece=self.max_piece(obj),
+        )
+
+    def checks(self, obj, rules):
+        values = self.design_values(obj, "JoistMaterial")
+        return Checks.floor(self.model(obj), rules, values, float(obj.FloorLoad))
+
+
+class GableRoofFeature(FramingFeature):
+    """Gable roof framing: ridge along local X, z = 0 at the top of the wall plates."""
+
+    GROUP = "Roof"
+    _d = Framing.GableRoof()
+    PROPERTIES = [
+        _length("Length", "Along the ridge: outside of the end walls", _d.length),
+        _length("Span", "Outer face to outer face of the side walls", _d.span),
+        ("App::PropertyAngle", "Pitch", "Roof slope (26.57 = 6 in 12)", _d.pitch),
+        _length("Overhang", "Eave overhang, horizontal from the wall face", _d.overhang),
+        _length("RafterSpacing", "Rafter centres", _d.spacing),
+        _length("Seat", "Birdsmouth seat: the wall top plate width", _d.seat),
+        ("App::PropertyBool", "CeilingJoists", "Ceiling joists as rafter ties", True),
+        ("App::PropertyFloat", "RoofLoad", "kPa on plan, " + LOAD_TIP, 0.0),
+    ]
+    MATERIALS = [
+        ("RafterMaterial", "rafter", "lumber.metric.45x145", "Rafters"),
+        ("RidgeMaterial", "ridge", "lumber.metric.45x195", "Ridge board"),
+        ("TieMaterial", "tie", "lumber.metric.45x145", "Ceiling joists"),
+    ]
+
+    def model(self, obj):
+        return Framing.GableRoof(
+            length=float(obj.Length.Value),
+            span=float(obj.Span.Value),
+            pitch=float(obj.Pitch.Value),
+            overhang=float(obj.Overhang.Value),
+            spacing=float(obj.RafterSpacing.Value),
+            rafter=lumber_section(obj.RafterMaterial),
+            ridge=lumber_section(obj.RidgeMaterial),
+            seat=float(obj.Seat.Value),
+            ties=bool(obj.CeilingJoists),
+            tie=lumber_section(obj.TieMaterial),
+            max_piece=self.max_piece(obj),
+        )
+
+    def checks(self, obj, rules):
+        values = self.design_values(obj, "RafterMaterial")
+        return Checks.roof(self.model(obj), rules, values, float(obj.RoofLoad))
+
+
+def _make_framing(feature, name, doc):
+    doc = doc or FreeCAD.ActiveDocument or FreeCAD.newDocument()
+    obj = doc.addObject("Part::FeaturePython", name)
+    feature(obj)
+    if FreeCAD.GuiUp:
+        obj.ViewObject.Proxy = 0
+    doc.recompute()
+    return obj
 
 
 def make_wall_frame(doc=None, name="WallFrame"):
-    doc = doc or FreeCAD.ActiveDocument or FreeCAD.newDocument()
+    return _make_framing(WallFrameFeature, name, doc)
+
+
+def make_floor_frame(doc=None, name="FloorFrame"):
+    return _make_framing(FloorFrameFeature, name, doc)
+
+
+def make_gable_roof(doc=None, name="GableRoof"):
+    return _make_framing(GableRoofFeature, name, doc)
+
+
+DEFAULT_SHEATHING = "sheet.metric.plywood.12"
+FLOOR_SHEATHING = "sheet.metric.plywood.18"
+
+
+class SheathingFeature:
+    """Sheet goods on a framing object's surfaces (see Sheathing.py)."""
+
+    def __init__(self, obj, material=DEFAULT_SHEATHING):
+        obj.Proxy = self
+        self.setProperties(obj, material)
+
+    def setProperties(self, obj, material=DEFAULT_SHEATHING):
+        add_property(obj, "App::PropertyLink", "Base", "Sheathing", "Framing to cover", None)
+        add_property(
+            obj, "App::PropertyBool", "Stagger", "Sheathing", "Offset every other row", True
+        )
+        add_library_choice(obj, "Material", Library.SHEET_GOODS, material, "Sheathing", "Sheets")
+
+    def onDocumentRestored(self, obj):
+        self.setProperties(obj)
+
+    def _panels(self, obj):
+        """[(surface, (u0, v0, du, dv))] and the sheet thickness."""
+        if obj.Base is None or not isinstance(obj.Base.Proxy, FramingFeature):
+            raise ValueError("Base must be a wall, floor or roof framing object")
+        item = library_item(obj.Material)
+        w, h, t = (Library.mm(item, k) for k in ("w", "h", "t"))
+        sheet = (max(w, h), min(w, h))
+        model = obj.Base.Proxy.model(obj.Base)
+        out = []
+        for surface in Sheathing.surfaces(model):
+            for panel in Sheathing.cover(surface.size, sheet, surface.long_along, obj.Stagger):
+                out.append((surface, panel))
+        return out, t
+
+    def parts(self, obj):
+        panels, t = self._panels(obj)
+        return [
+            (
+                obj.Material,
+                Cabinet.Part(
+                    surface.name,
+                    "sheathing",
+                    (du, dv, t),
+                    (0, 0, 0),
+                    "x" if surface.long_along == "u" else "y",
+                ),
+            )
+            for surface, (_, _, du, dv) in panels
+        ]
+
+    def execute(self, obj):
+        panels, t = self._panels(obj)
+        V = FreeCAD.Vector
+        shapes = []
+        for surface, (u0, v0, du, dv) in panels:
+            panel = Part.makeBox(du, dv, t, V(u0, v0, 0))
+            for hu, hv, hdu, hdv in surface.openings:
+                if hu < u0 + du and u0 < hu + hdu and hv < v0 + dv and v0 < hv + hdv:
+                    panel = panel.cut(Part.makeBox(hdu, hdv, t, V(hu, hv, 0)))
+            frame = FreeCAD.Placement(
+                V(*surface.origin),
+                FreeCAD.Rotation(V(*surface.u), V(*surface.v), V(*surface.normal()), "ZXY"),
+            )
+            panel.Placement = frame.multiply(panel.Placement)
+            shapes.append(panel)
+        set_shape(obj, shapes)
+
+    def checks(self, obj, rules):
+        return []
+
+    def anchored(self, obj, rules):
+        return 0
+
+    def dumps(self):
+        return None
+
+    def loads(self, state):
+        return None
+
+
+def make_sheathing(base, doc=None, name="Sheathing"):
+    """Covers a framing object; follows its placement."""
+    doc = doc or base.Document
+    material = FLOOR_SHEATHING if isinstance(base.Proxy, FloorFrameFeature) else DEFAULT_SHEATHING
     obj = doc.addObject("Part::FeaturePython", name)
-    WallFrameFeature(obj)
+    SheathingFeature(obj, material)
+    obj.Base = base
+    obj.setExpression("Placement", f"{base.Name}.Placement")
     if FreeCAD.GuiUp:
         obj.ViewObject.Proxy = 0
     doc.recompute()
@@ -481,7 +711,7 @@ def make_wall_frame(doc=None, name="WallFrame"):
 
 
 def construction_objects(doc):
-    kinds = (CabinetFeature, MemberFeature, WallFrameFeature)
+    kinds = (CabinetFeature, MemberFeature, FramingFeature, SheathingFeature)
     return [o for o in doc.Objects if isinstance(getattr(o, "Proxy", None), kinds)]
 
 

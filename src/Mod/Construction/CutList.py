@@ -51,14 +51,24 @@ def layout_sheets(pieces, sheet_w, sheet_h, kerf=3.2, trim=10.0, grain_locked=Tr
     The sheet is sheet_w across by sheet_h along its length; grain runs along
     the length. With grain_locked, parts with grain keep their length along it.
     trim: edge strip removed on every side. kerf: saw blade width.
-    Returns one list of Placement per sheet: the fewest sheets over several
-    part orders and split rules, then the fullest first sheets. Raises
+    Returns one list of Placement per sheet: pieces the size of the sheet each
+    take a whole sheet; the rest the fewest sheets over several part orders and
+    split rules, then the fullest first sheets. Raises
     ValueError for a part that fits on no sheet.
 
     Free-rectangle guillotine packing, best-area fit, split along the shorter or
     longer leftover axis (J. Jylänki, "A Thousand Ways to Pack the Bin", 2010;
     guillotine cutting after Gilmore & Gomory, 1965). See docs/prior-art/.
     """
+    # A piece the size of the sheet is a whole sheet: no trim, no cut.
+    whole_size = sorted((sheet_w, sheet_h))
+    is_whole = [all(abs(a - b) <= 1.0 for a, b in zip(sorted(p[1:3]), whole_size)) for p in pieces]
+    whole = [
+        [Placement(p[0], 0.0, 0.0, sheet_w, sheet_h, False)] for p, w in zip(pieces, is_whole) if w
+    ]
+    pieces = [p for p, w in zip(pieces, is_whole) if not w]
+    if not pieces:
+        return whole
     # ponytail: 24 greedy passes, keep the best. Add a search (e.g. tree search
     # over strips) if layouts measurably waste sheets on real jobs.
     results = [
@@ -81,7 +91,7 @@ def layout_sheets(pieces, sheet_w, sheet_h, kerf=3.2, trim=10.0, grain_locked=Tr
         used = [sum(p.w * p.h for p in placed) for placed in sheets]
         return (len(sheets), [-u for u in used])
 
-    return min(results, key=rank)
+    return whole + min(results, key=rank)
 
 
 # Free-rectangle scores, lower is better (Jylänki 2010): best area, best short
