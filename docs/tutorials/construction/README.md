@@ -19,7 +19,8 @@ buying plans, hardware lists and advisory safety checks.
 ## Before you start
 
 - Switch to the workbench: **View > Workbench > Construction**. All commands are
-  on the **Construction** toolbar and menu.
+  on the **Construction** toolbar and menu; **Construction > Tutorials** opens
+  these pages.
 - Sizes are in millimetres. Imperial values work too: type `16 in` or `8 ft`
   into a length property and it is converted.
 - Every generated object is parametric. Select it and change its properties in

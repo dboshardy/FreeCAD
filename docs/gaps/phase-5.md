@@ -116,7 +116,7 @@ advisory checks. Nothing here certifies building-code compliance:
 |---|---|---|---|
 | 5.7.1 | Tutorials with examples for each feature | Present | `docs/tutorials/construction/`: 1 cabinets and runs, 2 framing (members, walls, floors, roofs, sheathing, lumber plan), 3 shed end to end, 4 libraries, settings and checks |
 | 5.7.2 | Examples kept true | Present | Every `pycon` block runs under doctest in `TestConstruction.TestTutorials`. GUI steps are written from the code and not yet followed in a running app |
-| 5.7.3 | Shown in the in-app help | Missing | Tutorials are Markdown in the source tree; not installed or linked from Help |
+| 5.7.3 | Shown in the in-app help | Partial | Installed with the workbench (`Mod/Construction/Tutorials`); **Construction > Tutorials** opens the index through upstream `Help.show` (rendering follows the Help preferences). Not yet tried in a running app |
 
 ## Exit criteria status
 

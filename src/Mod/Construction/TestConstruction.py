@@ -970,14 +970,17 @@ class TestChecks(unittest.TestCase):
         self.assertEqual(hw[items["hardware.wall_anchor"]["name"]], 6)
 
 
-TUTORIALS = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "..",
-    "..",
-    "..",
-    "docs",
-    "tutorials",
-    "construction",
+HERE = os.path.dirname(os.path.abspath(__file__))
+TUTORIALS = next(
+    (
+        folder
+        for folder in (
+            os.path.join(HERE, "Tutorials"),  # installed with the workbench
+            os.path.join(HERE, "..", "..", "..", "docs", "tutorials", "construction"),  # source
+        )
+        if os.path.isdir(folder)
+    ),
+    "",
 )
 
 
@@ -989,8 +992,8 @@ class TestTutorials(unittest.TestCase):
         import doctest
         import re
 
-        if not os.path.isdir(TUTORIALS):
-            self.skipTest("tutorials not installed (source tree only)")
+        if not TUTORIALS:
+            self.skipTest("tutorials not found")
         parser = doctest.DocTestParser()
         runner = doctest.DocTestRunner(optionflags=doctest.NORMALIZE_WHITESPACE)
         blocks = 0
