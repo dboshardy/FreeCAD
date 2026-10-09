@@ -9,7 +9,14 @@ class ConstructionWorkbench(Workbench):
     def Initialize(self):
         import ConstructionCommands  # registers the commands
 
-        commands = ["Construction_BaseCabinet", "Construction_CutList"]
+        commands = [
+            "Construction_BaseCabinet",
+            "Construction_WallCabinet",
+            "Construction_TallCabinet",
+            "Construction_BaseRun",
+            "Construction_WallRun",
+            "Construction_CutList",
+        ]
         self.appendToolbar("Construction", commands)
         self.appendMenu("&Construction", commands)
 

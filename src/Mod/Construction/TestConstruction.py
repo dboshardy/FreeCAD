@@ -2,6 +2,7 @@
 # FORK: tests for the Construction workbench core. Run inside the app via the
 # test runner (registered in Init.py) or standalone: python3 TestConstruction.py
 
+import itertools
 import os
 import sys
 import unittest
@@ -11,6 +12,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import Cabinet  # noqa: E402
 import CutList  # noqa: E402
 import Library  # noqa: E402
+
+FRONT_ROLES = ("door", "drawer_front", "filler")
 
 
 def bbox(parts):
@@ -26,35 +29,63 @@ def overlaps(a, b):
     )
 
 
+def assert_no_overlap(test, parts):
+    for a, b in itertools.combinations(parts, 2):
+        test.assertFalse(overlaps(a, b), f"{a.name} overlaps {b.name}")
+
+
 class TestCabinet(unittest.TestCase):
     def test_carcass_fills_outer_size(self):
-        c = Cabinet.BaseCabinet(width=800, height=870, depth=580)
-        body = [p for p in c.parts() if p.role != "door"]
-        lo, hi = bbox(body)
-        self.assertEqual(lo, [0, 0, 0])
-        self.assertEqual(hi, [800, 580, 870])
+        for kind in Cabinet.KINDS:
+            c = Cabinet.defaults(kind)
+            c.width = 800
+            body = [p for p in c.parts() if p.role not in FRONT_ROLES]
+            lo, hi = bbox(body)
+            self.assertEqual(lo, [0, 0, 0], kind)
+            self.assertEqual(hi, [800, c.depth, c.height], kind)
 
     def test_no_parts_overlap(self):
-        for shelves in (0, 1, 3):
-            parts = Cabinet.BaseCabinet(width=900, shelves=shelves).parts()
-            for i, a in enumerate(parts):
-                for b in parts[i + 1 :]:
-                    self.assertFalse(overlaps(a, b), f"{a.name} overlaps {b.name}")
+        for kind, fronts, width, shelves in itertools.product(
+            Cabinet.KINDS, Cabinet.FRONTS, (450, 600, 900), (0, 1, 3)
+        ):
+            c = Cabinet.defaults(kind)
+            c.fronts, c.width, c.shelves = fronts, width, shelves
+            with self.subTest(kind=kind, fronts=fronts, width=width, shelves=shelves):
+                assert_no_overlap(self, c.parts())
+
+    def test_wall_and_tall_have_full_top(self):
+        for kind in ("wall", "tall"):
+            names = [p.name for p in Cabinet.defaults(kind).parts()]
+            self.assertIn("Top", names)
+            self.assertNotIn("Front stretcher", names)
+        self.assertNotIn("Kick board", [p.name for p in Cabinet.defaults("wall").parts()])
 
     def test_doors_cover_width_with_gaps(self):
         for width, count in ((450, 1), (600, 1), (601, 2), (1000, 2)):
-            c = Cabinet.BaseCabinet(width=width)
+            c = Cabinet.Cabinet(width=width)
             doors = [p for p in c.parts() if p.role == "door"]
             self.assertEqual(len(doors), count)
             total = sum(d.size[0] for d in doors) + c.door_gap * count
             self.assertAlmostEqual(total, width)
             self.assertAlmostEqual(doors[0].pos[0], c.door_gap / 2)
 
-    def test_shelf_count_and_fit(self):
-        c = Cabinet.BaseCabinet(width=600, shelves=2)
-        shelves = [p for p in c.parts() if p.name.startswith("Shelf")]
-        self.assertEqual(len(shelves), 2)
-        self.assertAlmostEqual(shelves[0].size[0], 600 - 2 * 18 - 2 * 1)
+    def test_fronts_cover_height_with_gaps(self):
+        for fronts in Cabinet.FRONTS:
+            c = Cabinet.Cabinet(fronts=fronts, drawers=4)
+            parts = [p for p in c.parts() if p.role in ("door", "drawer_front")]
+            rows = {(p.pos[2], p.size[2]) for p in parts}  # one row per height band
+            covered = sum(h for _, h in rows) + c.door_gap * len(rows)
+            self.assertAlmostEqual(covered, c.carcass_height(), msg=fronts)
+
+    def test_drawer_bank(self):
+        c = Cabinet.Cabinet(fronts="drawers", drawers=3, width=600, depth=580)
+        parts = c.parts()
+        self.assertEqual(len([p for p in parts if p.role == "drawer_front"]), 3)
+        self.assertFalse([p for p in parts if p.name.startswith("Shelf")])
+        bottoms = [p for p in parts if p.role == "drawer_bottom"]
+        # Box width = inner width - 2 x slide clearance; depth in 50 mm slide steps.
+        self.assertAlmostEqual(bottoms[0].size[0], 600 - 2 * 18 - 2 * 13)
+        self.assertEqual(bottoms[0].size[1], 550)  # 574 carcass - 10 rear -> 550 slide
 
     def test_rejects_impossible_sizes(self):
         for kwargs in (
@@ -63,11 +94,18 @@ class TestCabinet(unittest.TestCase):
             {"depth": 100},
             {"thickness": 0},
             {"shelves": -1},
+            {"shelves": 40},
             {"door_gap": 700},
             {"plinth_setback": 600},
+            {"kind": "corner"},
+            {"fronts": "glass"},
+            {"fronts": "drawers", "drawers": 0},
+            {"fronts": "drawers", "drawers": 12},
+            {"fronts": "drawers", "depth": 260},
+            {"fronts": "drawer_over_doors", "drawer_front_height": 900},
         ):
             with self.assertRaises(ValueError, msg=str(kwargs)):
-                Cabinet.BaseCabinet(**kwargs).parts()
+                Cabinet.Cabinet(**kwargs).parts()
 
     def test_cut_size_follows_grain(self):
         side = Cabinet.Part("Side", "carcass", (18, 574, 770), (0, 0, 0), "z")
@@ -78,9 +116,46 @@ class TestCabinet(unittest.TestCase):
         self.assertEqual(mdf.cut_size(), (500, 300, 18))
 
 
+class TestRun(unittest.TestCase):
+    def test_fill_widths_minimises_filler_then_count(self):
+        self.assertEqual(sum(Cabinet.fill_widths(2400)), 2400)
+        self.assertEqual(len(Cabinet.fill_widths(2400)), 3)
+        self.assertEqual(Cabinet.fill_widths(1350), [900, 450])
+        self.assertEqual(sum(Cabinet.fill_widths(2475)), 2450)  # all sizes are 50 mm steps
+        self.assertEqual(Cabinet.fill_widths(250), [])
+        self.assertEqual(Cabinet.fill_widths(700, (600, 350)), [350, 350])  # not 600 + 100 filler
+
+    def test_layout_and_fillers(self):
+        run = Cabinet.Run(Cabinet.Cabinet(), length=2475)
+        widths, left, right = run.layout()
+        self.assertAlmostEqual(sum(widths) + left + right, 2475)
+        self.assertAlmostEqual(left, right)
+        run.filler_side = "right"
+        self.assertEqual(run.layout()[1], 0)
+        run.widths = (600, 600)
+        self.assertEqual(run.layout(), ([600, 600], 0.0, 1275.0))
+        run.widths = (1500, 1000)
+        with self.assertRaises(ValueError):
+            run.layout()
+
+    def test_run_parts_span_length_without_overlap(self):
+        for fronts in Cabinet.FRONTS:
+            template = Cabinet.Cabinet(fronts=fronts)
+            parts = Cabinet.Run(template, length=2475).parts()
+            lo, hi = bbox(parts)
+            self.assertAlmostEqual(lo[0], 0)
+            self.assertAlmostEqual(hi[0], 2475)
+            assert_no_overlap(self, parts)
+
+    def test_rejects_bad_runs(self):
+        for kwargs in ({"length": 0}, {"length": 250}, {"filler_side": "middle"}):
+            with self.assertRaises(ValueError, msg=str(kwargs)):
+                Cabinet.Run(Cabinet.Cabinet(), **kwargs).parts()
+
+
 class TestCutList(unittest.TestCase):
     def test_groups_identical_parts(self):
-        parts = Cabinet.BaseCabinet(width=600, shelves=0).parts()
+        parts = Cabinet.Cabinet(width=600, shelves=0).parts()
         rows = CutList.rows(("ply", p) for p in parts)
         sides = [r for r in rows if r[1] == "Left side"]
         self.assertEqual(len(sides), 1)
@@ -110,20 +185,16 @@ class TestLibrary(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             os.makedirs(os.path.join(tmp, "metric"))
+            item = {
+                "id": "sheet.metric.plywood.18",
+                "category": "sheet_goods",
+                "region": "metric",
+                "actual": {"w": 1, "h": 1, "t": 17.5},
+            }
             with open(os.path.join(tmp, "metric", "mine.json"), "w") as f:
-                json.dump(
-                    {
-                        "items": [
-                            {
-                                "id": "sheet.metric.plywood.18",
-                                "category": "sheet_goods",
-                                "region": "metric",
-                                "actual": {"w": 1, "h": 1, "t": 17.5},
-                            }
-                        ]
-                    },
-                    f,
-                )
+                json.dump({"items": [item]}, f)
+            with open(os.path.join(tmp, "metric", "broken.json"), "w") as f:
+                f.write("{not json")
             items = Library.load([Library.LIBRARY_DIR, tmp])
             self.assertEqual(Library.mm(items["sheet.metric.plywood.18"], "t"), 17.5)
 
