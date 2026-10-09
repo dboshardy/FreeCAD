@@ -10,6 +10,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import Cabinet  # noqa: E402
+import Checks  # noqa: E402
 import CutList  # noqa: E402
 import Framing  # noqa: E402
 import Library  # noqa: E402
@@ -534,6 +535,55 @@ class TestFraming(unittest.TestCase):
         for text in ("door 900 @ 600", "garage 900x2100 @ 600", "door 900x2100"):
             with self.assertRaises(ValueError, msg=text):
                 Framing.parse_openings(text)
+
+
+class TestChecks(unittest.TestCase):
+    RULES = Library.load()["rules.generic-example"]
+
+    def status(self, results, check):
+        return next(s for c, s, _ in results if c.startswith(check))
+
+    def test_spacing_and_slenderness(self):
+        ok = Checks.wall(Framing.Wall(spacing=600), self.RULES)
+        self.assertEqual(self.status(ok, "Stud spacing"), Checks.OK)
+        self.assertEqual(self.status(ok, "Stud slenderness"), Checks.OK)  # 2305/95 = 24
+        wide = Checks.wall(Framing.Wall(spacing=800), self.RULES)
+        self.assertEqual(self.status(wide, "Stud spacing"), Checks.WARNING)
+        tall = Checks.wall(Framing.Wall(height=6000), self.RULES)
+        self.assertEqual(self.status(tall, "Stud slenderness"), Checks.WARNING)  # 5865/95 = 62
+
+    def test_header_not_checked_without_user_values(self):
+        w = Framing.Wall(openings=Framing.parse_openings("door 900x2100 @ 600"))
+        self.assertEqual(self.status(Checks.wall(w, self.RULES), "Header"), Checks.NOT_CHECKED)
+        values = {"Fb_MPa": 10, "E_MPa": 10000}
+        self.assertEqual(
+            self.status(Checks.wall(w, self.RULES, values, header_load=0), "Header"),
+            Checks.NOT_CHECKED,
+        )
+        self.assertEqual(
+            self.status(Checks.wall(w, self.RULES, values, header_load=5), "Header"), Checks.OK
+        )
+
+    def test_header_mechanics(self):
+        # Hand calculation: span 2000 mm, 2 plies 45x195, 5 N/mm.
+        # M = 5*2000^2/8 = 2.5e6 N mm; S = 90*195^2/6 = 570375 mm3 -> 4.38 MPa.
+        # I = 90*195^3/12 = 55.61e6 mm4; deflection = 5*5*2000^4/(384*10000*I) = 1.87 mm.
+        status, detail = Checks.header(2000, (45, 195), 2, {"Fb_MPa": 10, "E_MPa": 10000}, 5, 360)
+        self.assertEqual(status, Checks.OK)
+        self.assertIn("bending 4.4 of 10 MPa", detail)
+        self.assertIn("deflection 1.9 of 5.6 mm", detail)
+        status, _ = Checks.header(2000, (45, 195), 2, {"Fb_MPa": 4, "E_MPa": 10000}, 5, 360)
+        self.assertEqual(status, Checks.WARNING)  # 4.38 MPa > 4
+        status, _ = Checks.header(4000, (45, 195), 2, {"Fb_MPa": 40, "E_MPa": 10000}, 5, 360)
+        self.assertEqual(status, Checks.WARNING)  # 16 x the deflection: 30 mm > 11.1 mm
+
+    def test_cabinet_anchoring(self):
+        for kind, expected in (("wall", 1), ("tall", 1), ("base", 0), ("sink", 0)):
+            results = Checks.cabinet(Cabinet.defaults(kind), self.RULES)
+            self.assertEqual(len(results), expected, kind)
+        items = Library.load()
+        hw = dict(CutList.hardware([], items, anchored_cabinets=3))
+        self.assertEqual(hw[items["hardware.wall_anchor"]["name"]], 6)
 
 
 class TestLibrary(unittest.TestCase):
