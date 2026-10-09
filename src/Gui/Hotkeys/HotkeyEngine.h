@@ -5,6 +5,7 @@
 #pragma once
 
 #include <algorithm>
+#include <iterator>
 #include <map>
 #include <string>
 #include <tuple>
@@ -139,6 +140,23 @@ public:
         return {};
     }
 
+    /// Bindings of the innermost layer that has any active binding in @p ctx
+    /// (what the heads-up strip shows, design doc §8.1).
+    std::vector<Binding> innermostLayer(const Context& ctx) const
+    {
+        const auto all = bindings();
+        for (Layer layer : {Layer::Command, Layer::Workspace, Layer::Global}) {
+            std::vector<Binding> out;
+            std::copy_if(all.begin(), all.end(), std::back_inserter(out), [&](const Binding& b) {
+                return b.layer == layer && active(b, ctx);
+            });
+            if (!out.empty()) {
+                return out;
+            }
+        }
+        return {};
+    }
+
     /// Pairs in the same layer and scope that can fire together and clash:
     /// identical keys at equal priority, or one sequence a prefix of the other
     /// (the shorter one makes the longer unreachable).
@@ -156,8 +174,9 @@ public:
                 if (!a.selection.empty() && !b.selection.empty() && a.selection != b.selection) {
                     continue;
                 }
-                bool clash = a.keys == b.keys ? a.priority == b.priority
-                                              : isPrefix(a.keys, b.keys) || isPrefix(b.keys, a.keys);
+                bool clash = a.keys == b.keys
+                    ? a.priority == b.priority
+                    : isPrefix(a.keys, b.keys) || isPrefix(b.keys, a.keys);
                 if (clash) {
                     out.emplace_back(a, b);
                 }
@@ -199,7 +218,8 @@ private:
     /// true when @p prefix is a strict prefix of @p keys.
     static bool isPrefix(const Keys& prefix, const Keys& keys)
     {
-        return prefix.size() < keys.size() && std::equal(prefix.begin(), prefix.end(), keys.begin());
+        return prefix.size() < keys.size()
+            && std::equal(prefix.begin(), prefix.end(), keys.begin());
     }
 
     std::vector<Binding> defaults;

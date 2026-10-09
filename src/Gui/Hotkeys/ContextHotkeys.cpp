@@ -46,8 +46,6 @@ std::string keymapPath()
 /// {"bindings": [{"keys": ["G", "H"], "command": "Std_ViewHome",
 ///                "layer": "command|workspace|global", "scope": "...",
 ///                "selection": "Edge", "priority": 0}]}
-// ponytail: read once at first key press; restart to apply edits. Add reload
-// with the remapping UI (docs/gaps/phase-0.md 0.6.3).
 std::vector<Binding> loadKeymap()
 {
     const auto path = keymapPath();
@@ -92,16 +90,14 @@ std::vector<Binding> loadKeymap()
     return out;
 }
 
+HotkeyEngine instance;
+bool loaded = false;
+
 HotkeyEngine& engine()
 {
-    static HotkeyEngine instance = [] {
-        HotkeyEngine e;
-        e.setDefaults(loadKeymap());
-        for (const auto& [a, b] : e.conflicts()) {
-            Base::Console().warning("Hotkeys: '{}' and '{}' conflict\n", a.commandId, b.commandId);
-        }
-        return e;
-    }();
+    if (!loaded) {
+        reload();
+    }
     return instance;
 }
 
@@ -134,6 +130,24 @@ CommandScope::CommandScope(const char* commandId)
 CommandScope::~CommandScope()
 {
     invoking = std::move(previous);
+}
+
+std::vector<std::string> reload()
+{
+    loaded = true;
+    instance.setDefaults(loadKeymap());
+    typed.clear();
+    std::vector<std::string> out;
+    for (const auto& [a, b] : instance.conflicts()) {
+        out.push_back("'" + a.commandId + "' and '" + b.commandId + "' conflict");
+        Base::Console().warning("Hotkeys: {}\n", out.back());
+    }
+    return out;
+}
+
+std::vector<Binding> stripBindings()
+{
+    return engine().innermostLayer(currentContext());
 }
 
 void toolStarted(const void* owner)

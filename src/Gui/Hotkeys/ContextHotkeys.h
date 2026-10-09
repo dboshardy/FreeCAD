@@ -4,8 +4,16 @@
 #pragma once
 
 #include <string>
+#include <vector>
+
+#include "HotkeyEngine.h"
 
 class QKeyEvent;
+
+namespace Gui
+{
+class MainWindow;
+}
 
 namespace Gui::Hotkeys
 {
@@ -31,5 +39,17 @@ void toolFinished(const void* owner);
 /// Offers a ShortcutOverride or KeyPress event to the context layers.
 /// Returns true when the event was consumed.
 bool handleKey(QKeyEvent* event);
+
+/// Re-reads <UserAppData>/Hotkeys.json. Returns one line per conflict.
+std::vector<std::string> reload();
+
+/// Bindings of the innermost active layer in the current context.
+std::vector<Binding> stripBindings();
+
+/// Registers Std_CommandPalette, Std_RadialMenu, Std_HotkeysReload (HotkeyCommands.cpp).
+void createCommands();
+
+/// Adds the heads-up hotkey strip to the status bar (HotkeyCommands.cpp).
+void addHotkeyStrip(MainWindow* mw);
 
 }  // namespace Gui::Hotkeys
