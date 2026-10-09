@@ -191,15 +191,16 @@ class Cabinet:
         ]
         if self.kind == "base":
             s = self.stretcher_width
-            out.append(Part("Front stretcher", "carcass", (inner_w, s, t), (t, 0, h - t), "x"))
+            # Hidden parts: grain None lets the sheet layout rotate them.
+            out.append(Part("Front stretcher", "carcass", (inner_w, s, t), (t, 0, h - t)))
             out.append(
-                Part("Back stretcher", "carcass", (inner_w, s, t), (t, carcass_d - s, h - t), "x")
+                Part("Back stretcher", "carcass", (inner_w, s, t), (t, carcass_d - s, h - t))
             )
         else:
             out.append(Part("Top", "carcass", (inner_w, carcass_d, t), (t, 0, h - t), "x"))
         if k > 0:
             out.append(Part("Kick board", "plinth", (w, t, k), (0, self.plinth_setback, 0), "x"))
-            out.append(Part("Plinth rail", "plinth", (w, t, k), (0, carcass_d - t, 0), "x"))
+            out.append(Part("Plinth rail", "plinth", (w, t, k), (0, carcass_d - t, 0)))
 
         slots = self.slots()
         drawer_slots = [(low, high) for role, low, high in slots if role == "drawer"]

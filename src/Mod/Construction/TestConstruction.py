@@ -162,11 +162,60 @@ class TestCutList(unittest.TestCase):
         self.assertEqual(sides[0][6], 2)  # left and right side share a row
         self.assertEqual(sum(r[6] for r in rows), len(parts))
 
-    def test_sheet_estimate(self):
-        rows = [("ply", "A", 1000, 500, 18, "yes", 4)]  # 2.0 m2
-        self.assertEqual(CutList.sheet_estimate(rows, {"ply": 2_000_000}, waste=0.0), {"ply": 1})
-        self.assertEqual(CutList.sheet_estimate(rows, {"ply": 2_000_000}, waste=0.1), {"ply": 2})
-        self.assertEqual(CutList.sheet_estimate(rows, {}), {})  # unknown sheet size: skipped
+
+def check_layout(test, sheets, sheet_w, sheet_h, kerf, trim):
+    """Every part inside the trimmed sheet and at least one kerf from the others."""
+    for placed in sheets:
+        for p in placed:
+            test.assertGreaterEqual(p.x, trim - 1e-6, p.name)
+            test.assertGreaterEqual(p.y, trim - 1e-6, p.name)
+            test.assertLessEqual(p.x + p.w, sheet_w - trim + 1e-6, p.name)
+            test.assertLessEqual(p.y + p.h, sheet_h - trim + 1e-6, p.name)
+        for a, b in itertools.combinations(placed, 2):
+            apart = (
+                a.x + a.w + kerf <= b.x + 1e-6
+                or b.x + b.w + kerf <= a.x + 1e-6
+                or a.y + a.h + kerf <= b.y + 1e-6
+                or b.y + b.h + kerf <= a.y + 1e-6
+            )
+            test.assertTrue(apart, f"{a.name} and {b.name} closer than the kerf")
+
+
+class TestSheetLayout(unittest.TestCase):
+    def test_exact_fit_and_kerf(self):
+        squares = [(f"P{i}", 500, 500, False) for i in range(8)]
+        sheets = CutList.layout_sheets(squares, 1000, 2000, kerf=0, trim=0)
+        self.assertEqual(len(sheets), 1)
+        check_layout(self, sheets, 1000, 2000, 0, 0)
+        sheets = CutList.layout_sheets(squares, 1000, 2000, kerf=3, trim=0)
+        # 503 mm per square with the kerf: 1 across 1003, 3 along 2003 -> 3 per sheet.
+        self.assertEqual(len(sheets), 3)
+        check_layout(self, sheets, 1000, 2000, 3, 0)
+
+    def test_grain_stays_along_sheet(self):
+        # Sheet 2000 across, 1000 along its length (grain).
+        with self.assertRaises(ValueError):
+            CutList.layout_sheets([("Side", 1500, 300, True)], 2000, 1000, kerf=3, trim=10)
+        sheets = CutList.layout_sheets([("Shelf", 1500, 300, False)], 2000, 1000, kerf=3, trim=10)
+        self.assertTrue(sheets[0][0].rotated)
+        sheets = CutList.layout_sheets([("Side", 900, 300, True)], 2000, 1000, kerf=3, trim=10)
+        self.assertFalse(sheets[0][0].rotated)
+        self.assertEqual(sheets[0][0].h, 900)
+
+    def test_rejects_oversize_part(self):
+        with self.assertRaises(ValueError):
+            CutList.layout_sheets([("Top", 2500, 600, False)], 1220, 2440)
+
+    def test_cabinet_run_layout(self):
+        parts = Cabinet.Run(Cabinet.Cabinet(fronts="drawer_over_doors"), length=2400).parts()
+        cut = CutList.rows(("ply", p) for p in parts if p.role not in ("back", "drawer_bottom"))
+        pieces = CutList.pieces(cut, "ply")
+        self.assertEqual(len(pieces), sum(r[6] for r in cut))
+        sheets = CutList.layout_sheets(pieces, 1220, 2440, kerf=3.2, trim=10)
+        check_layout(self, sheets, 1220, 2440, 3.2, 10)
+        self.assertEqual(sum(len(s) for s in sheets), len(pieces))
+        area = sum(length * width for _, length, width, _ in pieces)
+        self.assertLess(len(sheets), area / (1200 * 2420) + 2)  # within one sheet of the bound
 
 
 class TestLibrary(unittest.TestCase):
