@@ -156,6 +156,40 @@ class CheckCommand:
         FreeCADGui.doCommand("ConstructionObjects.write_checks(App.ActiveDocument)")
 
 
+class DrawingCommand:
+    def GetResources(self):
+        return {
+            "MenuText": QT_TRANSLATE_NOOP("Construction_Drawing", "Drawing"),
+            "ToolTip": QT_TRANSLATE_NOOP(
+                "Construction_Drawing",
+                "Makes an A3 drawing page of the selected construction objects: front, top "
+                "and right views and the cut list",
+            ),
+        }
+
+    def IsActive(self):
+        import ConstructionObjects
+
+        doc = FreeCAD.ActiveDocument
+        return bool(doc and ConstructionObjects.construction_objects(doc))
+
+    def Activated(self):
+        import ConstructionObjects
+
+        doc = FreeCAD.ActiveDocument
+        selected = [
+            o
+            for o in FreeCADGui.Selection.getSelection()
+            if o in ConstructionObjects.construction_objects(doc)
+        ]
+        names = [o.Name for o in selected or ConstructionObjects.construction_objects(doc)]
+        doc.openTransaction(translate("Construction", "Create drawing"))
+        FreeCADGui.addModule("ConstructionObjects")
+        objects = ", ".join(f"App.ActiveDocument.getObject({n!r})" for n in names)
+        FreeCADGui.doCommand(f"ConstructionObjects.make_drawing([{objects}])")
+        doc.commitTransaction()
+
+
 class CutListCommand:
     def GetResources(self):
         return {
@@ -301,3 +335,4 @@ FreeCADGui.addCommand(
 )
 FreeCADGui.addCommand("Construction_CutList", CutListCommand())
 FreeCADGui.addCommand("Construction_Check", CheckCommand())
+FreeCADGui.addCommand("Construction_Drawing", DrawingCommand())
