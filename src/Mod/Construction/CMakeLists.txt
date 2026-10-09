@@ -15,6 +15,7 @@ set(Construction_SRCS
     Sheathing.py
     Shed.py
     TestConstruction.py
+    TestConstructionApp.py
 )
 file(GLOB_RECURSE Construction_DATA RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} Resources/libraries/*.json)
 # Tutorials (docs/tutorials/construction) ship with the workbench, opened from its menu.
