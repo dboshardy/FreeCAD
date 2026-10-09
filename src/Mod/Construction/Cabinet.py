@@ -362,6 +362,54 @@ def fill_widths(length, standard=STANDARD_WIDTHS):
     return sorted(widths, reverse=True)
 
 
+# Per-cabinet styles in a run: a front style, a sink, or a blind corner (blind
+# panel on that side; the run's corner end).
+RUN_STYLES = FRONTS + ("sink", "blind_left", "blind_right")
+
+
+def styled(cabinet, style):
+    """The run template cabinet changed for one entry's style (None: unchanged)."""
+    if style is None:
+        return cabinet
+    if style not in RUN_STYLES:
+        raise ValueError(f"unknown style '{style}'; use one of {', '.join(RUN_STYLES)}")
+    if style in FRONTS:
+        return replace(cabinet, fronts=style)
+    if style == "sink":
+        if cabinet.kind != "base":
+            raise ValueError("sink cabinets go in base runs only")
+        return replace(cabinet, kind="sink", fronts="false_front_over_doors", shelves=0)
+    blind = DEFAULTS["corner"]["blind_width"]
+    return replace(cabinet, fronts="doors", blind_width=blind, blind_side=style[len("blind_") :])
+
+
+def parse_entries(text, allow_styles=True):
+    """'1000 blind_left, 600 drawers, 600' -> ((1000.0, 600.0, 600.0),
+    ('blind_left', 'drawers', None)). Raises ValueError with a usage hint."""
+    widths, styles = [], []
+    for entry in text.replace(";", ",").split(","):
+        words = entry.split()
+        if not words:
+            continue
+        try:
+            width = float(words[0])
+        except ValueError:
+            raise ValueError(f"'{entry.strip()}': start each entry with a width in mm")
+        if width <= 0:
+            raise ValueError(f"'{entry.strip()}': widths must be positive")
+        if len(words) > 2 or (len(words) == 2 and not allow_styles):
+            hint = "e.g. 600 drawers" if allow_styles else "numbers only"
+            raise ValueError(f"'{entry.strip()}': one width per entry ({hint})")
+        style = words[1] if len(words) == 2 else None
+        if style is not None and style not in RUN_STYLES:
+            raise ValueError(f"unknown style '{style}'; use one of {', '.join(RUN_STYLES)}")
+        widths.append(width)
+        styles.append(style)
+    while styles and styles[-1] is None:
+        styles.pop()
+    return tuple(widths), tuple(styles)
+
+
 @dataclass
 class Run:
     """Cabinets side by side along a wall, fillers making up the rest."""
@@ -371,6 +419,7 @@ class Run:
     widths: tuple = ()  # empty: chosen by fill_widths()
     standard: tuple = STANDARD_WIDTHS
     filler_side: str = "both"
+    styles: tuple = ()  # per entry of widths, None = template; needs explicit widths
 
     def layout(self):
         """(cabinet widths, left filler, right filler)."""
@@ -378,6 +427,8 @@ class Run:
             raise ValueError("length must be between 0 and 100 m")
         if self.filler_side not in FILLER_SIDES:
             raise ValueError(f"filler side must be one of {', '.join(FILLER_SIDES)}")
+        if len(self.styles) > len(self.widths):
+            raise ValueError("styles need a width for every cabinet")
         widths = list(self.widths) or fill_widths(self.length, self.standard)
         if not widths:
             raise ValueError("wall too short for the smallest standard width")
@@ -385,15 +436,26 @@ class Run:
         if filler < 0:
             raise ValueError("cabinet widths exceed the run length")
         left = {"both": filler / 2, "left": filler, "right": 0.0}[self.filler_side]
+        # A blind corner cabinet sits in the corner: no filler on its side.
+        styles = list(self.styles) + [None] * (len(widths) - len(self.styles))
+        corner_left = styles[0] == "blind_left"
+        corner_right = styles[-1] == "blind_right"
+        if corner_left and corner_right and filler >= 1.0:
+            raise ValueError("with blind corners at both ends the widths must fill the length")
+        if corner_left:
+            left = 0.0
+        elif corner_right:
+            left = filler
         return widths, left, filler - left
 
     def parts(self):
         widths, left, right = self.layout()
         c = self.cabinet
+        styles = list(self.styles) + [None] * (len(widths) - len(self.styles))
         out = []
         x = left
-        for i, width in enumerate(widths):
-            out += [p.moved(x) for p in replace(c, width=width).parts()]
+        for width, style in zip(widths, styles):
+            out += [p.moved(x) for p in styled(replace(c, width=width), style).parts()]
             x += width
         # Fillers in the plane of the fronts, between the end cabinets and the walls.
         size_z = c.carcass_height()

@@ -160,15 +160,11 @@ class CabinetFeature:
         return None
 
 
-def parse_widths(text, prop):
-    """'600, 600, 900' -> (600.0, 600.0, 900.0). Raises ValueError naming prop."""
+def parse(prop, text, allow_styles):
     try:
-        values = tuple(float(v) for v in text.replace(";", ",").split(",") if v.strip())
-    except ValueError:
-        raise ValueError(f"{prop}: use comma-separated numbers in mm, e.g. 600, 600, 900")
-    if any(v <= 0 for v in values):
-        raise ValueError(f"{prop}: widths must be positive")
-    return values
+        return Cabinet.parse_entries(text, allow_styles)
+    except ValueError as e:
+        raise ValueError(f"{prop}: {e}")
 
 
 class CabinetRunFeature(CabinetFeature):
@@ -185,7 +181,8 @@ class CabinetRunFeature(CabinetFeature):
                 "App::PropertyString",
                 "Widths",
                 "Run",
-                "Cabinet widths in mm, left to right; empty = chosen from StandardWidths",
+                "Cabinets left to right, e.g. 1000 blind_left, 600 drawers, 800 sink, 600. "
+                "Styles: " + ", ".join(Cabinet.RUN_STYLES) + ". Empty = chosen from StandardWidths",
                 "",
             ),
             (
@@ -203,12 +200,15 @@ class CabinetRunFeature(CabinetFeature):
         obj.setEditorMode("Layout", 1)  # read-only
 
     def run(self, obj):
+        widths, styles = parse("Widths", obj.Widths, allow_styles=True)
+        standard, _ = parse("StandardWidths", obj.StandardWidths, allow_styles=False)
         return Cabinet.Run(
             self.spec(obj),
             length=float(obj.Length.Value),
-            widths=parse_widths(obj.Widths, "Widths"),
-            standard=parse_widths(obj.StandardWidths, "StandardWidths"),
+            widths=widths,
+            standard=standard,
             filler_side=obj.FillerSide,
+            styles=styles,
         )
 
     def model_parts(self, obj):
