@@ -87,6 +87,24 @@ TEST(HotkeyEngine, remapAndReset)
     EXPECT_FALSE(e.setUserKeys({{}, "No_Such_Command"}, {"Q"}));
 }
 
+TEST(HotkeyEngine, innermostLayerForStrip)
+{
+    auto e = sampleEngine();
+    auto ids = [&](Context ctx) {
+        std::vector<std::string> out;
+        for (const auto& b : e.innermostLayer(ctx)) {
+            out.push_back(b.commandId);
+        }
+        return out;
+    };
+    using V = std::vector<std::string>;
+    EXPECT_EQ(ids({"Sketch", "Sketcher_CreateLine"}), V {"Sketcher_LineToArc"});
+    EXPECT_EQ(ids({"Sketch"}), V {"Sketcher_CreateLine"});
+    EXPECT_EQ(ids({"Part"}), (V {"Std_Measure", "Std_ViewFit", "Std_GoHome"}));
+    // Selection-scoped binding hidden until the selection matches; falls back to Global.
+    EXPECT_EQ(ids({"Part", "PartDesign_Fillet"}).size(), 3u);
+}
+
 TEST(ToolStack, innermostNamedToolIsActive)
 {
     ToolStack s;

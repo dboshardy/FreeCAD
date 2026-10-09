@@ -41,6 +41,7 @@
 #include "Action.h"
 #include "BitmapFactory.h"
 #include "Command.h"
+#include "Hotkeys/ContextHotkeys.h"  // FORK: hotkey commands
 #include "Dialogs/DlgAbout.h"
 #include "Dialogs/DlgCustomizeImp.h"
 #include "Dialogs/DlgParameterImp.h"
@@ -1096,6 +1097,7 @@ void CreateStdCommands()
 
     rcCmdMgr.addCommand(new StdCmdAbout());
     rcCmdMgr.addCommand(new StdCmdAboutQt());
+    Hotkeys::createCommands();  // FORK: command palette, radial menu, hotkeys (§6, §8)
 
     rcCmdMgr.addCommand(new StdCmdDlgParameter());
     rcCmdMgr.addCommand(new StdCmdDlgPreferences());
