@@ -257,6 +257,28 @@ class TestSheetLayout(unittest.TestCase):
         self.assertLess(len(sheets), area / (1200 * 2420) + 2)  # within one sheet of the bound
 
 
+class TestHardware(unittest.TestCase):
+    def test_hinges_by_height(self):
+        item = Library.load()["hardware.hinge"]
+        self.assertEqual(CutList.hinges(700, item), 2)
+        self.assertEqual(CutList.hinges(900, item), 2)
+        self.assertEqual(CutList.hinges(901, item), 3)
+        self.assertEqual(CutList.hinges(2400, item), 5)
+        self.assertEqual(CutList.hinges(2401, item), 6)  # one per started 400 mm beyond
+        self.assertEqual(CutList.hinges(2900, item), 7)
+
+    def test_cabinet_hardware(self):
+        items = Library.load()
+        c = Cabinet.Cabinet(width=800, fronts="drawer_over_doors", shelves=1)
+        hw = dict(CutList.hardware(c.parts(), items))
+        self.assertEqual(hw[items["hardware.hinge"]["name"]], 4)  # 2 doors x 2 hinges
+        self.assertEqual(hw[items["hardware.shelf_pin"]["name"]], 4)
+        self.assertEqual(hw[items["hardware.drawer_slide"]["name"] + ", 550 mm"], 1)
+        tall = Cabinet.defaults("tall")  # 2000 mm doors: 4 hinges each
+        tall_hw = dict(CutList.hardware(tall.parts(), items))
+        self.assertEqual(tall_hw[items["hardware.hinge"]["name"]], 4)
+
+
 class TestLibrary(unittest.TestCase):
     def test_shipped_items_are_complete(self):
         items = Library.load()

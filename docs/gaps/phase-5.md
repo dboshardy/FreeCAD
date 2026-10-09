@@ -38,7 +38,7 @@ workspace layer can be bound in `Hotkeys.json` (Phase 0 decision 0.6.10).
 | 5.1.6 | Steel shapes | Partial | Upstream `profiles.csv` (W, RHS, …) |
 | 5.1.7 | Masonry, concrete, rebar | Partial | Upstream BIM rebar, structure; no fork library |
 | 5.1.8 | Area materials (roofing, siding, insulation) | Missing | |
-| 5.1.9 | Hardware (hinges, slides, shelf pins, connectors) | Missing | |
+| 5.1.9 | Hardware (hinges, slides, shelf pins, connectors) | Partial | `Resources/libraries/generic/hardware.json`: concealed hinge (count by door height), drawer slide pair, shelf pin; override by id in the user library. No connectors, joist hangers, anchors, fasteners |
 | 5.1.10 | Cost / SKU per item | Missing | Schema fields only (§9) |
 | 5.1.11 | Region switch per document | Missing | All regions listed together in material choices |
 | 5.1.12 | Library editor UI, CSV import/export | Missing | |
@@ -55,7 +55,7 @@ workspace layer can be bound in `Hotkeys.json` (Phase 0 decision 0.6.10).
 | # | Item | Status | Where / notes |
 |---|---|---|---|
 | 5.3.1 | Joint types (butt … scarf) | Partial | Cabinet carcass uses butt joints implicitly; no joint objects |
-| 5.3.2 | Fastener placement rules, hardware BOM | Missing | |
+| 5.3.2 | Fastener placement rules, hardware BOM | Partial | Cut list "Hardware" section: hinges per door by height, slide pairs per drawer by length, 4 shelf pins per shelf (`CutList.hardware`). No fastener placement or screw counts |
 
 ## 5.4 Generators
 

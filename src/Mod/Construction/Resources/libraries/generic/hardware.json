@@ -1,0 +1,10 @@
+{
+  "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp construction library (design doc §9). Generic cabinet hardware used by the cut list. Override an item by id in the user library to match your supplier.",
+  "source": "Common cabinet-making practice; original compilation, no maker's table copied. Check hinge counts against your hinge maker's guidance for heavy or wide doors.",
+  "data_license": "CC0-1.0",
+  "items": [
+    {"id": "hardware.hinge", "category": "hardware", "region": "generic", "name": "Concealed hinge, 35 mm cup, full overlay", "hinges_by_door_height": [[900, 2], [1600, 3], [2000, 4], [2400, 5]], "hinges_per_extra_400mm": 1},
+    {"id": "hardware.drawer_slide", "category": "hardware", "region": "generic", "name": "Drawer slide pair, side mount, full extension"},
+    {"id": "hardware.shelf_pin", "category": "hardware", "region": "generic", "name": "Shelf pin, 5 mm", "per_shelf": 4}
+  ]
+}

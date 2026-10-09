@@ -281,9 +281,9 @@ def _write_row(sheet, row, values):
 
 
 def write_cut_list(doc):
-    """Writes the cut list of every construction object to the spreadsheet
-    'CutList', the panel-saw layout to 'SheetLayout', and a flat view of the
-    sheets to 'SheetLayoutView'."""
+    """Writes the cut list, sheet counts and hardware of every construction
+    object to the spreadsheet 'CutList', the panel-saw layout to 'SheetLayout',
+    and a flat view of the sheets to 'SheetLayoutView'."""
     parts = [mp for obj in construction_objects(doc) for mp in obj.Proxy.parts(obj)]
     rows = CutList.rows(parts)
     lib = items()
@@ -347,6 +347,11 @@ def write_cut_list(doc):
                 shapes.append(Part.makePlane(p.w, p.h, FreeCAD.Vector(offset + p.x, p.y, 0)))
                 row += 1
             offset += sheet_w + 200.0  # sheets side by side, 200 mm apart
+    summary += 2
+    _write_row(cut, summary, ["Hardware"])
+    for name, qty in CutList.hardware([part for _, part in parts], lib):
+        summary += 1
+        _write_row(cut, summary, [name, "", "", "", "", "", qty])
     view = doc.getObject("SheetLayoutView") or doc.addObject("Part::Feature", "SheetLayoutView")
     view.Shape = Part.makeCompound(shapes)
     doc.recompute()

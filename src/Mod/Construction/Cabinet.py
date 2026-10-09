@@ -24,7 +24,9 @@ MIN_DRAWER_BOX_HEIGHT = 60.0
 @dataclass
 class Part:
     name: str
-    role: str  # carcass, back, door, drawer_front, drawer_box, drawer_bottom, plinth, filler
+    # carcass, shelf, back, door, blind_panel, drawer_front, drawer_box, drawer_bottom,
+    # plinth, filler
+    role: str
     size: tuple  # (dx, dy, dz)
     pos: tuple  # (x, y, z) of the minimum corner
     grain: str | None = None  # axis the grain runs along: "x", "y", "z" or None
@@ -273,7 +275,7 @@ class Cabinet:
             z = bottom + (i + 1) * opening / (self.shelves + 1) - t / 2
             size = (width, self.carcass_depth() - self.shelf_setback, t)
             pos = (t + self.shelf_clearance, self.shelf_setback, z)
-            out.append(Part(f"Shelf {i + 1}", "carcass", size, pos, "x"))
+            out.append(Part(f"Shelf {i + 1}", "shelf", size, pos, "x"))
         return out
 
     def _drawer_parts(self, label, low, high):
