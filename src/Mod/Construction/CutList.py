@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # FORK: cut list and panel-saw sheet layout (design doc §5.6). No FreeCAD imports.
 
+import math
 from collections import Counter
 from dataclasses import dataclass
 
@@ -153,3 +154,33 @@ def pieces(cut_rows, material):
         if m == material
         for _ in range(qty)
     ]
+
+
+def hinges(door_height, item):
+    """Hinges for one door from the item's [[max height mm, count], ...] table;
+    taller doors get hinges_per_extra_400mm per started 400 mm above the table."""
+    table = sorted(item["hinges_by_door_height"])
+    for max_height, count in table:
+        if door_height <= max_height:
+            return count
+    last_height, last_count = table[-1]
+    extra = math.ceil((door_height - last_height) / 400) * item.get("hinges_per_extra_400mm", 1)
+    return last_count + extra
+
+
+def hardware(parts, items):
+    """[(name, qty)] of hinges, drawer slides and shelf pins for a list of Part.
+    items: library id -> item; uses hardware.hinge, hardware.drawer_slide,
+    hardware.shelf_pin. Slides are listed per length."""
+    hinge = items["hardware.hinge"]
+    slide = items["hardware.drawer_slide"]
+    pin = items["hardware.shelf_pin"]
+    counter = Counter()
+    for part in parts:
+        if part.role == "door":
+            counter[hinge["name"]] += hinges(part.size[2], hinge)
+        elif part.role == "drawer_bottom":
+            counter[f"{slide['name']}, {part.size[1]:g} mm"] += 1
+        elif part.role == "shelf":
+            counter[pin["name"]] += pin.get("per_shelf", 4)
+    return sorted(counter.items())
