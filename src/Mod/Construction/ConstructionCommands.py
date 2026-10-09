@@ -63,6 +63,25 @@ class MemberCommand:
         doc.commitTransaction()
 
 
+class WallFrameCommand:
+    def GetResources(self):
+        return {
+            "MenuText": QT_TRANSLATE_NOOP("Construction_WallFrame", "Wall Framing"),
+            "ToolTip": QT_TRANSLATE_NOOP(
+                "Construction_WallFrame",
+                "Creates a stud wall: plates, studs, and framed door and window openings; "
+                "edit length, height, spacing and openings in the property view",
+            ),
+        }
+
+    def Activated(self):
+        doc = FreeCAD.ActiveDocument or FreeCAD.newDocument()
+        doc.openTransaction(translate("Construction", "Create wall framing"))
+        FreeCADGui.addModule("ConstructionObjects")
+        FreeCADGui.doCommand("ConstructionObjects.make_wall_frame()")
+        doc.commitTransaction()
+
+
 class CutListCommand:
     def GetResources(self):
         return {
@@ -157,4 +176,5 @@ CABINET_COMMANDS = {
 for name, command in CABINET_COMMANDS.items():
     FreeCADGui.addCommand(name, command)
 FreeCADGui.addCommand("Construction_Member", MemberCommand())
+FreeCADGui.addCommand("Construction_WallFrame", WallFrameCommand())
 FreeCADGui.addCommand("Construction_CutList", CutListCommand())

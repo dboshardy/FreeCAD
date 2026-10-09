@@ -61,7 +61,7 @@ workspace layer can be bound in `Hotkeys.json` (Phase 0 decision 0.6.10).
 
 | # | Item | Status | Where / notes |
 |---|---|---|---|
-| 5.4.1 | Wall framing | Missing | Upstream `ArchWall` is a solid wall, not framing |
+| 5.4.1 | Wall framing | Partial | `Construction_WallFrame` (`Framing.py`, `WallFrameFeature`): bottom plate (cut at doors), 1 or 2 top plates, studs on centres from the wall start, door and window rough openings with king and jack studs, header plies on edge, cripples above headers and below sills, rough sill. Plates longer than the stud lumber's longest stock are spliced over stud centres, upper top plate joints at least one bay from the lower. Openings typed as text. Missing: corners (3-stud, California), T-intersections, blocking rows, header sizing (header size is chosen by the user), following a sketch line |
 | 5.4.2 | Floor framing | Missing | |
 | 5.4.3 | Roof framing, truss layout | Partial | Upstream `ArchRoof` (solid), `ArchTruss` (truss object) |
 | 5.4.4 | Stairs | Partial | Upstream `ArchStairs` (straight, landing, curved); no rule checks |
