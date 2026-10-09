@@ -266,6 +266,7 @@ class ProfilePiece:
     profile: list  # [(y, z)] closed outline
     angle: float  # degrees: direction of the board's length in the (y, z) plane
     section: str  # which lumber size
+    extrude: float = 0.0  # extrusion along x; 0 = the section thickness
 
     def cut_length(self):
         """Stock length: the outline's extent along the board."""
@@ -288,6 +289,8 @@ class GableRoof:
     seat: float = 95.0  # birdsmouth seat: the top plate width
     ties: bool = True
     tie: tuple = (45.0, 145.0)
+    gable_studs: bool = True  # studs in the gable triangles over the end walls
+    gable_stud: tuple = (45.0, 95.0)  # (thickness, depth): depth across the end wall
     max_piece: float = 6000.0
 
     def slope(self):
@@ -327,6 +330,11 @@ class GableRoof:
             raise ValueError("birdsmouth cuts through the rafter: seat too wide for the pitch")
         if self.ridge_face() <= self.seat:
             raise ValueError("span too small for the wall plates")
+        if self.gable_studs:
+            if min(self.gable_stud) <= 0 or self.gable_stud[1] > self.seat + 1e-6:
+                raise ValueError("gable studs must be positive and no deeper than the end wall")
+            if self.ties and self.seat + self.tie[0] > self.spacing - self.rafter[0] / 2:
+                raise ValueError("rafter spacing too small for the end ceiling joists")
         if self.ties and self.span > self.max_piece + 1e-6:
             raise ValueError("ceiling joists longer than the longest stock (splices need design)")
         longest = max(r.cut_length() for r in self._boards() if r.name == "Rafter")
@@ -358,9 +366,46 @@ class GableRoof:
         if self.ties:
             tie = self._tie_outline()
             offset = (self.rafter[0] + self.tie[0]) / 2
-            for x in centres:
+            for i, x in enumerate(centres):
                 tx = x + offset if x < self.length / 2 else x - offset
+                if self.gable_studs and i in (0, len(centres) - 1):
+                    # End joists go inside the end walls, clear of the gable studs.
+                    inside = self.seat + self.tie[0] / 2
+                    tx = inside if i == 0 else self.length - inside
                 out.append(ProfilePiece("Ceiling joist", tx, tie, 0.0, "tie"))
+        if self.gable_studs:
+            for x in (self.seat / 2, self.length - self.seat / 2):
+                for outline in self._gable_stud_outlines():
+                    out.append(
+                        ProfilePiece("Gable stud", x, outline, 90.0, "gable_stud", self.seat)
+                    )
+        return out
+
+    def under_roof(self, y):
+        """Highest a gable stud may reach at y: under both rafter lines and the
+        ridge board."""
+        half_ridge = self.ridge[0] / 2
+        top = min(self.bottom(y), self.bottom(self.span - y))
+        if abs(y - self.span / 2) <= half_ridge + 1e-9:
+            top = min(top, self.ridge_top() - self.ridge[1])
+        return top
+
+    def _gable_stud_outlines(self):
+        """Outlines (y, z) of the gable studs: on the end wall's top plate, on the
+        rafter layout between the front and back walls, tops cut to the roof."""
+        t = self.gable_stud[0]
+        mid, half_ridge = self.span / 2, self.ridge[0] / 2
+        out = []
+        for c in layout_centres(self.span, self.spacing, t):
+            y0, y1 = c - t / 2, c + t / 2
+            if y0 < self.seat - 1e-6 or y1 > self.span - self.seat + 1e-6:
+                continue  # over the front or back wall
+            kinks = [y for y in (mid - half_ridge, mid, mid + half_ridge) if y0 < y < y1]
+            top = [(y, self.under_roof(y)) for y in [y1] + sorted(kinks, reverse=True) + [y0]]
+            # Under the ridge band the limit is flat; just outside it, the rafter line.
+            if min(z for _, z in top) < 30.0:
+                continue  # too short to be worth a stud
+            out.append([(y0, 0.0), (y1, 0.0)] + top)
         return out
 
     def _tie_outline(self):
@@ -381,7 +426,7 @@ class GableRoof:
         ]
 
     def boards(self):
-        """Rafters and ceiling joists (profile pieces)."""
+        """Rafters, ceiling joists and gable studs (profile pieces)."""
         self.validate()
         return self._boards()
 

@@ -22,6 +22,7 @@ class Surface:
     size: tuple  # (U, V)
     long_along: str = "u"  # sheet length along u or v
     openings: list = field(default_factory=list)  # [(u0, v0, du, dv)] holes
+    clip: list = None  # convex outline [(u, v)], counter-clockwise; None = the rectangle
 
     def normal(self):
         u, v = self.u, self.v
@@ -53,6 +54,55 @@ def cover(size, sheet, long_along="u", stagger=True):
                 panels.append((s0, a0, s1 - s0, da) if long_along == "u" else (a0, s0, da, s1 - s0))
             s += long
     return panels
+
+
+def clip_polygon(polygon, convex):
+    """Part of polygon inside the convex, counter-clockwise outline
+    (Sutherland-Hodgman). Both are [(u, v)]."""
+    out = list(polygon)
+    for (ax, ay), (bx, by) in zip(convex, convex[1:] + convex[:1]):
+
+        def inside(p):
+            return (bx - ax) * (p[1] - ay) - (by - ay) * (p[0] - ax) >= -1e-9
+
+        def cross(p, q):
+            # Where p-q crosses the line a-b.
+            den = (p[0] - q[0]) * (ay - by) - (p[1] - q[1]) * (ax - bx)
+            t = ((p[0] - ax) * (ay - by) - (p[1] - ay) * (ax - bx)) / den
+            return (p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1]))
+
+        points, out = out, []
+        for p, q in zip(points, points[1:] + points[:1]):
+            if inside(q):
+                if not inside(p):
+                    out.append(cross(p, q))
+                out.append(q)
+            elif inside(p):
+                out.append(cross(p, q))
+        if not out:
+            return []
+    return out
+
+
+def area(polygon):
+    return (
+        abs(sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(polygon, polygon[1:] + polygon[:1]))) / 2
+    )
+
+
+def cover_surface(surface, sheet, stagger=True):
+    """cover() of a surface; with a clip outline, each panel is cut to it and
+    reported as the bounding rectangle of what remains (what is cut from a sheet)."""
+    panels = cover(surface.size, sheet, surface.long_along, stagger)
+    if not surface.clip:
+        return panels
+    out = []
+    for u, v, du, dv in panels:
+        piece = clip_polygon([(u, v), (u + du, v), (u + du, v + dv), (u, v + dv)], surface.clip)
+        if piece and area(piece) >= 100.0:  # drop slivers under 1 cm2
+            us, vs = [p[0] for p in piece], [p[1] for p in piece]
+            out.append((min(us), min(vs), max(us) - min(us), max(vs) - min(vs)))
+    return out
 
 
 def surfaces(model, extend=(0.0, 0.0)):
@@ -91,5 +141,19 @@ def surfaces(model, extend=(0.0, 0.0)):
             (0, -c, s),
             (model.length, slope),
         )
-        return [near, far]
+        out = [near, far]
+        if model.gable_studs:
+            # Gable ends: outer faces of the end walls, up to the rafter tops.
+            span = model.span
+            eave = model.bottom(0.0) + model.plumb_depth()
+            peak = model.bottom(span / 2) + model.plumb_depth()
+            outline = [(0.0, 0.0), (span, 0.0), (span, eave), (span / 2, peak), (0.0, eave)]
+            for x, u in ((0.0, (0, -1, 0)), (model.length, (0, 1, 0))):
+                origin = (x, span if u[1] < 0 else 0.0, 0.0)
+                out.append(
+                    Surface(
+                        "Gable sheathing", origin, u, (0, 0, 1), (span, peak), "v", clip=outline
+                    )
+                )
+        return out
     raise ValueError("sheathing needs a floor, wall or gable roof")

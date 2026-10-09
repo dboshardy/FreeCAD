@@ -118,6 +118,10 @@ runs along X.
 Rafters get a plumb cut at the ridge and the tail and a birdsmouth over the
 wall. The ridge board's top is flush with the rafter tops. Ceiling joists sit on
 the plates beside each rafter, with their outer ends cut to the roof slope.
+With **GableStuds** on, the gable triangles over the end walls get studs on the
+rafter layout, standing on the end walls' top plates, their tops cut to the
+roof and stopped under the ridge board; the end ceiling joists move inside the
+end walls to clear them.
 
 Keep **CeilingJoists** on unless an engineer has designed a structural ridge
 beam: a ridge board does not hold the rafters up by itself, and without ties
@@ -128,7 +132,7 @@ the rafters push the walls apart. **Check** warns when they are off.
 >>> round(roof.heel()), round(roof.plumb_depth())
 (47, 162)
 >>> sorted(Counter(b.name for b in roof.boards()).items())
-[('Ceiling joist', 7), ('Rafter', 14)]
+[('Ceiling joist', 7), ('Gable stud', 8), ('Rafter', 14)]
 >>> rafter = next(b for b in roof.boards() if b.name == "Rafter")
 >>> round(rafter.cut_length())
 2060
@@ -143,7 +147,8 @@ Select a wall, floor or roof framing object and click **Sheathing**:
 
 - floors: sheets with the long side across the joists, seams staggered;
 - walls: sheets upright on the outer face, openings cut out;
-- roofs: both slopes, long side across the rafters.
+- roofs: both slopes, long side across the rafters, and the gable ends (cut
+  to the gable outline) when the roof has gable studs.
 
 Seams are staggered only where a row needs more than one sheet. Sheathing
 follows its framing when you move it. Pick the sheet in **Material**.

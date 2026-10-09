@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # FORK: gable shed template (design doc §5.4 templates, Phase 5 exit criteria). No FreeCAD imports.
 """Gable shed: floor platform, four stud walls (door centred in the front
-wall), gable roof with the ridge along the front, sheathing on floor, walls
-and roof.
+wall), gable roof with the ridge along the front and gable studs over the side
+walls, sheathing on floor, walls, gable ends and roof.
 
 World coordinates: x along the front wall, y from the front wall's outer face
 to the back, z up from the bottom of the floor joists. The front and back walls
@@ -102,6 +102,7 @@ class Shed:
                     ridge=self.ridge,
                     seat=d,
                     tie=self.tie,
+                    gable_stud=self.stud,
                     max_piece=self.max_piece,
                 ),
                 (0.0, 0.0, z_walls + H),
@@ -118,6 +119,7 @@ class Shed:
             "rafter": self.rafter,
             "ridge": self.ridge,
             "tie": self.tie,
+            "gable_stud": self.stud,
         }
 
 

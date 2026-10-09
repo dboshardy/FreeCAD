@@ -609,6 +609,34 @@ class TestGableRoof(unittest.TestCase):
             [b for b in Framing.GableRoof(ties=False).boards() if b.name == "Ceiling joist"]
         )
 
+    def test_gable_studs(self):
+        roof = Framing.GableRoof(length=3600, span=3000)
+        studs = [b for b in roof.boards() if b.name == "Gable stud"]
+        self.assertEqual(len(studs), 8)
+        for stud in studs:
+            self.assertIn(stud.x, (95 / 2, 3600 - 95 / 2))  # centred on the end walls
+            self.assertEqual(stud.extrude, 95)  # the wall depth
+            for y, z in stud.profile:
+                self.assertLessEqual(z, roof.under_roof(y) + 1e-6)  # under rafters and ridge
+                self.assertGreaterEqual(y, 95 - 1e-6)  # between the front and back walls
+        # End ceiling joists move inside the end walls, clear of the gable studs.
+        ties = sorted(b.x for b in roof.boards() if b.name == "Ceiling joist")
+        self.assertEqual((ties[0], ties[-1]), (95 + 22.5, 3600 - 95 - 22.5))
+        # A stud straddling the ridge stops under the ridge board.
+        wide = Framing.GableRoof(length=3600, span=3000, spacing=500)
+        near_end = [s for s in wide.boards() if s.name == "Gable stud" and s.x < 100]
+        crossing = [
+            s
+            for s in near_end
+            if min(y for y, _ in s.profile) < 1500 < max(y for y, _ in s.profile)
+        ]
+        self.assertEqual(len(crossing), 1)
+        top = max(z for _, z in crossing[0].profile)
+        self.assertAlmostEqual(top, wide.ridge_top() - wide.ridge[1])
+        self.assertFalse(
+            [b for b in Framing.GableRoof(gable_studs=False).boards() if b.name == "Gable stud"]
+        )
+
     def test_rejects(self):
         for kwargs in (
             {"pitch": 70},
@@ -650,12 +678,22 @@ class TestSheathing(unittest.TestCase):
             for surface in Sheathing.surfaces(model):
                 n = surface.normal()
                 self.assertAlmostEqual(sum(x * x for x in n), 1)
-        near, far = Sheathing.surfaces(roof)
+        near, far, left, right = Sheathing.surfaces(roof)
+        self.assertEqual(left.normal(), (-1, 0, 0))  # gable ends face out
+        self.assertEqual(right.normal(), (1, 0, 0))
         self.assertGreater(near.normal()[2], 0)  # both slopes face up and out
         self.assertLess(near.normal()[1], 0)
         self.assertGreater(far.normal()[1], 0)
         # Slope length reaches from the eave tail to the ridge line.
         self.assertAlmostEqual(near.size[1], (1500 + 300) / math.cos(math.radians(roof.pitch)))
+
+    def test_clip_polygon(self):
+        triangle = [(0, 0), (100, 0), (50, 50)]
+        piece = Sheathing.clip_polygon([(0, 0), (100, 0), (100, 100), (0, 100)], triangle)
+        self.assertAlmostEqual(Sheathing.area(piece), 2500)
+        self.assertEqual(Sheathing.clip_polygon([(200, 0), (300, 0), (300, 50)], triangle), [])
+        surface = Sheathing.Surface("t", (0, 0, 0), (1, 0, 0), (0, 0, 1), (100, 50), clip=triangle)
+        self.assertEqual(Sheathing.cover_surface(surface, (100, 60)), [(0.0, 0.0, 100.0, 50.0)])
 
     def test_whole_sheets_need_no_layout(self):
         pieces = [("Panel", 2440, 1220, True)] * 3 + [("Cut", 1200, 600, True)]
@@ -709,7 +747,11 @@ class TestShed(unittest.TestCase):
         for side in ("Left wall", "Right wall"):
             self.assertEqual(parts[side], {"Stud": 6, "Bottom plate": 1, "Top plate": 2})
         # Roof 3600, rafters at 600: ends + 600..3000 (5) = 7 pairs, 7 ceiling joists.
-        self.assertEqual(parts["Roof"], {"Rafter": 14, "Ceiling joist": 7, "Ridge board": 1})
+        # Gable studs on the rafter layout across the 3000 span, between the front and
+        # back walls (95..2905): 600, 1200, 1800, 2400 = 4 per end.
+        self.assertEqual(
+            parts["Roof"], {"Rafter": 14, "Ceiling joist": 7, "Ridge board": 1, "Gable stud": 8}
+        )
 
     def test_framing_fits_together(self):
         shed = Shed.Shed()
@@ -746,19 +788,22 @@ class TestShed(unittest.TestCase):
         # sides 2810 + 2 x 107 wrap = 3024: 2 whole + 584 wide = 3;
         # roof slopes 3600 x 2012.5: per slope 1 whole, 1160 x 1220, 1220 x 792.5,
         # 2380 x 792.5; both slopes: 2 whole + 2 (1160 x 1220 with 1220 x 792.5)
-        # + 2 (one 2380 x 792.5 each) = 6.
+        # + 2 (one 2380 x 792.5 each) = 6. Gable ends (pentagon 3000 wide, 114.6 at
+        # the eaves, 864.6 at the peak), upright 1220 columns clipped to it:
+        # 1220 x 724.6, 1220 x 864.6, 560 x 394.6 per end; one of each fits a sheet
+        # (724.6 + 864.6 + 394.6 + kerfs < 2440): 2. Roof total 8.
         expected = {
             "Floor": 4,
             "Front wall": 3,
             "Back wall": 3,
             "Left wall": 3,
             "Right wall": 3,
-            "Roof": 6,
+            "Roof": 8,
         }
         for c in Shed.Shed().components():
             pieces = []
             for surface in Shed.sheathing_surfaces(c):
-                for _, _, du, dv in Sheathing.cover(surface.size, (2440, 1220), surface.long_along):
+                for _, _, du, dv in Sheathing.cover_surface(surface, (2440, 1220)):
                     # Grain (the sheet's long side) along u or v, as the cut list does.
                     length, width = (du, dv) if surface.long_along == "u" else (dv, du)
                     pieces.append((surface.name, length, width, True))
@@ -849,7 +894,13 @@ class TestChecks(unittest.TestCase):
 
 
 TUTORIALS = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "docs", "tutorials", "construction"
+    os.path.dirname(os.path.abspath(__file__)),
+    "..",
+    "..",
+    "..",
+    "docs",
+    "tutorials",
+    "construction",
 )
 
 

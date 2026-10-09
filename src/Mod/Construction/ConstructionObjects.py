@@ -391,7 +391,9 @@ def longest_stock(*material_ids):
 
 
 def profile_solid(piece, thickness):
-    """Solid of a Framing.ProfilePiece: its (y, z) outline extruded along x."""
+    """Solid of a Framing.ProfilePiece: its (y, z) outline extruded along x by
+    piece.extrude, or by the section thickness when that is 0."""
+    thickness = piece.extrude or thickness
     x0 = piece.x - thickness / 2
     points = [FreeCAD.Vector(x0, y, z) for y, z in piece.profile]
     face = Part.Face(Part.makePolygon(points + points[:1]))
@@ -425,7 +427,7 @@ def sheet_panels(surfaces, item, stagger):
     panels = [
         (surface, panel)
         for surface in surfaces
-        for panel in Sheathing.cover(surface.size, sheet, surface.long_along, stagger)
+        for panel in Sheathing.cover_surface(surface, sheet, stagger)
     ]
     return panels, t
 
@@ -442,6 +444,10 @@ def panel_solid(surface, panel, t):
     for hu, hv, hdu, hdv in surface.openings:
         if hu < u0 + du and u0 < hu + hdu and hv < v0 + dv and v0 < hv + hdv:
             solid = solid.cut(Part.makeBox(hdu, hdv, t, V(hu, hv, 0)))
+    if surface.clip:
+        outline = [V(u, v, 0) for u, v in surface.clip]
+        prism = Part.Face(Part.makePolygon(outline + outline[:1])).extrude(V(0, 0, t))
+        solid = solid.common(prism)
     frame = FreeCAD.Placement(
         V(*surface.origin),
         FreeCAD.Rotation(V(*surface.u), V(*surface.v), V(*surface.normal()), "ZXY"),
@@ -604,12 +610,19 @@ class GableRoofFeature(FramingFeature):
         _length("RafterSpacing", "Rafter centres", _d.spacing),
         _length("Seat", "Birdsmouth seat: the wall top plate width", _d.seat),
         ("App::PropertyBool", "CeilingJoists", "Ceiling joists as rafter ties", True),
+        (
+            "App::PropertyBool",
+            "GableStuds",
+            "Studs in the gable triangles over the end walls",
+            True,
+        ),
         ("App::PropertyFloat", "RoofLoad", "kPa on plan, " + LOAD_TIP, 0.0),
     ]
     MATERIALS = [
         ("RafterMaterial", "rafter", "lumber.metric.45x145", "Rafters"),
         ("RidgeMaterial", "ridge", "lumber.metric.45x195", "Ridge board"),
         ("TieMaterial", "tie", "lumber.metric.45x145", "Ceiling joists"),
+        ("GableStudMaterial", "gable_stud", "lumber.metric.45x95", "Gable studs"),
     ]
 
     def model(self, obj):
@@ -624,6 +637,8 @@ class GableRoofFeature(FramingFeature):
             seat=float(obj.Seat.Value),
             ties=bool(obj.CeilingJoists),
             tie=lumber_section(obj.TieMaterial),
+            gable_studs=bool(obj.GableStuds),
+            gable_stud=lumber_section(obj.GableStudMaterial),
             max_piece=self.max_piece(obj),
         )
 
@@ -789,6 +804,7 @@ class ShedFeature:
     def _items(self, obj):
         """[(placement, material id, part, solid builder)] for every piece and panel."""
         lumber = {section: getattr(obj, prop) for prop, section, _ in self.LUMBER}
+        lumber["gable_stud"] = obj.StudMaterial
         sheet_for = {name: prop for prop, covers, _ in self.SHEETS for name in covers}
         shed = self.model(obj)
         sizes = shed.sections()
