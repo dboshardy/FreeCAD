@@ -13,6 +13,8 @@
     {"id": "lumber.metric.45x195", "name": "45x195", "actual": {"w": 45, "h": 195, "unit": "mm"}},
     {"id": "lumber.metric.45x220", "name": "45x220", "actual": {"w": 45, "h": 220, "unit": "mm"}},
     {"id": "lumber.metric.70x70", "name": "70x70", "actual": {"w": 70, "h": 70, "unit": "mm"}},
-    {"id": "lumber.metric.95x95", "name": "95x95", "actual": {"w": 95, "h": 95, "unit": "mm"}}
+    {"id": "lumber.metric.95x95", "name": "95x95", "actual": {"w": 95, "h": 95, "unit": "mm"}},
+    {"id": "lumber.metric.28x120", "name": "Decking 28x120", "actual": {"w": 28, "h": 120, "unit": "mm"}},
+    {"id": "lumber.metric.28x145", "name": "Decking 28x145", "actual": {"w": 28, "h": 145, "unit": "mm"}}
   ]
 }

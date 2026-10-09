@@ -221,6 +221,69 @@ def stair(stair, rules):
     return out
 
 
+def deck(deck, rules, joist_values=None, beam_values=None, load_kpa=0.0):
+    """Checks a Framing.Deck. load_kpa: live + dead load on the deck surface."""
+    t = deck.joist[0]
+    joist_span = deck.beam_y() - t  # ledger face to beam centre
+    out = [
+        _area_load(
+            "Joists",
+            joist_span,
+            deck.joist,
+            deck.spacing,
+            joist_values,
+            load_kpa,
+            rules.get("floor_joist_deflection_limit"),
+            "ledger to beam",
+        )
+    ]
+    # Beam: simply supported between posts, carrying half the joist span plus
+    # the cantilever (its tributary width).
+    posts = deck.post_centres()
+    span = max(b - a for a, b in zip(posts, posts[1:]))
+    tributary = joist_span / 2 + deck.cantilever + deck.beam_plies * deck.beam[0] / 2
+    section = (deck.beam[0] * deck.beam_plies, deck.beam[1])
+    out.append(
+        _area_load(
+            "Beam",
+            span,
+            section,
+            tributary,
+            beam_values,
+            load_kpa,
+            rules.get("header_deflection_limit"),
+            "post to post",
+        )
+    )
+    out.append(
+        (
+            "Ledger attachment",
+            REQUIRED,
+            "bolt or through-bolt the ledger to the house framing "
+            "to a design for your site, with flashing; fasteners are not generated",
+        )
+    )
+    out.append(
+        (
+            "Footings",
+            REQUIRED,
+            f"{len(posts)} posts need footings sized for your soil and "
+            "frost depth; not generated",
+        )
+    )
+    rise = rules.get("guard_min_rise_mm")
+    if rise is not None and deck.height > rise:
+        out.append(
+            (
+                "Guards",
+                REQUIRED,
+                f"deck {deck.height:.0f} mm above grade (rule: above "
+                f"{rise:g} mm); not generated, add them",
+            )
+        )
+    return out
+
+
 def cabinet(cabinet, rules):
     """Checks a Cabinet.Cabinet. Returns [(check, status, detail)]."""
     if cabinet.kind in rules.get("anchor_cabinet_kinds", ()):
