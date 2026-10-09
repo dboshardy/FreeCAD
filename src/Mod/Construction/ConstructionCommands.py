@@ -275,5 +275,17 @@ FreeCADGui.addCommand(
     ),
 )
 FreeCADGui.addCommand("Construction_Sheathing", SheathingCommand())
+FreeCADGui.addCommand(
+    "Construction_Shed",
+    FramingCommand(
+        "make_shed",
+        QT_TRANSLATE_NOOP("Construction_Shed", "Gable Shed"),
+        QT_TRANSLATE_NOOP(
+            "Construction_Shed",
+            "Creates a gable shed template: floor, walls with a door, roof, sheathing; "
+            "edit sizes and door in the property view",
+        ),
+    ),
+)
 FreeCADGui.addCommand("Construction_CutList", CutListCommand())
 FreeCADGui.addCommand("Construction_Check", CheckCommand())

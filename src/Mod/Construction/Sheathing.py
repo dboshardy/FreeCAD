@@ -31,7 +31,8 @@ class Surface:
 def cover(size, sheet, long_along="u", stagger=True):
     """Panels [(u0, v0, du, dv)] covering size = (U, V) with sheets of
     sheet = (long, short) mm. Rows run along the long side; with stagger, every
-    other row starts half a sheet over so seams do not line up."""
+    other row starts half a sheet over so seams do not line up (only when a
+    row is longer than one sheet)."""
     U, V = size
     long, short = sheet
     if min(U, V, long, short) <= 0:
@@ -43,7 +44,8 @@ def cover(size, sheet, long_along="u", stagger=True):
     for row in range(math.ceil(across / short - 1e-9)):
         a0 = row * short
         da = min(short, across - a0)
-        offset = long / 2 if stagger and row % 2 else 0.0
+        # Staggering only helps when a row needs more than one sheet.
+        offset = long / 2 if stagger and row % 2 and along > long + 1e-6 else 0.0
         s = -offset
         while s < along - 1e-6:
             s0, s1 = max(s, 0.0), min(s + long, along)
@@ -53,21 +55,24 @@ def cover(size, sheet, long_along="u", stagger=True):
     return panels
 
 
-def surfaces(model):
-    """Surfaces to sheathe on a Framing model, in the model's coordinates."""
+def surfaces(model, extend=(0.0, 0.0)):
+    """Surfaces to sheathe on a Framing model, in the model's coordinates.
+    extend: (start, end) mm a wall's sheathing reaches past its ends, e.g. to
+    wrap a corner."""
     if isinstance(model, Framing.Floor):
         top = model.joist[1]
         return [Surface("Subfloor", (0, 0, top), (1, 0, 0), (0, 1, 0), (model.length, model.width))]
     if isinstance(model, Framing.Wall):
-        holes = [(o.x, o.sill, o.width, o.height) for o in model.openings]
+        a, b = extend
+        holes = [(o.x + a, o.sill, o.width, o.height) for o in model.openings]
         # Outer face at y = 0; panels on the -y side; sheets upright.
         return [
             Surface(
                 "Wall sheathing",
-                (0, 0, 0),
+                (-a, 0, 0),
                 (1, 0, 0),
                 (0, 0, 1),
-                (model.length, model.height),
+                (model.length + a + b, model.height),
                 long_along="v",
                 openings=holes,
             )

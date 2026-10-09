@@ -13,6 +13,7 @@ import Framing
 import Library
 import Member
 import Sheathing
+import Shed
 
 DEFAULT_MATERIALS = {
     "CarcassMaterial": "sheet.metric.plywood.18",
@@ -397,6 +398,58 @@ def profile_solid(piece, thickness):
     return face.extrude(FreeCAD.Vector(thickness, 0, 0))
 
 
+def framing_pieces(model):
+    """[(piece, section name)] of a Framing model's members and profile boards."""
+    pieces = list(model.pieces()) + list(getattr(model, "boards", list)())
+    return [(p, p.section) for p in pieces]
+
+
+def piece_part(piece, size):
+    """Cut-list Part of a framing piece. size: (thickness, depth)."""
+    if isinstance(piece, Framing.ProfilePiece):
+        return Cabinet.Part(piece.name, "member", (*size, piece.cut_length()), (0, 0, 0), "z")
+    return member_part(piece.name, piece.start, piece.end, size)
+
+
+def piece_solid(piece, size):
+    if isinstance(piece, Framing.ProfilePiece):
+        return profile_solid(piece, size[0])
+    return member_box(piece.start, piece.end, piece.roll, size)
+
+
+def sheet_panels(surfaces, item, stagger):
+    """[(surface, (u0, v0, du, dv))] covering surfaces with a sheet-goods item,
+    and the sheet thickness."""
+    w, h, t = (Library.mm(item, k) for k in ("w", "h", "t"))
+    sheet = (max(w, h), min(w, h))
+    panels = [
+        (surface, panel)
+        for surface in surfaces
+        for panel in Sheathing.cover(surface.size, sheet, surface.long_along, stagger)
+    ]
+    return panels, t
+
+
+def panel_part(surface, panel, t):
+    grain = "x" if surface.long_along == "u" else "y"  # the sheet's long side
+    return Cabinet.Part(surface.name, "sheathing", (panel[2], panel[3], t), (0, 0, 0), grain)
+
+
+def panel_solid(surface, panel, t):
+    V = FreeCAD.Vector
+    u0, v0, du, dv = panel
+    solid = Part.makeBox(du, dv, t, V(u0, v0, 0))
+    for hu, hv, hdu, hdv in surface.openings:
+        if hu < u0 + du and u0 < hu + hdu and hv < v0 + dv and v0 < hv + hdv:
+            solid = solid.cut(Part.makeBox(hdu, hdv, t, V(hu, hv, 0)))
+    frame = FreeCAD.Placement(
+        V(*surface.origin),
+        FreeCAD.Rotation(V(*surface.u), V(*surface.v), V(*surface.normal()), "ZXY"),
+    )
+    solid.Placement = frame.multiply(solid.Placement)
+    return solid
+
+
 class FramingFeature:
     """Base of framing objects. A subclass defines PROPERTIES and MATERIALS
     (property, section name, default lumber, tip) and model(obj), which returns
@@ -430,29 +483,15 @@ class FramingFeature:
         return longest_stock(*(getattr(obj, prop) for prop, _, _, _ in self.MATERIALS))
 
     def _all(self, obj):
-        """[(piece, (material id, section))] of members and profile boards."""
-        model, mats = self.model(obj), self.materials(obj)
-        pieces = list(model.pieces()) + list(getattr(model, "boards", list)())
-        return [(p, mats[p.section]) for p in pieces]
+        """[(piece, (material id, (thickness, depth)))]."""
+        mats = self.materials(obj)
+        return [(p, mats[section]) for p, section in framing_pieces(self.model(obj))]
 
     def parts(self, obj):
-        out = []
-        for p, (material, section) in self._all(obj):
-            if isinstance(p, Framing.ProfilePiece):
-                part = Cabinet.Part(p.name, "member", (*section, p.cut_length()), (0, 0, 0), "z")
-            else:
-                part = member_part(p.name, p.start, p.end, section)
-            out.append((material, part))
-        return out
+        return [(material, piece_part(p, size)) for p, (material, size) in self._all(obj)]
 
     def execute(self, obj):
-        shapes = []
-        for p, (_, section) in self._all(obj):
-            if isinstance(p, Framing.ProfilePiece):
-                shapes.append(profile_solid(p, section[0]))
-            else:
-                shapes.append(member_box(p.start, p.end, p.roll, section))
-        set_shape(obj, shapes)
+        set_shape(obj, [piece_solid(p, size) for p, (_, size) in self._all(obj)])
 
     def design_values(self, obj, prop):
         return library_item(getattr(obj, prop)).get("design_values")
@@ -640,48 +679,16 @@ class SheathingFeature:
         """[(surface, (u0, v0, du, dv))] and the sheet thickness."""
         if obj.Base is None or not isinstance(obj.Base.Proxy, FramingFeature):
             raise ValueError("Base must be a wall, floor or roof framing object")
-        item = library_item(obj.Material)
-        w, h, t = (Library.mm(item, k) for k in ("w", "h", "t"))
-        sheet = (max(w, h), min(w, h))
         model = obj.Base.Proxy.model(obj.Base)
-        out = []
-        for surface in Sheathing.surfaces(model):
-            for panel in Sheathing.cover(surface.size, sheet, surface.long_along, obj.Stagger):
-                out.append((surface, panel))
-        return out, t
+        return sheet_panels(Sheathing.surfaces(model), library_item(obj.Material), obj.Stagger)
 
     def parts(self, obj):
         panels, t = self._panels(obj)
-        return [
-            (
-                obj.Material,
-                Cabinet.Part(
-                    surface.name,
-                    "sheathing",
-                    (du, dv, t),
-                    (0, 0, 0),
-                    "x" if surface.long_along == "u" else "y",
-                ),
-            )
-            for surface, (_, _, du, dv) in panels
-        ]
+        return [(obj.Material, panel_part(surface, panel, t)) for surface, panel in panels]
 
     def execute(self, obj):
         panels, t = self._panels(obj)
-        V = FreeCAD.Vector
-        shapes = []
-        for surface, (u0, v0, du, dv) in panels:
-            panel = Part.makeBox(du, dv, t, V(u0, v0, 0))
-            for hu, hv, hdu, hdv in surface.openings:
-                if hu < u0 + du and u0 < hu + hdu and hv < v0 + dv and v0 < hv + hdv:
-                    panel = panel.cut(Part.makeBox(hdu, hdv, t, V(hu, hv, 0)))
-            frame = FreeCAD.Placement(
-                V(*surface.origin),
-                FreeCAD.Rotation(V(*surface.u), V(*surface.v), V(*surface.normal()), "ZXY"),
-            )
-            panel.Placement = frame.multiply(panel.Placement)
-            shapes.append(panel)
-        set_shape(obj, shapes)
+        set_shape(obj, [panel_solid(surface, panel, t) for surface, panel in panels])
 
     def checks(self, obj, rules):
         return []
@@ -710,8 +717,150 @@ def make_sheathing(base, doc=None, name="Sheathing"):
     return obj
 
 
+class ShedFeature:
+    """Gable shed template (see Shed.py): every part regenerates from its properties."""
+
+    GROUP = "Shed"
+    _d = Shed.Shed()
+    PROPERTIES = [
+        _length("Length", "Front and back walls, outside", _d.length),
+        _length("Width", "Side walls, outside", _d.width),
+        _length("WallHeight", "Bottom plate to top of the top plates", _d.wall_height),
+        _length("DoorWidth", "Rough opening, centred in the front wall", _d.door_width),
+        _length("DoorHeight", "Rough opening", _d.door_height),
+        ("App::PropertyAngle", "Pitch", "Roof slope (26.57 = 6 in 12)", _d.pitch),
+        _length("Overhang", "Eave overhang, horizontal", _d.overhang),
+        _length("StudSpacing", "Stud centres", _d.stud_spacing),
+        _length("JoistSpacing", "Floor joist centres", _d.joist_spacing),
+        _length("RafterSpacing", "Rafter centres", _d.rafter_spacing),
+        ("App::PropertyFloat", "HeaderLoad", "kN/m on the door header, " + LOAD_TIP, 0.0),
+        ("App::PropertyFloat", "FloorLoad", "kPa, " + LOAD_TIP, 0.0),
+        ("App::PropertyFloat", "RoofLoad", "kPa on plan, " + LOAD_TIP, 0.0),
+    ]
+    LUMBER = [  # property, framing section, default
+        ("StudMaterial", "stud", "lumber.metric.45x95"),
+        ("HeaderMaterial", "header", "lumber.metric.45x195"),
+        ("JoistMaterial", "joist", "lumber.metric.45x195"),
+        ("RafterMaterial", "rafter", "lumber.metric.45x145"),
+        ("RidgeMaterial", "ridge", "lumber.metric.45x195"),
+        ("TieMaterial", "tie", "lumber.metric.45x145"),
+    ]
+    SHEETS = [  # property, components it covers, default
+        ("FloorSheet", ("Floor",), FLOOR_SHEATHING),
+        ("WallSheet", ("Front wall", "Back wall", "Left wall", "Right wall"), DEFAULT_SHEATHING),
+        ("RoofSheet", ("Roof",), DEFAULT_SHEATHING),
+    ]
+
+    def __init__(self, obj):
+        obj.Proxy = self
+        self.setProperties(obj)
+
+    def setProperties(self, obj):
+        for ptype, prop, tip, value in self.PROPERTIES:
+            add_property(obj, ptype, prop, self.GROUP, tip, value)
+        for prop, section, default in self.LUMBER:
+            add_library_choice(obj, prop, Library.LUMBER, default, "Lumber", section)
+        for prop, covers, default in self.SHEETS:
+            tip = "Sheathing on " + ", ".join(covers).lower()
+            add_library_choice(obj, prop, Library.SHEET_GOODS, default, "Sheathing", tip)
+
+    def onDocumentRestored(self, obj):
+        self.setProperties(obj)
+
+    def model(self, obj):
+        sizes = {section: lumber_section(getattr(obj, prop)) for prop, section, _ in self.LUMBER}
+        return Shed.Shed(
+            length=float(obj.Length.Value),
+            width=float(obj.Width.Value),
+            wall_height=float(obj.WallHeight.Value),
+            door_width=float(obj.DoorWidth.Value),
+            door_height=float(obj.DoorHeight.Value),
+            pitch=float(obj.Pitch.Value),
+            overhang=float(obj.Overhang.Value),
+            stud_spacing=float(obj.StudSpacing.Value),
+            joist_spacing=float(obj.JoistSpacing.Value),
+            rafter_spacing=float(obj.RafterSpacing.Value),
+            floor_sheet=sheet_thickness(obj.FloorSheet),
+            wall_sheet=sheet_thickness(obj.WallSheet),
+            max_piece=longest_stock(*(getattr(obj, prop) for prop, _, _ in self.LUMBER)),
+            **sizes,
+        )
+
+    def _items(self, obj):
+        """[(placement, material id, part, solid builder)] for every piece and panel."""
+        lumber = {section: getattr(obj, prop) for prop, section, _ in self.LUMBER}
+        sheet_for = {name: prop for prop, covers, _ in self.SHEETS for name in covers}
+        shed = self.model(obj)
+        sizes = shed.sections()
+        out = []
+        for c in shed.components():
+            placement = FreeCAD.Placement(
+                FreeCAD.Vector(*c.origin), FreeCAD.Rotation(FreeCAD.Vector(0, 0, 1), c.rotation)
+            )
+            for p, section in framing_pieces(c.model):
+                size = sizes[section]
+                out.append(
+                    (placement, lumber[section], piece_part(p, size), (piece_solid, p, size))
+                )
+            material = getattr(obj, sheet_for[c.name])
+            panels, t = sheet_panels(Shed.sheathing_surfaces(c), library_item(material), True)
+            for surface, panel in panels:
+                part = panel_part(surface, panel, t)
+                out.append((placement, material, part, (panel_solid, surface, panel, t)))
+        return out
+
+    def parts(self, obj):
+        return [(material, part) for _, material, part, _ in self._items(obj)]
+
+    def execute(self, obj):
+        shapes = []
+        for placement, _, _, (build, *args) in self._items(obj):
+            solid = build(*args)
+            solid.Placement = placement.multiply(solid.Placement)
+            shapes.append(solid)
+        set_shape(obj, shapes)
+
+    def checks(self, obj, rules):
+        def values(prop):
+            return library_item(getattr(obj, prop)).get("design_values")
+
+        out = []
+        for c in self.model(obj).components():
+            if isinstance(c.model, Framing.Wall):
+                results = Checks.wall(
+                    c.model, rules, values("HeaderMaterial"), float(obj.HeaderLoad)
+                )
+            elif isinstance(c.model, Framing.Floor):
+                results = Checks.floor(
+                    c.model, rules, values("JoistMaterial"), float(obj.FloorLoad)
+                )
+            else:
+                results = Checks.roof(c.model, rules, values("RafterMaterial"), float(obj.RoofLoad))
+            out += [(f"{c.name}: {check}", status, detail) for check, status, detail in results]
+        return out
+
+    def anchored(self, obj, rules):
+        return 0
+
+    def dumps(self):
+        return None
+
+    def loads(self, state):
+        return None
+
+
+def make_shed(doc=None, name="Shed"):
+    doc = doc or FreeCAD.ActiveDocument or FreeCAD.newDocument()
+    obj = doc.addObject("Part::FeaturePython", name)
+    ShedFeature(obj)
+    if FreeCAD.GuiUp:
+        obj.ViewObject.Proxy = 0
+    doc.recompute()
+    return obj
+
+
 def construction_objects(doc):
-    kinds = (CabinetFeature, MemberFeature, FramingFeature, SheathingFeature)
+    kinds = (CabinetFeature, MemberFeature, FramingFeature, SheathingFeature, ShedFeature)
     return [o for o in doc.Objects if isinstance(getattr(o, "Proxy", None), kinds)]
 
 
@@ -784,22 +933,29 @@ def write_cut_list(doc):
     for r, (material, name, length, width, thick, grain, qty) in enumerate(rows, start=2):
         _write_row(cut, r, [label(material), name, length, width, thick, grain, qty])
 
-    materials = sorted({r[0] for r in rows})
-    by_category = {
-        cat: [m for m in materials if lib.get(m, {}).get("category") == cat]
-        for cat in (Library.SHEET_GOODS, Library.LUMBER)
-    }
+    def of_category(cut_rows, category):
+        materials = sorted({r[0] for r in cut_rows})
+        return [m for m in materials if lib.get(m, {}).get("category") == category]
+
+    # Shop parts are cut from trimmed sheets; sheathing is cut against the
+    # factory edges (no trim) and laid out separately.
+    shop = CutList.rows(mp for mp in parts if mp[1].role != "sheathing")
+    sheathing = CutList.rows(mp for mp in parts if mp[1].role == "sheathing")
+    groups = [
+        (shop, of_category(shop, Library.SHEET_GOODS), trim, ""),
+        (sheathing, of_category(sheathing, Library.SHEET_GOODS), 0.0, " (sheathing)"),
+    ]
     summary = len(rows) + 3
     _write_row(cut, summary, [f"Sheets (panel-saw layout, kerf {kerf:g} mm, trim {trim:g} mm)"])
-    for material, count, share in _write_sheet_layouts(
-        doc, rows, by_category[Library.SHEET_GOODS], lib, label, kerf, trim
-    ):
+    for material, suffix, count, share in _write_sheet_layouts(doc, groups, lib, label, kerf):
         summary += 1
-        _write_row(cut, summary, [label(material), f"{share:.0%} used", "", "", "", "", count])
+        _write_row(
+            cut, summary, [label(material) + suffix, f"{share:.0%} used", "", "", "", "", count]
+        )
     summary += 2
     _write_row(cut, summary, [f"Lumber (stock lengths, kerf {kerf:g} mm)"])
     for material, stock, count in _write_lumber_plan(
-        doc, rows, by_category[Library.LUMBER], lib, label, kerf
+        doc, rows, of_category(rows, Library.LUMBER), lib, label, kerf
     ):
         summary += 1
         _write_row(cut, summary, [label(material), f"{stock:g} mm", "", "", "", "", count])
@@ -814,8 +970,9 @@ def write_cut_list(doc):
     return cut
 
 
-def _write_sheet_layouts(doc, rows, materials, lib, label, kerf, trim):
-    """Lays out sheet materials; yields (material, sheets, share used)."""
+def _write_sheet_layouts(doc, groups, lib, label, kerf):
+    """Lays out sheet materials. groups: [(cut rows, materials, trim, label suffix)].
+    Returns [(material, suffix, sheets, share used)]."""
     layout = _sheet(doc, "SheetLayout")
     _write_row(
         layout,
@@ -823,7 +980,9 @@ def _write_sheet_layouts(doc, rows, materials, lib, label, kerf, trim):
         ["Material", "Sheet", "Part", "X (mm)", "Y (mm)", "Across (mm)", "Along (mm)", "Rotated"],
     )
     shapes, offset, row, out = [], 0.0, 2, []
-    for material in materials:
+    for rows, material, trim, suffix in (
+        (rows, m, trim, suffix) for rows, materials, trim, suffix in groups for m in materials
+    ):
         item = lib[material]
         sheet_w, sheet_h = Library.mm(item, "w"), Library.mm(item, "h")
         sheets = CutList.layout_sheets(
@@ -835,14 +994,16 @@ def _write_sheet_layouts(doc, rows, materials, lib, label, kerf, trim):
             grain_locked=item.get("grain_axis") is not None,
         )
         used = sum(p.w * p.h for placed in sheets for p in placed)
-        out.append((material, len(sheets), used / (len(sheets) * sheet_w * sheet_h)))
+        out.append((material, suffix, len(sheets), used / (len(sheets) * sheet_w * sheet_h)))
         for number, placed in enumerate(sheets, start=1):
             outline = Part.makePlane(sheet_w, sheet_h, FreeCAD.Vector(offset, 0, 0)).OuterWire
             shapes.append(outline)
             for p in placed:
                 rotated = "yes" if p.rotated else "no"
                 _write_row(
-                    layout, row, [label(material), number, p.name, p.x, p.y, p.w, p.h, rotated]
+                    layout,
+                    row,
+                    [label(material) + suffix, number, p.name, p.x, p.y, p.w, p.h, rotated],
                 )
                 shapes.append(Part.makePlane(p.w, p.h, FreeCAD.Vector(offset + p.x, p.y, 0)))
                 row += 1

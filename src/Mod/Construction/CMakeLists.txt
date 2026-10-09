@@ -13,6 +13,7 @@ set(Construction_SRCS
     Library.py
     Member.py
     Sheathing.py
+    Shed.py
     TestConstruction.py
 )
 file(GLOB_RECURSE Construction_DATA RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} Resources/libraries/*.json)
