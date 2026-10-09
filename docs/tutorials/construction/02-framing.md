@@ -145,7 +145,50 @@ the rafters push the walls apart. **Check** warns when they are off.
 The heel (the vertical cut of the birdsmouth) is 47 mm on a 162 mm plumb
 depth; each rafter needs a board of at least 2060 mm.
 
-## 5. Sheathing
+## 5. A stair
+
+Click **Stair** and set **TotalRise** (finished floor to finished floor) and
+**Width**. The stair:
+
+- splits the rise into the fewest **equal** risers no higher than the rule
+  set's `stair_riser_max_mm` (tutorial 4), so it follows your rules;
+- makes each tread from **TreadBoards** whole boards of **TreadMaterial** laid
+  flat with **TreadGap** between them, overhanging the riser by **Nosing**; the
+  run (riser face to riser face) follows from that, so no board is ripped;
+- cuts the stringers from **StringerMaterial**, dropped by the tread thickness
+  so the first and last risers equal the others, as many as keep them within
+  **StringerSpacing**.
+
+```pycon
+>>> stair = Framing.Stair(total_rise=2600, max_riser=190, stringer=(38.1, 285.75))
+>>> stair.risers(), round(stair.riser(), 1), stair.run(), stair.total_run()
+(14, 185.7, 271.0, 3523.0)
+>>> [round(x, 1) for x in stair.stringer_centres()]
+[19.1, 450.0, 880.9]
+```
+
+**Check** reports riser height, tread run, the comfort rule
+(2 × riser + tread), the wood left under the stringer cuts (throat), and
+lists handrails and guards as **required** when the stair is tall enough: they
+are not generated, so add them. Headroom is not checked; it depends on the
+floor opening above.
+
+```pycon
+>>> import Checks, Library
+>>> rules = Library.load()["rules.generic-example"]
+>>> for check, status, detail in Checks.stair(stair, rules):
+...     print(f"{check}: {status}")
+Riser height: ok
+Tread run: ok
+Comfort (2 x riser + tread): ok
+Equal risers: ok
+Stringer throat: ok
+Handrail: required
+Guards: required
+Headroom: not checked
+```
+
+## 6. Sheathing
 
 Select a wall, floor or roof framing object and click **Sheathing**:
 
@@ -164,7 +207,7 @@ follows its framing when you move it. Pick the sheet in **Material**.
 [(0.0, 0, 2440.0, 1220), (2440.0, 0, 1160.0, 1220), (0.0, 1220, 1220.0, 1220), (1220.0, 1220, 2380.0, 1220), (0.0, 2440, 2440.0, 560), (2440.0, 2440, 1160.0, 560)]
 ```
 
-## 6. The lumber buying plan
+## 7. The lumber buying plan
 
 **Cut List** includes every member and framing object. For lumber it writes:
 

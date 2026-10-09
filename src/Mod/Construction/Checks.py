@@ -168,6 +168,59 @@ def roof(roof, rules, values=None, load_kpa=0.0):
     return out
 
 
+def stair(stair, rules):
+    """Checks a Framing.Stair. Returns [(check, status, detail)]."""
+    out = []
+    r, t = stair.riser(), stair.run()
+
+    def limit(name, value, rule_key, low_is_bad, unit="mm"):
+        rule = rules.get(rule_key)
+        if rule is None:
+            return
+        ok = value >= rule - 1e-6 if low_is_bad else value <= rule + 1e-6
+        word = "min" if low_is_bad else "max"
+        out.append(
+            (name, OK if ok else WARNING, f"{value:.0f} {unit}, rule {word} {rule:g} {unit}")
+        )
+
+    limit("Riser height", r, "stair_riser_max_mm", low_is_bad=False)
+    limit("Tread run", t, "stair_tread_min_mm", low_is_bad=True)
+    low, high = rules.get("stair_comfort_min_mm"), rules.get("stair_comfort_max_mm")
+    if low and high:
+        step = 2 * r + t
+        ok = low - 1e-6 <= step <= high + 1e-6
+        out.append(
+            (
+                "Comfort (2 x riser + tread)",
+                OK if ok else WARNING,
+                f"{step:.0f} mm, rule {low:g} to {high:g} mm",
+            )
+        )
+    out.append(("Equal risers", OK, f"{stair.risers()} risers of {r:.1f} mm"))
+    limit("Stringer throat", stair.throat(), "stair_throat_min_mm", low_is_bad=True)
+    risers = rules.get("handrail_min_risers")
+    if risers is not None and stair.risers() >= risers:
+        out.append(
+            (
+                "Handrail",
+                REQUIRED,
+                f"{stair.risers()} risers (rule: from {risers}); " "not generated, add one",
+            )
+        )
+    rise = rules.get("guard_min_rise_mm")
+    if rise is not None and stair.total_rise > rise:
+        out.append(
+            (
+                "Guards",
+                REQUIRED,
+                f"open sides rise {stair.total_rise:.0f} mm (rule: above "
+                f"{rise:g} mm); not generated, add them",
+            )
+        )
+    out.append(("Headroom", NOT_CHECKED, "depends on the floor opening above the stair"))
+    return out
+
+
 def cabinet(cabinet, rules):
     """Checks a Cabinet.Cabinet. Returns [(check, status, detail)]."""
     if cabinet.kind in rules.get("anchor_cabinet_kinds", ()):

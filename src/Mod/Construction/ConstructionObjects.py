@@ -650,6 +650,49 @@ class GableRoofFeature(FramingFeature):
         return Checks.roof(self.model(obj), rules, values, float(obj.RoofLoad))
 
 
+class StairFeature(FramingFeature):
+    """Straight stair on cut stringers; the riser limit comes from the rule set."""
+
+    GROUP = "Stair"
+    _d = Framing.Stair()
+    PROPERTIES = [
+        _length("TotalRise", "Finished floor to finished floor", _d.total_rise),
+        _length("Width", "Outside of the stringers", _d.width),
+        (INTEGER, "TreadBoards", "Boards per tread: the run follows from them", _d.tread_boards),
+        _length("TreadGap", "Gap between tread boards", _d.tread_gap),
+        _length("Nosing", "Tread overhang past the riser face", _d.nosing),
+        _length("StringerSpacing", "Largest distance between stringers", _d.max_stringer_spacing),
+    ]
+    MATERIALS = [
+        ("StringerMaterial", "stringer", "lumber.metric.45x220", "Stringers (cut)"),
+        ("TreadMaterial", "tread", "lumber.metric.45x145", "Tread boards, laid flat"),
+    ]
+
+    def model(self, obj):
+        max_riser = rule_set().get("stair_riser_max_mm")
+        if not max_riser:
+            raise ValueError("the rule set has no stair_riser_max_mm")
+        return Framing.Stair(
+            total_rise=float(obj.TotalRise.Value),
+            width=float(obj.Width.Value),
+            max_riser=float(max_riser),
+            tread_boards=int(obj.TreadBoards),
+            tread_gap=float(obj.TreadGap.Value),
+            nosing=float(obj.Nosing.Value),
+            tread=lumber_section(obj.TreadMaterial),
+            stringer=lumber_section(obj.StringerMaterial),
+            max_stringer_spacing=float(obj.StringerSpacing.Value),
+            max_piece=self.max_piece(obj),
+        )
+
+    def checks(self, obj, rules):
+        return Checks.stair(self.model(obj), rules)
+
+
+def make_stair(doc=None, name="Stair"):
+    return _make_framing(StairFeature, name, doc)
+
+
 def _make_framing(feature, name, doc):
     doc = doc or FreeCAD.ActiveDocument or FreeCAD.newDocument()
     obj = doc.addObject("Part::FeaturePython", name)
