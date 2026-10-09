@@ -13,6 +13,8 @@ class ConstructionWorkbench(Workbench):
             "Construction_BaseCabinet",
             "Construction_WallCabinet",
             "Construction_TallCabinet",
+            "Construction_SinkCabinet",
+            "Construction_CornerCabinet",
             "Construction_BaseRun",
             "Construction_WallRun",
             "Construction_CutList",

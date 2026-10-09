@@ -13,8 +13,9 @@ Fronts (doors, drawer fronts) are full overlay and sit in front of the carcass
 import math
 from dataclasses import dataclass, replace
 
-KINDS = ("base", "wall", "tall")
-FRONTS = ("doors", "drawers", "drawer_over_doors")
+KINDS = ("base", "wall", "tall", "sink")
+FRONTS = ("doors", "drawers", "drawer_over_doors", "false_front_over_doors")
+BLIND_SIDES = ("left", "right")
 SLIDE_STEP = 50.0  # drawer slides are sold in 50 mm length steps
 MIN_SLIDE = 250.0
 MIN_DRAWER_BOX_HEIGHT = 60.0
@@ -46,7 +47,9 @@ class Part:
 
 @dataclass
 class Cabinet:
-    kind: str = "base"  # base: stretchers on top, plinth. wall / tall: full top panel
+    # base: top stretchers, plinth. wall / tall: full top panel. sink: base with
+    # a front stretcher only and no back (open for plumbing).
+    kind: str = "base"
     width: float = 600.0
     height: float = 870.0  # base to top of carcass, plinth included
     depth: float = 580.0  # carcass + back, fronts excluded
@@ -67,6 +70,10 @@ class Cabinet:
     drawer_side_clearance: float = 13.0  # per side, from the slide maker's data
     drawer_height_clearance: float = 40.0  # opening height minus drawer box height
     drawer_rear_clearance: float = 10.0  # behind the drawer box
+    # Blind corner: this width of the front is hidden by the run that meets the
+    # cabinet and gets a fixed blind panel; doors cover the rest. 0 = none.
+    blind_width: float = 0.0
+    blind_side: str = "left"
 
     # ------------------------------------------------------------- derived
 
@@ -77,14 +84,18 @@ class Cabinet:
         return self.width - 2 * self.thickness
 
     def carcass_depth(self):
-        return self.depth - self.back_thickness
+        return self.depth if self.kind == "sink" else self.depth - self.back_thickness
+
+    def open_width(self):
+        """Front width not covered by a blind panel."""
+        return self.width - self.blind_width
 
     def door_count(self):
-        return self.doors or (1 if self.width <= 600 else 2)
+        return self.doors or (1 if self.open_width() <= 600 else 2)
 
     def door_width(self):
         n = self.door_count()
-        return (self.width - self.door_gap * n) / n
+        return (self.open_width() - self.door_gap * n) / n
 
     def slots(self):
         """Front slots bottom to top as (role, z_low, z_high): contiguous bands of
@@ -96,7 +107,8 @@ class Cabinet:
             step = self.carcass_height() / self.drawers
             return [("drawer", k + i * step, k + (i + 1) * step) for i in range(self.drawers)]
         split = h - self.drawer_front_height - gap
-        return [("door", k, split), ("drawer", split, h)]
+        top = "drawer" if self.fronts == "drawer_over_doors" else "false_front"
+        return [("door", k, split), (top, split, h)]
 
     def drawer_box(self, z_low, z_high):
         """(x, z, width, height, depth) of the drawer box for a drawer slot."""
@@ -147,6 +159,14 @@ class Cabinet:
             raise ValueError("shelves and doors must not be negative")
         if self.fronts == "drawers" and self.drawers < 1:
             raise ValueError("a drawer bank needs at least one drawer")
+        if self.blind_side not in BLIND_SIDES:
+            raise ValueError("blind side must be left or right")
+        if self.blind_width < 0:
+            raise ValueError("blind width must not be negative")
+        if self.blind_width and self.fronts != "doors":
+            raise ValueError("blind corner cabinets take doors only")
+        if self.blind_width and self.open_width() <= self.door_gap:
+            raise ValueError("blind width leaves no room for a door")
         t = self.thickness
         if self.inner_width() <= 2 * self.shelf_clearance:
             raise ValueError("width too small for the panel thickness")
@@ -158,9 +178,13 @@ class Cabinet:
             raise ValueError("plinth setback too large for the depth")
         if self.door_width() <= 0:
             raise ValueError("door gap too large for the width")
+        if self.kind == "sink" and self.carcass_depth() <= self.stretcher_width:
+            raise ValueError("depth too small for the stretcher")
         for role, low, high in self.slots():
             if high - low <= self.door_gap:
                 raise ValueError("fronts too small for the door gap")
+            if role == "false_front":
+                continue
             if role == "door":
                 opening = min(high, self.height - t) - (self.plinth_height + t)
                 if self.shelves and opening / (self.shelves + 1) <= t:
@@ -187,16 +211,18 @@ class Cabinet:
             Part("Left side", "carcass", (t, carcass_d, box_h), (0, 0, k), "z"),
             Part("Right side", "carcass", (t, carcass_d, box_h), (w - t, 0, k), "z"),
             Part("Bottom", "carcass", (inner_w, carcass_d, t), (t, 0, k), "x"),
-            Part("Back", "back", (w, tb, box_h), (0, carcass_d, k), "z"),
         ]
-        if self.kind == "base":
+        if self.kind != "sink":
+            out.append(Part("Back", "back", (w, tb, box_h), (0, carcass_d, k), "z"))
+        if self.kind in ("base", "sink"):
             s = self.stretcher_width
             # Hidden parts: grain None lets the sheet layout rotate them.
             out.append(Part("Front stretcher", "carcass", (inner_w, s, t), (t, 0, h - t)))
+        if self.kind == "base":
             out.append(
                 Part("Back stretcher", "carcass", (inner_w, s, t), (t, carcass_d - s, h - t))
             )
-        else:
+        if self.kind in ("wall", "tall"):
             out.append(Part("Top", "carcass", (inner_w, carcass_d, t), (t, 0, h - t), "x"))
         if k > 0:
             out.append(Part("Kick board", "plinth", (w, t, k), (0, self.plinth_setback, 0), "x"))
@@ -207,6 +233,11 @@ class Cabinet:
         for role, low, high in slots:
             if role == "door":
                 out += self._door_parts(low, high)
+            elif role == "false_front":
+                size = (w - gap, t, high - low - gap)
+                out.append(
+                    Part("False front", "drawer_front", size, (gap / 2, -t, low + gap / 2), "x")
+                )
         for i, (low, high) in enumerate(reversed(drawer_slots)):  # numbered from the top
             label = "Drawer" if len(drawer_slots) == 1 else f"Drawer {i + 1}"
             out += self._drawer_parts(label, low, high)
@@ -214,12 +245,26 @@ class Cabinet:
 
     def _door_parts(self, low, high):
         t, gap, k = self.thickness, self.door_gap, self.plinth_height
-        n, dw = self.door_count(), self.door_width()
+        n, dw, b = self.door_count(), self.door_width(), self.blind_width
+        front_h = high - low - gap
         out = []
+        x0 = b if self.blind_side == "left" else 0.0  # left edge of the door area
         for i in range(n):
             label = "Door" if n == 1 else f"Door {i + 1}"
-            pos = (gap / 2 + i * (dw + gap), -t, low + gap / 2)
-            out.append(Part(label, "door", (dw, t, high - low - gap), pos, "z"))
+            pos = (x0 + gap / 2 + i * (dw + gap), -t, low + gap / 2)
+            out.append(Part(label, "door", (dw, t, front_h), pos, "z"))
+        if b:
+            # Blind panel: flush with the cabinet's blind edge, half a gap to the doors.
+            x = 0.0 if self.blind_side == "left" else self.width - b + gap / 2
+            out.append(
+                Part(
+                    "Blind panel",
+                    "blind_panel",
+                    (b - gap / 2, t, front_h),
+                    (x, -t, low + gap / 2),
+                    "z",
+                )
+            )
         # Shelves evenly spaced in the opening behind the doors.
         bottom = k + t
         opening = min(high, self.height - t) - bottom
@@ -263,18 +308,27 @@ class Cabinet:
         ]
 
 
-# Base and wall heights and depths are common kitchen practice; adjust per job.
+# Starting points by preset; heights and depths are common kitchen practice,
+# adjust per job. "corner" is a blind-corner base cabinet: 600 mm blind for an
+# adjoining run 580 mm deep plus clearance for its door handles.
 DEFAULTS = {
     "base": {},
     "wall": {"height": 720.0, "depth": 320.0, "plinth_height": 0.0, "shelves": 2},
     "tall": {"height": 2100.0, "shelves": 4},
+    "sink": {"kind": "sink", "width": 800.0, "shelves": 0, "fronts": "false_front_over_doors"},
+    "corner": {"width": 1000.0, "blind_width": 600.0},
 }
 # Bottom of wall cabinets above the floor (900 mm counter + 500 mm clearance).
 WALL_ELEVATION = 1400.0
 
 
-def defaults(kind):
-    return Cabinet(kind=kind, **DEFAULTS[kind])
+PRESETS = tuple(DEFAULTS)
+
+
+def defaults(preset):
+    """Cabinet for a preset name (a kind, or "corner")."""
+    values = {"kind": preset if preset in KINDS else "base", **DEFAULTS[preset]}
+    return Cabinet(**values)
 
 
 # ------------------------------------------------------------------ runs

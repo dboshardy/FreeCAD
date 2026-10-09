@@ -13,7 +13,7 @@ import Cabinet  # noqa: E402
 import CutList  # noqa: E402
 import Library  # noqa: E402
 
-FRONT_ROLES = ("door", "drawer_front", "filler")
+FRONT_ROLES = ("door", "drawer_front", "filler", "blind_panel")
 
 
 def bbox(parts):
@@ -52,6 +52,41 @@ class TestCabinet(unittest.TestCase):
             c.fronts, c.width, c.shelves = fronts, width, shelves
             with self.subTest(kind=kind, fronts=fronts, width=width, shelves=shelves):
                 assert_no_overlap(self, c.parts())
+
+    def test_presets_build_without_overlap(self):
+        for preset in Cabinet.PRESETS:
+            with self.subTest(preset=preset):
+                parts = Cabinet.defaults(preset).parts()
+                assert_no_overlap(self, parts)
+                lo, hi = bbox([p for p in parts if p.role not in FRONT_ROLES])
+                c = Cabinet.defaults(preset)
+                self.assertEqual(hi, [c.width, c.depth, c.height])
+
+    def test_sink_is_open_for_plumbing(self):
+        names = [p.name for p in Cabinet.defaults("sink").parts()]
+        self.assertNotIn("Back", names)
+        self.assertNotIn("Back stretcher", names)
+        self.assertIn("Front stretcher", names)
+        self.assertIn("False front", names)
+        self.assertFalse([n for n in names if n.startswith(("Shelf", "Drawer"))])
+
+    def test_blind_corner_fronts(self):
+        for side in Cabinet.BLIND_SIDES:
+            c = Cabinet.Cabinet(width=1000, blind_width=600, blind_side=side)
+            parts = c.parts()
+            fronts = [p for p in parts if p.role in ("door", "blind_panel")]
+            covered = sum(p.size[0] for p in fronts) + c.door_gap * (len(fronts) - 0.5)
+            self.assertAlmostEqual(covered, 1000, msg=side)
+            blind = next(p for p in parts if p.role == "blind_panel")
+            door = next(p for p in parts if p.role == "door")
+            if side == "left":
+                self.assertEqual(blind.pos[0], 0)  # flush with the blind edge
+                self.assertGreater(door.pos[0], blind.pos[0] + blind.size[0])
+            else:
+                self.assertAlmostEqual(blind.pos[0] + blind.size[0], 1000)
+                self.assertLess(door.pos[0] + door.size[0], blind.pos[0])
+            assert_no_overlap(self, parts)
+        self.assertEqual(Cabinet.Cabinet(width=1000, blind_width=600).door_count(), 1)
 
     def test_wall_and_tall_have_full_top(self):
         for kind in ("wall", "tall"):
@@ -103,6 +138,10 @@ class TestCabinet(unittest.TestCase):
             {"fronts": "drawers", "drawers": 12},
             {"fronts": "drawers", "depth": 260},
             {"fronts": "drawer_over_doors", "drawer_front_height": 900},
+            {"blind_width": 300, "fronts": "drawers"},
+            {"blind_width": 599},
+            {"blind_width": -1},
+            {"blind_width": 200, "blind_side": "top"},
         ):
             with self.assertRaises(ValueError, msg=str(kwargs)):
                 Cabinet.Cabinet(**kwargs).parts()
