@@ -84,10 +84,10 @@ workspace layer can be bound in `Hotkeys.json` (Phase 0 decision 0.6.10).
 
 | # | Item | Status | Where / notes |
 |---|---|---|---|
-| 5.6.1 | BOM / purchase list by material and stock length, cost | Partial | `Construction_CutList`: sheets per material (area estimate, 15% waste). No stock lengths or cost |
+| 5.6.1 | BOM / purchase list by material and stock length, cost | Partial | `Construction_CutList`: sheets per material from the panel-saw layout, with % used. No stock lengths or cost |
 | 5.6.2 | Cut list (dimensions, grain, labels) | Partial | `Construction_CutList` writes spreadsheet `CutList`: material, part, length (along grain), width, thickness, grain, qty. Missing: angles, edge banding, part labels |
 | 5.6.3 | 1D stock optimization (kerf, waste/cost) | Missing | §3.2 lists OR-Tools; start with a stdlib heuristic |
-| 5.6.4 | 2D sheet nesting (guillotine; true-shape) | Partial | True-shape: upstream `ArchNesting.py` + `ArchPanel` sheets. Guillotine for panel saws: Missing |
+| 5.6.4 | 2D sheet nesting (guillotine; true-shape) | Partial | Guillotine for panel saws: `CutList.layout_sheets` (kerf and trim from preferences `Mod/Construction/Kerf`, `/Trim`; grain parts stay along the sheet length; sheets without grain, e.g. MDF, allow rotation). Writes spreadsheet `SheetLayout` (part positions) and `SheetLayoutView` (flat drawing of the sheets). Multi-pass greedy, not optimal; prior art in `docs/prior-art/guillotine-sheet-layout.md`. True-shape: upstream `ArchNesting.py` |
 | 5.6.5 | Framing plans / elevations with member tags | Partial | Upstream TechDraw/BIM views; no member tags |
 | 5.6.6 | Build-sequence views | Missing | |
 | 5.6.7 | Export CSV/XLSX, PDF shop drawings, labels | Partial | Spreadsheet CSV export (upstream); no labels |

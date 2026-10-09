@@ -241,34 +241,99 @@ def construction_objects(doc):
     return [o for o in doc.Objects if isinstance(getattr(o, "Proxy", None), CabinetFeature)]
 
 
+PARAMS = "User parameter:BaseApp/Preferences/Mod/Construction"
+
+
+def saw_settings():
+    """(kerf, trim) in mm from preferences: Mod/Construction/Kerf and /Trim."""
+    params = FreeCAD.ParamGet(PARAMS)
+    return params.GetFloat("Kerf", 3.2), params.GetFloat("Trim", 10.0)
+
+
+def _sheet(doc, name):
+    sheet = doc.getObject(name) or doc.addObject("Spreadsheet::Sheet", name)
+    sheet.clearAll()
+    return sheet
+
+
+def _text(value):
+    return "'" + str(value)  # force text, never a formula
+
+
+def _write_row(sheet, row, values):
+    for col, value in enumerate(values):
+        cell = f"{chr(65 + col)}{row}"
+        sheet.set(cell, _text(value) if isinstance(value, str) else f"{value:g}")
+
+
 def write_cut_list(doc):
-    """Writes the cut list of every construction object to the spreadsheet 'CutList'."""
+    """Writes the cut list of every construction object to the spreadsheet
+    'CutList', the panel-saw layout to 'SheetLayout', and a flat view of the
+    sheets to 'SheetLayoutView'."""
     parts = [mp for obj in construction_objects(doc) for mp in obj.Proxy.parts(obj)]
     rows = CutList.rows(parts)
     lib = items()
+    kerf, trim = saw_settings()
 
     def label(material):
         return lib.get(material, {}).get("name", material)
 
-    def text(value):
-        return "'" + str(value)  # force text, never a formula
-
-    sheet = doc.getObject("CutList") or doc.addObject("Spreadsheet::Sheet", "CutList")
-    sheet.clearAll()
+    cut = _sheet(doc, "CutList")
     headers = ["Material", "Part", "Length (mm)", "Width (mm)", "Thickness (mm)", "Grain", "Qty"]
-    for col, h in enumerate(headers):
-        sheet.set(f"{chr(65 + col)}1", text(h))
+    _write_row(cut, 1, headers)
     for r, (material, name, length, width, thick, grain, qty) in enumerate(rows, start=2):
-        values = [text(label(material)), text(name), length, width, thick, text(grain), qty]
-        for col, value in enumerate(values):
-            sheet.set(f"{chr(65 + col)}{r}", str(value))
+        _write_row(cut, r, [label(material), name, length, width, thick, grain, qty])
 
-    areas = {m: Library.mm(i, "w") * Library.mm(i, "h") for m, i in lib.items() if "actual" in i}
-    r = len(rows) + 3
-    sheet.set(f"A{r}", text("Sheets (area estimate, 15% waste)"))
-    for material, count in sorted(CutList.sheet_estimate(rows, areas).items()):
-        r += 1
-        sheet.set(f"A{r}", text(label(material)))
-        sheet.set(f"G{r}", str(count))
+    layout = _sheet(doc, "SheetLayout")
+    _write_row(
+        layout,
+        1,
+        ["Material", "Sheet", "Part", "X (mm)", "Y (mm)", "Across (mm)", "Along (mm)", "Rotated"],
+    )
+    summary = len(rows) + 3
+    _write_row(cut, summary, [f"Sheets (panel-saw layout, kerf {kerf:g} mm, trim {trim:g} mm)"])
+    shapes, offset, row = [], 0.0, 2
+    for material in sorted({r[0] for r in rows}):
+        item = lib.get(material)
+        if item is None or "actual" not in item:
+            continue  # sheet_thickness() already reported a missing material
+        sheet_w, sheet_h = Library.mm(item, "w"), Library.mm(item, "h")
+        sheets = CutList.layout_sheets(
+            CutList.pieces(rows, material),
+            sheet_w,
+            sheet_h,
+            kerf=kerf,
+            trim=trim,
+            grain_locked=item.get("grain_axis") is not None,
+        )
+        used = sum(p.w * p.h for placed in sheets for p in placed)
+        share = used / (len(sheets) * sheet_w * sheet_h)
+        summary += 1
+        _write_row(
+            cut, summary, [label(material), f"{share:.0%} used", "", "", "", "", len(sheets)]
+        )
+        for number, placed in enumerate(sheets, start=1):
+            outline = Part.makePlane(sheet_w, sheet_h, FreeCAD.Vector(offset, 0, 0)).OuterWire
+            shapes.append(outline)
+            for p in placed:
+                _write_row(
+                    layout,
+                    row,
+                    [
+                        label(material),
+                        number,
+                        p.name,
+                        p.x,
+                        p.y,
+                        p.w,
+                        p.h,
+                        "yes" if p.rotated else "no",
+                    ],
+                )
+                shapes.append(Part.makePlane(p.w, p.h, FreeCAD.Vector(offset + p.x, p.y, 0)))
+                row += 1
+            offset += sheet_w + 200.0  # sheets side by side, 200 mm apart
+    view = doc.getObject("SheetLayoutView") or doc.addObject("Part::Feature", "SheetLayoutView")
+    view.Shape = Part.makeCompound(shapes)
     doc.recompute()
-    return sheet
+    return cut
