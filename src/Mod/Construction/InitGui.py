@@ -26,6 +26,7 @@ class ConstructionWorkbench(Workbench):
             "Construction_Shed",
             "Construction_CutList",
             "Construction_Check",
+            "Construction_Drawing",
         ]
         self.appendToolbar("Construction", commands)
         self.appendMenu("&Construction", commands)

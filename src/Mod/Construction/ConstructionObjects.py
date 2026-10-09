@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # FORK: parametric construction objects (design doc §5.4, §5.6).
 
+import os
 from dataclasses import replace
 
 import FreeCAD
@@ -1090,3 +1091,41 @@ def _write_lumber_plan(doc, rows, materials, lib, label, kerf):
         for stock in sorted({b.stock for b in boards}, reverse=True):
             out.append((material, stock, sum(1 for b in boards if b.stock == stock)))
     return out
+
+
+DRAWING_TEMPLATE = ("Mod", "TechDraw", "Templates", "ISO", "A3_Landscape_ISO5457_minimal.svg")
+
+
+def make_drawing(objects, doc=None):
+    """A3 drawing page of construction objects: front, top and right views in
+    a projection group, and the cut list as a table. Returns the page."""
+    if not objects:
+        raise ValueError("select the construction objects to draw")
+    doc = doc or objects[0].Document
+    page = doc.addObject("TechDraw::DrawPage", "FramingDrawing")
+    template = doc.addObject("TechDraw::DrawSVGTemplate", "FramingTemplate")
+    template.Template = os.path.join(FreeCAD.getResourceDir(), *DRAWING_TEMPLATE)
+    page.Template = template
+
+    group = doc.addObject("TechDraw::DrawProjGroup", "FramingViews")
+    page.addView(group)
+    group.Source = list(objects)
+    group.ScaleType = "Automatic"
+    group.addProjection("Front")
+    group.Anchor.Direction = FreeCAD.Vector(0, -1, 0)  # looking at the front (y = 0) face
+    group.Anchor.RotationVector = FreeCAD.Vector(1, 0, 0)
+    group.Anchor.recompute()
+    group.addProjection("Top")
+    group.addProjection("Right")
+
+    # ponytail: no member tags (balloons) yet: their anchor points need
+    # checking against a running TechDraw (docs/gaps/phase-5.md 5.6.5).
+    sheet = write_cut_list(doc)
+    parts = [mp for obj in construction_objects(doc) for mp in obj.Proxy.parts(obj)]
+    table = doc.addObject("TechDraw::DrawViewSpreadsheet", "CutListTable")
+    table.Source = sheet
+    table.CellStart = "A1"
+    table.CellEnd = f"G{len(CutList.rows(parts)) + 1}"
+    page.addView(table)
+    doc.recompute()
+    return page

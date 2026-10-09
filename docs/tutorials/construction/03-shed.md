@@ -108,6 +108,14 @@ ridge board depth and rafter ties as `ok`, and the header, floor joists and
 rafters as `not checked`: those need the loads for your site and the design
 values of your lumber grade. Tutorial 4 shows how to enter them.
 
+## 5. Drawing
+
+Select the shed and click **Drawing**. An A3 page (TechDraw) gets front, top and
+right views of it, scaled to fit, and the cut list as a table. Print it, or
+switch to the TechDraw workbench and use **Export Page as PDF**. With nothing
+selected, the
+drawing shows every construction object in the document.
+
 ## Not in the template yet
 
 - Foundation (skids, piers), roofing, trim, windows.
