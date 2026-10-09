@@ -1,10 +1,16 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# FORK: wall framing generator (design doc §5.4). No FreeCAD imports.
-"""Platform-framed stud wall, from conventional carpentry practice.
+# FORK: framing generators (design doc §5.4). No FreeCAD imports.
+"""Platform framing from conventional carpentry practice: stud walls, floor
+platforms and gable roofs. Sizes in mm.
 
 Wall coordinates: x along the wall from its start, y across it (0 = one face,
-`depth` = the other), z up from the bottom of the bottom plate. Sizes in mm.
-Every piece is a member (see Member.py): a section swept from start to end.
+`depth` = the other), z up from the bottom of the bottom plate. Floor: x along
+the rim joists, y along the joists, z up from the bottom of the joists. Roof: x
+along the ridge, y across the building from the outer face of one wall, z up
+from the top of the wall plates.
+
+Straight pieces are members (see Member.py): a section swept from start to end.
+Rafters are profiles (plumb cuts, birdsmouth) extruded by their thickness.
 """
 
 import math
@@ -99,12 +105,7 @@ class Wall:
 
     def layout(self):
         """Stud centres on the layout, measured from the wall start."""
-        t = self.stud[0]
-        centres, i = [], 1
-        while i * self.spacing + t / 2 <= self.length - t:
-            centres.append(i * self.spacing)
-            i += 1
-        return centres
+        return layout_centres(self.length, self.spacing, self.stud[0])
 
     # ----------------------------------------------------------------- pieces
 
@@ -142,12 +143,12 @@ class Wall:
         x = 0.0
         for x0, x1 in cuts + [(L, L)]:
             if x0 - x > 1e-6:
-                for a, b in self._splice(x, x0, studs + kings + jacks):
+                for a, b in splice(x, x0, studs + kings + jacks, self.max_piece):
                     horizontal("Bottom plate", a, b, t / 2)
             x = x1
         joints = []
         for k in reversed(range(self.top_plates)):  # the plate on the studs first
-            segments = self._splice(0.0, L, studs + kings, avoid=joints, gap=self.spacing)
+            segments = splice(0.0, L, studs + kings, self.max_piece, joints, self.spacing)
             for a, b in segments:
                 horizontal("Top plate", a, b, H - t / 2 - k * t)
             joints = [b for _, b in segments[:-1]]
@@ -175,27 +176,224 @@ class Wall:
                     vertical("Cripple", c, bottom, rough_bottom - t)
         return out
 
-    def _splice(self, x0, x1, joints, avoid=(), gap=0.0):
-        """[(a, b)] covering x0..x1, each at most max_piece long, breaking only at
-        positions in joints (stud centres) at least gap away from all of avoid."""
-        out, start = [], x0
-        while x1 - start > self.max_piece + 1e-6:
-            ok = [
-                c
-                for c in joints
-                if start + 1e-6 < c <= start + self.max_piece + 1e-6
-                and c < x1 - 1e-6
-                and all(abs(c - a) >= gap - 1e-6 for a in avoid)
-            ]
-            if not ok:
-                raise ValueError(
-                    f"plate from {start:g} mm cannot be spliced over a stud within "
-                    f"{self.max_piece:g} mm; use longer stock or closer studs"
-                )
-            out.append((start, max(ok)))
-            start = max(ok)
-        out.append((start, x1))
+
+def layout_centres(length, spacing, t):
+    """Centres on the layout from the start (spacing, 2 x spacing, ...) that
+    clear an end member of thickness t at `length`."""
+    centres, i = [], 1
+    while i * spacing + t / 2 <= length - t:
+        centres.append(i * spacing)
+        i += 1
+    return centres
+
+
+def splice(x0, x1, joints, max_piece, avoid=(), gap=0.0):
+    """[(a, b)] covering x0..x1, each at most max_piece long, breaking only at
+    positions in joints (supporting member centres) at least gap away from all
+    of avoid."""
+    out, start = [], x0
+    while x1 - start > max_piece + 1e-6:
+        ok = [
+            c
+            for c in joints
+            if start + 1e-6 < c <= start + max_piece + 1e-6
+            and c < x1 - 1e-6
+            and all(abs(c - a) >= gap - 1e-6 for a in avoid)
+        ]
+        if not ok:
+            raise ValueError(
+                f"piece from {start:g} mm cannot be spliced over a support within "
+                f"{max_piece:g} mm; use longer stock or closer spacing"
+            )
+        out.append((start, max(ok)))
+        start = max(ok)
+    out.append((start, x1))
+    return out
+
+
+def end_and_layout(length, spacing, t):
+    """Member centres: both ends plus the layout between them."""
+    return [t / 2] + layout_centres(length, spacing, t) + [length - t / 2]
+
+
+@dataclass
+class Floor:
+    """Joists spanning y between two rim joists running along x."""
+
+    length: float = 3600.0
+    width: float = 3000.0
+    spacing: float = 400.0
+    joist: tuple = (45.0, 195.0)
+    max_piece: float = 6000.0
+
+    def validate(self):
+        t, d = self.joist
+        for name in ("length", "width", "spacing", "max_piece"):
+            if getattr(self, name) <= 0:
+                raise ValueError(f"{name} must be positive")
+        if min(self.joist) <= 0:
+            raise ValueError("lumber sizes must be positive")
+        if self.spacing < 2 * t:
+            raise ValueError("joist spacing too small for the joist thickness")
+        if self.length < 2 * t or self.width < 3 * t:
+            raise ValueError("floor too small for its joists")
+        if self.width - 2 * t > self.max_piece + 1e-6:
+            raise ValueError("joists longer than the longest stock length (joists are not spliced)")
+
+    def joist_centres(self):
+        return end_and_layout(self.length, self.spacing, self.joist[0])
+
+    def pieces(self):
+        self.validate()
+        t, d = self.joist
+        L, W = self.length, self.width
+        out = []
+        for y in (t / 2, W - t / 2):
+            for a, b in splice(0.0, L, self.joist_centres(), self.max_piece):
+                out.append(Piece("Rim joist", (a, y, d / 2), (b, y, d / 2), 0.0, "joist"))
+        for x in self.joist_centres():
+            out.append(Piece("Joist", (x, t, d / 2), (x, W - t, d / 2), 0.0, "joist"))
         return out
+
+
+@dataclass
+class ProfilePiece:
+    """A board cut to an outline in the roof cross-section (y, z), extruded along
+    x by its section thickness, centred on x."""
+
+    name: str
+    x: float
+    profile: list  # [(y, z)] closed outline
+    angle: float  # degrees: direction of the board's length in the (y, z) plane
+    section: str  # which lumber size
+
+    def cut_length(self):
+        """Stock length: the outline's extent along the board."""
+        a = math.radians(self.angle)
+        along = [y * math.cos(a) + z * math.sin(a) for y, z in self.profile]
+        return max(along) - min(along)
+
+
+@dataclass
+class GableRoof:
+    """Common rafters on a ridge board, with ceiling joists as rafter ties."""
+
+    length: float = 3600.0  # along the ridge: outside of the end walls
+    span: float = 3000.0  # outer face to outer face of the side walls
+    pitch: float = 26.565  # degrees (6 in 12)
+    overhang: float = 300.0  # horizontal, beyond the wall face
+    spacing: float = 600.0
+    rafter: tuple = (45.0, 145.0)
+    ridge: tuple = (45.0, 195.0)
+    seat: float = 95.0  # birdsmouth seat: the top plate width
+    ties: bool = True
+    tie: tuple = (45.0, 145.0)
+    max_piece: float = 6000.0
+
+    def slope(self):
+        return math.tan(math.radians(self.pitch))
+
+    def plumb_depth(self):
+        return self.rafter[1] / math.cos(math.radians(self.pitch))
+
+    def heel(self):
+        """Vertical depth of the birdsmouth plumb cut."""
+        return self.seat * self.slope()
+
+    def ridge_face(self):
+        return self.span / 2 - self.ridge[0] / 2
+
+    def bottom(self, y):
+        """Underside of the rafter on the near side at y."""
+        return (y - self.seat) * self.slope()
+
+    def ridge_top(self):
+        return self.bottom(self.ridge_face()) + self.plumb_depth()
+
+    def validate(self):
+        for name in ("length", "span", "spacing", "seat", "max_piece"):
+            if getattr(self, name) <= 0:
+                raise ValueError(f"{name} must be positive")
+        if self.overhang < 0:
+            raise ValueError("overhang must not be negative")
+        if not 5 <= self.pitch <= 60:
+            raise ValueError("pitch must be between 5 and 60 degrees")
+        if min(self.rafter + self.ridge + self.tie) <= 0:
+            raise ValueError("lumber sizes must be positive")
+        t = self.rafter[0]
+        if self.spacing < t + (self.tie[0] if self.ties else 0):
+            raise ValueError("rafter spacing too small for the rafters and ties")
+        if self.heel() >= self.plumb_depth():
+            raise ValueError("birdsmouth cuts through the rafter: seat too wide for the pitch")
+        if self.ridge_face() <= self.seat:
+            raise ValueError("span too small for the wall plates")
+        if self.ties and self.span > self.max_piece + 1e-6:
+            raise ValueError("ceiling joists longer than the longest stock (splices need design)")
+        longest = max(r.cut_length() for r in self._boards() if r.name == "Rafter")
+        if longest > self.max_piece + 1e-6:
+            raise ValueError(f"rafters ({longest:.0f} mm) longer than the longest stock length")
+
+    def rafter_centres(self):
+        return end_and_layout(self.length, self.spacing, self.rafter[0])
+
+    def _boards(self):
+        dp, yr, tail = self.plumb_depth(), self.ridge_face(), -self.overhang
+        b = self.bottom
+        near = [
+            (tail, b(tail)),
+            (0.0, b(0.0)),
+            (0.0, 0.0),
+            (self.seat, 0.0),
+            (yr, b(yr)),
+            (yr, b(yr) + dp),
+            (tail, b(tail) + dp),
+        ]
+        far = [(self.span - y, z) for y, z in reversed(near)]
+        centres = self.rafter_centres()
+        out = [
+            ProfilePiece("Rafter", x, outline, self.pitch, "rafter")
+            for x in centres
+            for outline in (near, far)
+        ]
+        if self.ties:
+            tie = self._tie_outline()
+            offset = (self.rafter[0] + self.tie[0]) / 2
+            for x in centres:
+                tx = x + offset if x < self.length / 2 else x - offset
+                out.append(ProfilePiece("Ceiling joist", tx, tie, 0.0, "tie"))
+        return out
+
+    def _tie_outline(self):
+        """Ceiling joist on the wall plates from outer face to outer face, its top
+        corners cut to the roof slope so they stay under the rafter tops."""
+        d, span = self.tie[1], self.span
+        top_at_wall = self.bottom(0.0) + self.plumb_depth()
+        if d <= top_at_wall:
+            return [(0.0, 0.0), (span, 0.0), (span, d), (0.0, d)]
+        clip = (d - top_at_wall) / self.slope()  # where the slope reaches the tie top
+        return [
+            (0.0, 0.0),
+            (span, 0.0),
+            (span, top_at_wall),
+            (span - clip, d),
+            (clip, d),
+            (0.0, top_at_wall),
+        ]
+
+    def boards(self):
+        """Rafters and ceiling joists (profile pieces)."""
+        self.validate()
+        return self._boards()
+
+    def pieces(self):
+        """Ridge board (members), spliced over rafter pairs when longer than stock."""
+        self.validate()
+        z = self.ridge_top() - self.ridge[1] / 2
+        y = self.span / 2
+        return [
+            Piece("Ridge board", (a, y, z), (b, y, z), 0.0, "ridge")
+            for a, b in splice(0.0, self.length, self.rafter_centres(), self.max_piece)
+        ]
 
 
 def parse_openings(text):

@@ -63,6 +63,57 @@ class MemberCommand:
         doc.commitTransaction()
 
 
+class FramingCommand:
+    """Creates a framing object with ConstructionObjects.<factory>()."""
+
+    def __init__(self, factory, menu_text, tool_tip):
+        self.factory = factory
+        self.resources = {"MenuText": menu_text, "ToolTip": tool_tip}
+
+    def GetResources(self):
+        return self.resources
+
+    def Activated(self):
+        doc = FreeCAD.ActiveDocument or FreeCAD.newDocument()
+        doc.openTransaction(translate("Construction", "Create framing"))
+        FreeCADGui.addModule("ConstructionObjects")
+        FreeCADGui.doCommand(f"ConstructionObjects.{self.factory}()")
+        doc.commitTransaction()
+
+
+class SheathingCommand:
+    def GetResources(self):
+        return {
+            "MenuText": QT_TRANSLATE_NOOP("Construction_Sheathing", "Sheathing"),
+            "ToolTip": QT_TRANSLATE_NOOP(
+                "Construction_Sheathing",
+                "Covers the selected wall, floor or roof framing with sheet goods, "
+                "seams staggered; the cut list lays the panels out on sheets",
+            ),
+        }
+
+    def IsActive(self):
+        import ConstructionObjects
+
+        return any(
+            isinstance(getattr(o, "Proxy", None), ConstructionObjects.FramingFeature)
+            for o in FreeCADGui.Selection.getSelection()
+        )
+
+    def Activated(self):
+        import ConstructionObjects
+
+        doc = FreeCAD.ActiveDocument
+        doc.openTransaction(translate("Construction", "Create sheathing"))
+        FreeCADGui.addModule("ConstructionObjects")
+        for o in FreeCADGui.Selection.getSelection():
+            if isinstance(getattr(o, "Proxy", None), ConstructionObjects.FramingFeature):
+                FreeCADGui.doCommand(
+                    f"ConstructionObjects.make_sheathing(App.ActiveDocument.getObject({o.Name!r}))"
+                )
+        doc.commitTransaction()
+
+
 class WallFrameCommand:
     def GetResources(self):
         return {
@@ -200,5 +251,29 @@ for name, command in CABINET_COMMANDS.items():
     FreeCADGui.addCommand(name, command)
 FreeCADGui.addCommand("Construction_Member", MemberCommand())
 FreeCADGui.addCommand("Construction_WallFrame", WallFrameCommand())
+FreeCADGui.addCommand(
+    "Construction_FloorFrame",
+    FramingCommand(
+        "make_floor_frame",
+        QT_TRANSLATE_NOOP("Construction_FloorFrame", "Floor Framing"),
+        QT_TRANSLATE_NOOP(
+            "Construction_FloorFrame",
+            "Creates a floor platform: rim joists and joists on centres",
+        ),
+    ),
+)
+FreeCADGui.addCommand(
+    "Construction_GableRoof",
+    FramingCommand(
+        "make_gable_roof",
+        QT_TRANSLATE_NOOP("Construction_GableRoof", "Gable Roof"),
+        QT_TRANSLATE_NOOP(
+            "Construction_GableRoof",
+            "Creates gable roof framing: rafters with birdsmouth and plumb cuts, ridge board, "
+            "ceiling joists as rafter ties",
+        ),
+    ),
+)
+FreeCADGui.addCommand("Construction_Sheathing", SheathingCommand())
 FreeCADGui.addCommand("Construction_CutList", CutListCommand())
 FreeCADGui.addCommand("Construction_Check", CheckCommand())

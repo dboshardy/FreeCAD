@@ -3,6 +3,7 @@
 # test runner (registered in Init.py) or standalone: python3 TestConstruction.py
 
 import itertools
+import math
 import os
 import sys
 import unittest
@@ -15,6 +16,7 @@ import CutList  # noqa: E402
 import Framing  # noqa: E402
 import Library  # noqa: E402
 import Member  # noqa: E402
+import Sheathing  # noqa: E402
 
 FRONT_ROLES = ("door", "drawer_front", "filler", "blind_panel")
 
@@ -397,9 +399,9 @@ class TestLumberPlan(unittest.TestCase):
             CutList.plan_lengths([("Ridge", 7000)], [2400, 6000])
 
 
-def piece_box(piece, wall):
-    """Axis-aligned bounds (lo, hi) of a framing piece."""
-    w, h = wall.stud if piece.section == "stud" else wall.header
+def piece_box(piece, sections):
+    """Axis-aligned bounds (lo, hi) of a framing piece. sections: name -> (w, h)."""
+    w, h = sections[piece.section]
     _, x, y, z = Member.frame(piece.start, piece.end, piece.roll)
     lo, hi = [], []
     for i in range(3):
@@ -410,6 +412,13 @@ def piece_box(piece, wall):
     return lo, hi
 
 
+def assert_pieces_apart(test, pieces, sections):
+    boxes = [piece_box(p, sections) for p in pieces]
+    for (pa, a), (pb, b) in itertools.combinations(zip(pieces, boxes), 2):
+        test.assertFalse(boxes_overlap(a, b), f"{pa.name} {pa.start} overlaps {pb.name} {pb.start}")
+    return boxes
+
+
 def boxes_overlap(a, b):
     return all(a[0][i] < b[1][i] - 1e-6 and b[0][i] < a[1][i] - 1e-6 for i in range(3))
 
@@ -417,11 +426,7 @@ def boxes_overlap(a, b):
 class TestFraming(unittest.TestCase):
     def check_no_overlap(self, wall):
         pieces = wall.pieces()
-        boxes = [piece_box(p, wall) for p in pieces]
-        for (pa, a), (pb, b) in itertools.combinations(zip(pieces, boxes), 2):
-            self.assertFalse(
-                boxes_overlap(a, b), f"{pa.name} {pa.start} overlaps {pb.name} {pb.start}"
-            )
+        boxes = assert_pieces_apart(self, pieces, {"stud": wall.stud, "header": wall.header})
         for lo, hi in boxes:  # inside the wall
             self.assertGreaterEqual(min(lo[0], lo[1], lo[2]), -1e-6)
             self.assertLessEqual(hi[0], wall.length + 1e-6)
@@ -537,6 +542,126 @@ class TestFraming(unittest.TestCase):
                 Framing.parse_openings(text)
 
 
+class TestFloor(unittest.TestCase):
+    def test_floor_platform(self):
+        floor = Framing.Floor(length=3658, width=3048, spacing=406.4, joist=(38.1, 184.15))
+        pieces = floor.pieces()
+        boxes = assert_pieces_apart(self, pieces, {"joist": floor.joist})
+        lo = [min(b[0][i] for b in boxes) for i in range(3)]
+        hi = [max(b[1][i] for b in boxes) for i in range(3)]
+        for got, want in zip(lo + hi, [0, 0, 0, 3658, 3048, 184.15]):
+            self.assertAlmostEqual(got, want)
+        joists = [p for p in pieces if p.name == "Joist"]
+        self.assertEqual(len(joists), 2 + 8)  # ends + centres 406.4 .. 3251.2
+        self.assertAlmostEqual(joists[0].length(), 3048 - 2 * 38.1)
+
+    def test_long_rims_spliced(self):
+        floor = Framing.Floor(length=9000, max_piece=4800)
+        rims = [p for p in floor.pieces() if p.name == "Rim joist"]
+        self.assertTrue(all(p.length() <= 4800 + 1e-6 for p in rims))
+        self.assertAlmostEqual(sum(p.length() for p in rims), 2 * 9000)
+
+    def test_rejects(self):
+        for kwargs in ({"width": 7000}, {"spacing": 50}, {"length": 50}):
+            with self.assertRaises(ValueError, msg=str(kwargs)):
+                Framing.Floor(**kwargs).pieces()
+
+
+class TestGableRoof(unittest.TestCase):
+    def test_geometry(self):
+        roof = Framing.GableRoof(length=3600, span=3000, pitch=26.565, overhang=300)
+        rafters = [b for b in roof.boards() if b.name == "Rafter"]
+        self.assertEqual(len(rafters), 2 * len(roof.rafter_centres()))
+        slope = math.tan(math.radians(26.565))
+        self.assertAlmostEqual(roof.heel(), 95 * slope)
+        near = rafters[0].profile
+        self.assertAlmostEqual(max(y for y, _ in near), roof.ridge_face())
+        self.assertAlmostEqual(min(y for y, _ in near), -300)
+        far = rafters[1].profile
+        self.assertAlmostEqual(min(y for y, _ in far), 3000 - roof.ridge_face())
+        self.assertTrue(roof.ridge_face() < 1500 < 3000 - roof.ridge_face())  # ridge between
+        # Seat sits on the plate: the outline touches z = 0 from y = 0 to the seat width.
+        self.assertIn((0.0, 0.0), near)
+        self.assertIn((95.0, 0.0), near)
+        run = 300 + roof.ridge_face()
+        length = rafters[0].cut_length()
+        self.assertGreater(length, run / math.cos(math.radians(26.565)))
+        self.assertLess(length, run / math.cos(math.radians(26.565)) + roof.plumb_depth())
+
+    def test_ridge_and_ties(self):
+        roof = Framing.GableRoof(length=3600, span=3000)
+        pieces = roof.pieces()
+        ridge = [p for p in pieces if p.name == "Ridge board"]
+        self.assertAlmostEqual(sum(p.length() for p in ridge), 3600)
+        self.assertAlmostEqual(ridge[0].start[2] + roof.ridge[1] / 2, roof.ridge_top())
+        ties = [b for b in roof.boards() if b.name == "Ceiling joist"]
+        self.assertEqual(len(ties), len(roof.rafter_centres()))
+        for tie in ties:  # beside the rafters, not through them
+            for x in roof.rafter_centres():
+                self.assertGreaterEqual(abs(tie.x - x), (roof.rafter[0] + roof.tie[0]) / 2 - 1e-6)
+            self.assertAlmostEqual(tie.cut_length(), 3000)
+            # Corners cut to the slope: never above the rafter tops.
+            for y, z in tie.profile:
+                near_y = min(y, 3000 - y)
+                self.assertLessEqual(z, roof.bottom(near_y) + roof.plumb_depth() + 1e-6)
+        self.assertFalse(
+            [b for b in Framing.GableRoof(ties=False).boards() if b.name == "Ceiling joist"]
+        )
+
+    def test_rejects(self):
+        for kwargs in (
+            {"pitch": 70},
+            {"seat": 400},  # birdsmouth through the rafter
+            {"span": 7000},  # ties longer than stock
+            {"span": 11000, "ties": False},  # rafters longer than stock
+            {"spacing": 60},
+        ):
+            with self.assertRaises(ValueError, msg=str(kwargs)):
+                Framing.GableRoof(**kwargs).boards()
+
+
+class TestSheathing(unittest.TestCase):
+    def test_cover_staggered(self):
+        panels = Sheathing.cover((3600, 3000), (2440, 1220))
+        area = sum(du * dv for _, _, du, dv in panels)
+        self.assertAlmostEqual(area, 3600 * 3000)
+        rows = sorted({v for _, v, _, _ in panels})
+        self.assertEqual(rows, [0, 1220, 2440])
+        seams = {v: sorted(u for u, vv, _, _ in panels if vv == v and u > 0) for v in rows}
+        self.assertEqual(seams[0], [2440])
+        self.assertEqual(seams[1220], [1220])  # half a sheet over
+        self.assertFalse(set(seams[0]) & set(seams[1220]))
+        for u, v, du, dv in panels:
+            self.assertLessEqual(du, 2440 + 1e-6)
+            self.assertLessEqual(dv, 1220 + 1e-6)
+            self.assertLessEqual(u + du, 3600 + 1e-6)
+            self.assertLessEqual(v + dv, 3000 + 1e-6)
+
+    def test_cover_upright(self):
+        panels = Sheathing.cover((3600, 2440), (2440, 1220), long_along="v", stagger=False)
+        self.assertEqual(len(panels), 3)
+        self.assertEqual(panels[0], (0, 0, 1220, 2440))
+
+    def test_surfaces_right_handed_and_sized(self):
+        roof = Framing.GableRoof(length=3600, span=3000, overhang=300)
+        for model in (Framing.Floor(), Framing.Wall(), roof):
+            for surface in Sheathing.surfaces(model):
+                n = surface.normal()
+                self.assertAlmostEqual(sum(x * x for x in n), 1)
+        near, far = Sheathing.surfaces(roof)
+        self.assertGreater(near.normal()[2], 0)  # both slopes face up and out
+        self.assertLess(near.normal()[1], 0)
+        self.assertGreater(far.normal()[1], 0)
+        # Slope length reaches from the eave tail to the ridge line.
+        self.assertAlmostEqual(near.size[1], (1500 + 300) / math.cos(math.radians(roof.pitch)))
+
+    def test_whole_sheets_need_no_layout(self):
+        pieces = [("Panel", 2440, 1220, True)] * 3 + [("Cut", 1200, 600, True)]
+        sheets = CutList.layout_sheets(pieces, 1220, 2440, kerf=3.2, trim=10)
+        self.assertEqual(len(sheets), 4)
+        self.assertEqual([len(s) for s in sheets[:3]], [1, 1, 1])
+
+
 class TestChecks(unittest.TestCase):
     RULES = Library.load()["rules.generic-example"]
 
@@ -577,6 +702,31 @@ class TestChecks(unittest.TestCase):
         status, _ = Checks.header(4000, (45, 195), 2, {"Fb_MPa": 40, "E_MPa": 10000}, 5, 360)
         self.assertEqual(status, Checks.WARNING)  # 16 x the deflection: 30 mm > 11.1 mm
 
+    def test_floor_joists(self):
+        floor = Framing.Floor(width=3000, spacing=400, joist=(45, 195))
+        self.assertEqual(Checks.floor(floor, self.RULES)[0][1], Checks.NOT_CHECKED)
+        # Span 2955 mm, w = 2 kPa x 400 mm = 0.8 N/mm: M = 0.873e6 N mm,
+        # S = 285188 mm3 -> 3.06 MPa; deflection 2.86 mm of 8.2 mm (span/360).
+        name, status, detail = Checks.floor(floor, self.RULES, {"Fb_MPa": 10, "E_MPa": 10000}, 2)[0]
+        self.assertEqual(status, Checks.OK)
+        self.assertIn("bending 3.1 of 10 MPa", detail)
+        self.assertIn("deflection 2.9 of 8.2 mm", detail)
+        weak = Checks.floor(floor, self.RULES, {"Fb_MPa": 10, "E_MPa": 2500}, 2)[0]
+        self.assertEqual(weak[1], Checks.WARNING)  # 11.4 mm > 8.2 mm
+
+    def test_roof(self):
+        roof = Framing.GableRoof()
+        results = {c: s for c, s, _ in Checks.roof(roof, self.RULES)}
+        self.assertEqual(results["Rafters"], Checks.NOT_CHECKED)
+        self.assertEqual(results["Birdsmouth"], Checks.OK)  # 95 sin 26.6 = 42 <= 48
+        self.assertEqual(results["Ridge board depth"], Checks.OK)  # 195 >= 162
+        self.assertEqual(results["Rafter ties"], Checks.OK)
+        shallow = Framing.GableRoof(ridge=(45, 145), seat=140, ties=False)
+        results = {c: s for c, s, _ in Checks.roof(shallow, self.RULES)}
+        self.assertEqual(results["Ridge board depth"], Checks.WARNING)
+        self.assertEqual(results["Birdsmouth"], Checks.WARNING)  # 140 sin 26.6 = 63 > 48
+        self.assertEqual(results["Rafter ties"], Checks.WARNING)
+
     def test_cabinet_anchoring(self):
         for kind, expected in (("wall", 1), ("tall", 1), ("base", 0), ("sink", 0)):
             results = Checks.cabinet(Cabinet.defaults(kind), self.RULES)
@@ -584,6 +734,44 @@ class TestChecks(unittest.TestCase):
         items = Library.load()
         hw = dict(CutList.hardware([], items, anchored_cabinets=3))
         self.assertEqual(hw[items["hardware.wall_anchor"]["name"]], 6)
+
+
+class TestModulesImport(unittest.TestCase):
+    """The FreeCAD-facing modules cannot run here; importing them against stubs
+    still catches definition-order and name errors before a build does."""
+
+    def test_import_with_stubs(self):
+        import types
+
+        stubs = {}
+        for name in ("FreeCAD", "FreeCADGui", "Part"):
+            module = types.ModuleType(name)
+            stubs[name] = module
+        stubs["FreeCAD"].GuiUp = False
+        stubs["FreeCAD"].Qt = types.SimpleNamespace(
+            translate=lambda c, t: t, QT_TRANSLATE_NOOP=lambda c, t: t
+        )
+        stubs["FreeCADGui"].addCommand = lambda name, command: None
+        saved = {
+            n: sys.modules.get(n)
+            for n in list(stubs) + ["ConstructionObjects", "ConstructionCommands"]
+        }
+        try:
+            sys.modules.update(stubs)
+            sys.modules.pop("ConstructionObjects", None)
+            sys.modules.pop("ConstructionCommands", None)
+            import ConstructionCommands  # noqa: F401
+            import ConstructionObjects
+
+            self.assertTrue(
+                issubclass(ConstructionObjects.GableRoofFeature, ConstructionObjects.FramingFeature)
+            )
+        finally:
+            for n, m in saved.items():
+                if m is None:
+                    sys.modules.pop(n, None)
+                else:
+                    sys.modules[n] = m
 
 
 class TestLibrary(unittest.TestCase):

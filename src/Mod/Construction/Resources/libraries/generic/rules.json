@@ -11,6 +11,9 @@
       "stud_spacing_max_mm": 610,
       "stud_slenderness_max": 50,
       "header_deflection_limit": 360,
+      "floor_joist_deflection_limit": 360,
+      "rafter_deflection_limit": 240,
+      "birdsmouth_max_fraction": 0.333,
       "anchor_cabinet_kinds": ["wall", "tall"]
     }
   ]
