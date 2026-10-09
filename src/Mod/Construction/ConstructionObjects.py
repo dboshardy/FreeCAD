@@ -41,7 +41,7 @@ LENGTH = "App::PropertyLength"
 INTEGER = "App::PropertyInteger"
 ENUM = "App::PropertyEnumeration"
 PROPERTIES = [
-    ("Kind", "kind", ENUM, "Cabinet", "base: top stretchers; wall / tall: full top panel"),
+    ("Kind", "kind", ENUM, "Cabinet", "base: stretchers; wall / tall: full top; sink: no back"),
     ("Width", "width", LENGTH, "Size", "Outside width of the carcass"),
     ("Height", "height", LENGTH, "Size", "Base to top of the carcass, plinth included"),
     ("Depth", "depth", LENGTH, "Size", "Carcass and back, fronts excluded"),
@@ -65,8 +65,21 @@ PROPERTIES = [
         "Drawer opening height minus box height",
     ),
     ("DrawerRearClearance", "drawer_rear_clearance", LENGTH, "Drawers", "Behind the drawer box"),
+    (
+        "BlindWidth",
+        "blind_width",
+        LENGTH,
+        "Corner",
+        "Front width hidden by the meeting run; 0 = none",
+    ),
+    ("BlindSide", "blind_side", ENUM, "Corner", "Side of the blind panel"),
 ]
-CHOICES = {"Kind": Cabinet.KINDS, "Fronts": Cabinet.FRONTS, "FillerSide": Cabinet.FILLER_SIDES}
+CHOICES = {
+    "Kind": Cabinet.KINDS,
+    "Fronts": Cabinet.FRONTS,
+    "FillerSide": Cabinet.FILLER_SIDES,
+    "BlindSide": Cabinet.BLIND_SIDES,
+}
 
 
 def add_property(obj, kind, prop, group, tip, value):
@@ -84,12 +97,12 @@ class CabinetFeature:
 
     skip = ()  # Cabinet properties a subclass does not use
 
-    def __init__(self, obj, kind="base"):
+    def __init__(self, obj, preset="base"):
         obj.Proxy = self
-        self.setProperties(obj, kind)
+        self.setProperties(obj, preset)
 
-    def setProperties(self, obj, kind="base"):
-        defaults = Cabinet.defaults(kind)
+    def setProperties(self, obj, preset="base"):
+        defaults = Cabinet.defaults(preset)
         for prop, field, ptype, group, tip in PROPERTIES:
             if prop not in self.skip:
                 add_property(obj, ptype, prop, group, tip, getattr(defaults, field))
@@ -163,8 +176,8 @@ class CabinetRunFeature(CabinetFeature):
 
     skip = ("Width",)
 
-    def setProperties(self, obj, kind="base"):
-        super().setProperties(obj, kind)
+    def setProperties(self, obj, preset="base"):
+        super().setProperties(obj, preset)
         standard = ", ".join(f"{w:g}" for w in Cabinet.STANDARD_WIDTHS)
         run = [
             ("App::PropertyLength", "Length", "Run", "Wall length to fill", 2400.0),
@@ -215,11 +228,11 @@ def sheet_thickness(material_id):
     return Library.mm(item, "t")
 
 
-def _make(feature, kind, name, doc):
+def _make(feature, preset, name, doc):
     doc = doc or FreeCAD.ActiveDocument or FreeCAD.newDocument()
     obj = doc.addObject("Part::FeaturePython", name)
-    feature(obj, kind)
-    if kind == "wall":
+    feature(obj, preset)
+    if preset == "wall":
         placement = obj.Placement  # a copy: modify, then assign back
         placement.Base.z = Cabinet.WALL_ELEVATION
         obj.Placement = placement
@@ -229,12 +242,13 @@ def _make(feature, kind, name, doc):
     return obj
 
 
-def make_cabinet(kind="base", doc=None):
-    return _make(CabinetFeature, kind, kind.capitalize() + "Cabinet", doc)
+def make_cabinet(preset="base", doc=None):
+    """preset: a cabinet kind or "corner" (see Cabinet.DEFAULTS)."""
+    return _make(CabinetFeature, preset, preset.capitalize() + "Cabinet", doc)
 
 
-def make_cabinet_run(kind="base", doc=None):
-    return _make(CabinetRunFeature, kind, kind.capitalize() + "Run", doc)
+def make_cabinet_run(preset="base", doc=None):
+    return _make(CabinetRunFeature, preset, preset.capitalize() + "Run", doc)
 
 
 def construction_objects(doc):

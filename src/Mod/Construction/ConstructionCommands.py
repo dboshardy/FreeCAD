@@ -80,6 +80,25 @@ CABINET_COMMANDS = {
             "Construction_TallCabinet", "Creates a frameless tall cabinet" + EDIT_HINT
         ),
     ),
+    "Construction_SinkCabinet": MakeCommand(
+        "make_cabinet",
+        "sink",
+        QT_TRANSLATE_NOOP("Construction_SinkCabinet", "Sink Cabinet"),
+        QT_TRANSLATE_NOOP(
+            "Construction_SinkCabinet",
+            "Creates a sink base cabinet: open back, false front over doors" + EDIT_HINT,
+        ),
+    ),
+    "Construction_CornerCabinet": MakeCommand(
+        "make_cabinet",
+        "corner",
+        QT_TRANSLATE_NOOP("Construction_CornerCabinet", "Blind Corner Cabinet"),
+        QT_TRANSLATE_NOOP(
+            "Construction_CornerCabinet",
+            "Creates a blind corner base cabinet; set BlindWidth to the depth of the "
+            "meeting run plus handle clearance" + EDIT_HINT,
+        ),
+    ),
     "Construction_BaseRun": MakeCommand(
         "make_cabinet_run",
         "base",
