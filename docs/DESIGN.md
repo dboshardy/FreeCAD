@@ -279,6 +279,10 @@ Every change to an upstream file carries a `// FORK:` (C++) or `# FORK:` (Python
 - Step-by-step build sequence views (assembly order, exploded per step).
 - Export: CSV/XLSX, PDF shop drawings, labels (printable).
 
+**5.7 Tutorials**
+- Step-by-step tutorials with examples for every generator and output: cabinets and runs, members, wall/floor/roof framing, sheathing, the shed template, libraries, settings and checks (`docs/tutorials/construction/`).
+- Examples that use the standalone modules are runnable and tested (doctest), so documented results stay true.
+
 **Exit criteria**: Generate a 10×12 ft (3×3.6 m) gable shed from template; edit wall height and door width; framing regenerates; BOM, optimized cut list, sheet nesting, and framing drawings produce correct quantities (validated against hand count).
 
 ---
