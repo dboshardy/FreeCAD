@@ -184,3 +184,43 @@ def hardware(parts, items):
         elif part.role == "shelf":
             counter[pin["name"]] += pin.get("per_shelf", 4)
     return sorted(counter.items())
+
+
+@dataclass
+class Board:
+    stock: float  # stock length bought
+    cuts: list  # [(name, length)]
+    kerf: float
+
+    def used(self):
+        """Length the cuts take, with one kerf between neighbouring pieces."""
+        return sum(length for _, length in self.cuts) + self.kerf * (len(self.cuts) - 1)
+
+    def offcut(self):
+        """Usable length left after the last cut (0 when none is left)."""
+        return max(0.0, self.stock - self.used() - self.kerf)
+
+
+# ponytail: first-fit decreasing, then each board shrunk to the shortest stock
+# length that holds its cuts. Exact optimisation (OR-Tools CP-SAT, §3.2) when
+# real jobs show measurable waste.
+def plan_lengths(pieces, stock_lengths, kerf=3.2):
+    """Cuts linear pieces from stock lengths. pieces: [(name, length)].
+    Returns [Board], longest stock first. Raises ValueError for a piece longer
+    than the longest stock length."""
+    stock = sorted(s for s in stock_lengths if s > 0)
+    if not stock:
+        raise ValueError("no stock lengths given")
+    boards = []
+    for name, length in sorted(pieces, key=lambda p: p[1], reverse=True):
+        if length > stock[-1] + EPS:
+            raise ValueError(f"{name} ({length:g} mm) is longer than the longest stock length")
+        for board in boards:
+            if board.used() + board.kerf + length <= board.stock + EPS:
+                board.cuts.append((name, length))
+                break
+        else:
+            boards.append(Board(stock[-1], [(name, length)], kerf))
+    for board in boards:
+        board.stock = next(s for s in stock if board.used() <= s + EPS)
+    return sorted(boards, key=lambda b: -b.stock)

@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import Cabinet  # noqa: E402
 import CutList  # noqa: E402
 import Library  # noqa: E402
+import Member  # noqa: E402
 
 FRONT_ROLES = ("door", "drawer_front", "filler", "blind_panel")
 
@@ -326,15 +327,92 @@ class TestHardware(unittest.TestCase):
         self.assertEqual(tall_hw[items["hardware.hinge"]["name"]], 4)
 
 
+class TestMember(unittest.TestCase):
+    def assertVec(self, a, b):
+        for x, y in zip(a, b):
+            self.assertAlmostEqual(x, y)
+
+    def test_conventions(self):
+        # Joist along X stands on edge: depth up, thickness across.
+        length, x, y, z = Member.frame((0, 0, 0), (3000, 0, 0))
+        self.assertAlmostEqual(length, 3000)
+        self.assertVec(y, (0, 0, 1))
+        self.assertVec(x, (0, 1, 0))
+        # Stud: depth along Y, thickness along X (a wall running along X).
+        _, x, y, z = Member.frame((0, 0, 0), (0, 0, 2400))
+        self.assertVec((x, y, z), ((1, 0, 0), (0, 1, 0), (0, 0, 1)))
+        # Plate: joist rolled 90 degrees lies flat.
+        _, x, y, z = Member.frame((0, 0, 0), (3000, 0, 0), roll=90)
+        self.assertVec(x, (0, 0, 1))
+
+    def test_frame_is_orthonormal(self):
+        for end in ((1, 2, 3), (-5, 0.1, 0), (0.001, 0, 9), (3, -4, -12)):
+            _, x, y, z = Member.frame((0, 0, 0), end, roll=30)
+            for a, b in itertools.combinations((x, y, z), 2):
+                self.assertAlmostEqual(sum(i * j for i, j in zip(a, b)), 0)
+            for a in (x, y, z):
+                self.assertAlmostEqual(sum(i * i for i in a), 1)
+            cross = (
+                x[1] * y[2] - x[2] * y[1],
+                x[2] * y[0] - x[0] * y[2],
+                x[0] * y[1] - x[1] * y[0],
+            )
+            self.assertVec(cross, z)  # right-handed
+
+    def test_zero_length_rejected(self):
+        with self.assertRaises(ValueError):
+            Member.frame((1, 1, 1), (1, 1, 1))
+
+
+class TestLumberPlan(unittest.TestCase):
+    def test_precut_studs_need_no_cut(self):
+        boards = CutList.plan_lengths([("Stud", 2352.7)] * 8, [2352.7, 2438.4, 3048])
+        self.assertEqual([b.stock for b in boards], [2352.7] * 8)
+
+    def test_kerf_between_pieces(self):
+        boards = CutList.plan_lengths([("Rail", 1200)] * 4, [2438.4], kerf=3.2)
+        self.assertEqual(len(boards), 2)
+        self.assertAlmostEqual(boards[0].offcut(), 2438.4 - 2403.2 - 3.2)
+        boards = CutList.plan_lengths([("Rail", 1220)] * 2, [2438.4], kerf=3.2)
+        self.assertEqual(len(boards), 2)  # 2440 + kerf does not fit
+
+    def test_shortest_stock_that_holds_the_cuts(self):
+        boards = CutList.plan_lengths([("Block", 1000)], [6000, 2400, 3000])
+        self.assertEqual(boards[0].stock, 2400)
+
+    def test_every_piece_placed_once(self):
+        pieces = [(f"P{i}", 300 + 137 * i) for i in range(30)]
+        boards = CutList.plan_lengths(pieces, [2400, 3000, 3600, 4800], kerf=3)
+        placed = sorted(c for b in boards for c in b.cuts)
+        self.assertEqual(placed, sorted(pieces))
+        for b in boards:
+            self.assertLessEqual(b.used(), b.stock + 1e-6)
+        total = sum(length for _, length in pieces)
+        self.assertLess(sum(b.stock for b in boards), total * 1.15)  # under 15% waste here
+
+    def test_rejects_too_long(self):
+        with self.assertRaises(ValueError):
+            CutList.plan_lengths([("Ridge", 7000)], [2400, 6000])
+
+
 class TestLibrary(unittest.TestCase):
     def test_shipped_items_are_complete(self):
         items = Library.load()
-        sheets = Library.sheets(items)
+        sheets = Library.of_category(items, Library.SHEET_GOODS)
         self.assertTrue(sheets)
         for item in sheets:
             self.assertGreater(Library.mm(item, "t"), 0, item["id"])
             self.assertGreater(Library.mm(item, "w") * Library.mm(item, "h"), 0, item["id"])
         self.assertEqual({i["region"] for i in sheets}, {"US", "metric"})
+
+    def test_lumber_items_take_file_defaults(self):
+        items = Library.load()
+        lumber = Library.of_category(items, Library.LUMBER)
+        self.assertEqual({i["region"] for i in lumber}, {"US", "metric"})
+        for item in lumber:
+            self.assertTrue(item["stock_lengths_mm"], item["id"])
+            self.assertLess(Library.mm(item, "w"), Library.mm(item, "h") + 1e-9, item["id"])
+        self.assertAlmostEqual(Library.mm(items["lumber.us.2x4"], "h"), 88.9)  # 3-1/2 in
 
     def test_user_dir_overrides(self):
         import json
