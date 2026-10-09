@@ -14,7 +14,9 @@ def _read(path):
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
     items = data.get("items", []) if isinstance(data, dict) else data
-    return {item["id"]: item for item in items if "id" in item}
+    # A file's "defaults" apply to each of its items unless the item sets the key.
+    defaults = data.get("defaults", {}) if isinstance(data, dict) else {}
+    return {item["id"]: {**defaults, **item} for item in items if "id" in item}
 
 
 def load(dirs=None):
@@ -45,13 +47,17 @@ def user_dir():
     return os.path.join(FreeCAD.getUserAppDataDir(), "Construction", "libraries")
 
 
-def sheets(items, region=None):
-    """Sheet-goods items, optionally for one region, sorted by id."""
+SHEET_GOODS = "sheet_goods"
+LUMBER = "dimensional_lumber"
+
+
+def of_category(items, category, region=None):
+    """Items of one category, optionally for one region, sorted by id."""
     return sorted(
         (
             i
             for i in items.values()
-            if i.get("category") == "sheet_goods" and (region is None or i.get("region") == region)
+            if i.get("category") == category and (region is None or i.get("region") == region)
         ),
         key=lambda i: i["id"],
     )

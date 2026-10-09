@@ -28,6 +28,41 @@ class MakeCommand:
         FreeCADGui.doCommand("Gui.Selection.addSelection(obj)")
 
 
+class MemberCommand:
+    def GetResources(self):
+        return {
+            "MenuText": QT_TRANSLATE_NOOP("Construction_Member", "Member"),
+            "ToolTip": QT_TRANSLATE_NOOP(
+                "Construction_Member",
+                "Creates lumber members along the selected straight edges or sketch lines "
+                "(they follow later edits); with nothing selected, a free member",
+            ),
+        }
+
+    def Activated(self):
+        doc = FreeCAD.ActiveDocument or FreeCAD.newDocument()
+        bases = []
+        for sel in FreeCADGui.Selection.getSelectionEx():
+            names = sel.SubElementNames or [
+                f"Edge{i}" for i, _ in enumerate(sel.Object.Shape.Edges, start=1)
+            ]
+            for name in names:
+                if name.startswith("Edge"):
+                    edge = sel.Object.Shape.getElement(name)
+                    if edge.Curve.TypeId == "Part::GeomLine":
+                        bases.append((sel.Object.Name, name))
+        doc.openTransaction(translate("Construction", "Create member"))
+        FreeCADGui.addModule("ConstructionObjects")
+        if not bases:
+            FreeCADGui.doCommand("ConstructionObjects.make_member()")
+        for obj_name, edge in bases:
+            FreeCADGui.doCommand(
+                "ConstructionObjects.make_member("
+                f"(App.ActiveDocument.getObject({obj_name!r}), [{edge!r}]))"
+            )
+        doc.commitTransaction()
+
+
 class CutListCommand:
     def GetResources(self):
         return {
@@ -121,4 +156,5 @@ CABINET_COMMANDS = {
 
 for name, command in CABINET_COMMANDS.items():
     FreeCADGui.addCommand(name, command)
+FreeCADGui.addCommand("Construction_Member", MemberCommand())
 FreeCADGui.addCommand("Construction_CutList", CutListCommand())

@@ -31,7 +31,7 @@ workspace layer can be bound in `Hotkeys.json` (Phase 0 decision 0.6.10).
 | # | Item | Status | Where / notes |
 |---|---|---|---|
 | 5.1.1 | Data-driven library, `source` + `data_license` per item (§9) | Partial | `Construction/Library.py`, `Resources/libraries/{US,metric}/*.json`; CI `check.py data`. User overrides in `<user data>/Construction/libraries/` |
-| 5.1.2 | Dimensional lumber (US nominal / metric) | Partial | Upstream `BIM/Presets/profiles.csv` has "North America Lumber" profiles; no fork library entries or stock lengths yet |
+| 5.1.2 | Dimensional lumber (US nominal / metric) | Partial | Fork library: US 1x4–4x6 with PS 20 dressed sizes and stock lengths incl. precut studs (92-5/8", 104-5/8"); metric 38/45 mm sections, 70x70, 95x95, stock 2.4–6.0 m. No species grades or design values (user-supplied, §9) |
 | 5.1.3 | Engineered lumber (LVL, glulam, I-joist) | Missing | |
 | 5.1.4 | Sheet goods (plywood, OSB, MDF, particleboard, HDF; US 4×8, metric) | Partial | Fork library: US 5 items, metric 6 items. No drywall / cement board yet |
 | 5.1.5 | Hardwood stock, board-foot calc | Missing | |
@@ -47,7 +47,7 @@ workspace layer can be bound in `Hotkeys.json` (Phase 0 decision 0.6.10).
 
 | # | Item | Status | Where / notes |
 |---|---|---|---|
-| 5.2.1 | Member: profile along a path, material, grain, end cuts | Partial | Upstream `ArchStructure` (profile along path), `ArchFrame`; no end cuts (miter, birdsmouth, …), no grain |
+| 5.2.1 | Member: profile along a path, material, grain, end cuts | Partial | `Construction_Member` (`Member.py`, `MemberFeature`): lumber section along a linked straight edge (follows sketch edits) or Start/End points; Roll about its axis; grain along the length. Square end cuts only: no miter, bevel, birdsmouth, notches, holes |
 | 5.2.2 | Sheet object: panel with thickness, edge banding, grain | Partial | Upstream `ArchPanel`; no edge banding / grain |
 
 ## 5.3 Joinery
@@ -84,9 +84,9 @@ workspace layer can be bound in `Hotkeys.json` (Phase 0 decision 0.6.10).
 
 | # | Item | Status | Where / notes |
 |---|---|---|---|
-| 5.6.1 | BOM / purchase list by material and stock length, cost | Partial | `Construction_CutList`: sheets per material from the panel-saw layout, with % used. No stock lengths or cost |
+| 5.6.1 | BOM / purchase list by material and stock length, cost | Partial | `Construction_CutList`: sheets per material from the panel-saw layout (% used); lumber boards per stock length from the cutting plan. No cost |
 | 5.6.2 | Cut list (dimensions, grain, labels) | Partial | `Construction_CutList` writes spreadsheet `CutList`: material, part, length (along grain), width, thickness, grain, qty. Missing: angles, edge banding, part labels |
-| 5.6.3 | 1D stock optimization (kerf, waste/cost) | Missing | §3.2 lists OR-Tools; start with a stdlib heuristic |
+| 5.6.3 | 1D stock optimization (kerf, waste/cost) | Partial | `CutList.plan_lengths`: first-fit decreasing, each board shrunk to the shortest stock length that holds its cuts; kerf between pieces; spreadsheet `LumberPlan` (cuts and offcut per board). Heuristic; exact optimization (OR-Tools, §3.2) not added. No cost weighting |
 | 5.6.4 | 2D sheet nesting (guillotine; true-shape) | Partial | Guillotine for panel saws: `CutList.layout_sheets` (kerf and trim from preferences `Mod/Construction/Kerf`, `/Trim`; grain parts stay along the sheet length; sheets without grain, e.g. MDF, allow rotation). Writes spreadsheet `SheetLayout` (part positions) and `SheetLayoutView` (flat drawing of the sheets). Multi-pass greedy, not optimal; prior art in `docs/prior-art/guillotine-sheet-layout.md`. True-shape: upstream `ArchNesting.py` |
 | 5.6.5 | Framing plans / elevations with member tags | Partial | Upstream TechDraw/BIM views; no member tags |
 | 5.6.6 | Build-sequence views | Missing | |

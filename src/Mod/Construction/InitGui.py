@@ -17,6 +17,7 @@ class ConstructionWorkbench(Workbench):
             "Construction_CornerCabinet",
             "Construction_BaseRun",
             "Construction_WallRun",
+            "Construction_Member",
             "Construction_CutList",
         ]
         self.appendToolbar("Construction", commands)

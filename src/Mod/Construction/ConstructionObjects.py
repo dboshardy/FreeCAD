@@ -7,6 +7,7 @@ import Part
 import Cabinet
 import CutList
 import Library
+import Member
 
 DEFAULT_MATERIALS = {
     "CarcassMaterial": "sheet.metric.plywood.18",
@@ -106,7 +107,7 @@ class CabinetFeature:
         for prop, field, ptype, group, tip in PROPERTIES:
             if prop not in self.skip:
                 add_property(obj, ptype, prop, group, tip, getattr(defaults, field))
-        sheet_ids = [i["id"] for i in Library.sheets(items())]
+        sheet_ids = [i["id"] for i in Library.of_category(items(), Library.SHEET_GOODS)]
         for prop, default in DEFAULT_MATERIALS.items():
             if prop in obj.PropertiesList:
                 current = getattr(obj, prop)
@@ -251,8 +252,93 @@ def make_cabinet_run(preset="base", doc=None):
     return _make(CabinetRunFeature, preset, preset.capitalize() + "Run", doc)
 
 
+class MemberFeature:
+    """Lumber member along a line: a linked straight edge (Base), or Start to End."""
+
+    def __init__(self, obj):
+        obj.Proxy = self
+        self.setProperties(obj)
+
+    def setProperties(self, obj):
+        props = [
+            ("App::PropertyLinkSub", "Base", "Line or straight edge to follow; empty = Start/End"),
+            ("App::PropertyVector", "Start", "Start point when Base is empty"),
+            ("App::PropertyVector", "End", "End point when Base is empty"),
+            ("App::PropertyAngle", "Roll", "Turns the profile about the member axis (90 = flat)"),
+        ]
+        for ptype, prop, tip in props:
+            if prop not in obj.PropertiesList:
+                obj.addProperty(ptype, prop, "Member", tip)
+        if obj.Start == obj.End:
+            obj.End = FreeCAD.Vector(0, 0, 2400)  # a stud
+        lumber_ids = [i["id"] for i in Library.of_category(items(), Library.LUMBER)]
+        current = obj.Material if "Material" in obj.PropertiesList else DEFAULT_LUMBER
+        if "Material" not in obj.PropertiesList:
+            obj.addProperty(ENUM, "Material", "Member", "Lumber size from the library")
+        obj.Material = lumber_ids if current in lumber_ids else lumber_ids + [current]
+        obj.Material = current
+
+    def onDocumentRestored(self, obj):
+        self.setProperties(obj)
+
+    def endpoints(self, obj):
+        if obj.Base:
+            source, subs = obj.Base
+            edge = source.Shape.getElement(subs[0]) if subs else source.Shape.Edges[0]
+            if edge.Curve.TypeId != "Part::GeomLine":
+                raise ValueError("members follow straight edges only")
+            return tuple(edge.Vertexes[0].Point), tuple(edge.Vertexes[-1].Point)
+        return tuple(obj.Start), tuple(obj.End)
+
+    def section(self, obj):
+        item = items().get(obj.Material)
+        if item is None:
+            raise ValueError(f"material '{obj.Material}' not found in the construction library")
+        return Library.mm(item, "w"), Library.mm(item, "h")
+
+    def parts(self, obj):
+        start, end = self.endpoints(obj)
+        length = Member.frame(start, end)[0]
+        w, h = self.section(obj)
+        return [(obj.Material, Cabinet.Part(obj.Label, "member", (w, h, length), (0, 0, 0), "z"))]
+
+    def execute(self, obj):
+        start, end = self.endpoints(obj)
+        length, x, y, z = Member.frame(start, end, obj.Roll.Value)
+        w, h = self.section(obj)
+        box = Part.makeBox(w, h, length, FreeCAD.Vector(-w / 2, -h / 2, 0))
+        V = FreeCAD.Vector
+        box.Placement = FreeCAD.Placement(V(*start), FreeCAD.Rotation(V(*x), V(*y), V(*z), "ZXY"))
+        placement = obj.Placement
+        obj.Shape = Part.makeCompound([box])  # the compound keeps the box's own placement
+        obj.Placement = placement
+
+    def dumps(self):
+        return None
+
+    def loads(self, state):
+        return None
+
+
+DEFAULT_LUMBER = "lumber.metric.45x95"
+
+
+def make_member(base=None, doc=None, name="Member"):
+    """base: (object, "EdgeN") to follow, or None for a free member."""
+    doc = doc or FreeCAD.ActiveDocument or FreeCAD.newDocument()
+    obj = doc.addObject("Part::FeaturePython", name)
+    MemberFeature(obj)
+    if base:
+        obj.Base = base
+    if FreeCAD.GuiUp:
+        obj.ViewObject.Proxy = 0
+    doc.recompute()
+    return obj
+
+
 def construction_objects(doc):
-    return [o for o in doc.Objects if isinstance(getattr(o, "Proxy", None), CabinetFeature)]
+    kinds = (CabinetFeature, MemberFeature)
+    return [o for o in doc.Objects if isinstance(getattr(o, "Proxy", None), kinds)]
 
 
 PARAMS = "User parameter:BaseApp/Preferences/Mod/Construction"
@@ -281,9 +367,10 @@ def _write_row(sheet, row, values):
 
 
 def write_cut_list(doc):
-    """Writes the cut list, sheet counts and hardware of every construction
-    object to the spreadsheet 'CutList', the panel-saw layout to 'SheetLayout',
-    and a flat view of the sheets to 'SheetLayoutView'."""
+    """Writes the cut list, sheet and lumber counts and hardware of every
+    construction object to the spreadsheet 'CutList', the panel-saw layout to
+    'SheetLayout' with a flat drawing in 'SheetLayoutView', and the lumber
+    cutting plan to 'LumberPlan'."""
     parts = [mp for obj in construction_objects(doc) for mp in obj.Proxy.parts(obj)]
     rows = CutList.rows(parts)
     lib = items()
@@ -298,19 +385,45 @@ def write_cut_list(doc):
     for r, (material, name, length, width, thick, grain, qty) in enumerate(rows, start=2):
         _write_row(cut, r, [label(material), name, length, width, thick, grain, qty])
 
+    materials = sorted({r[0] for r in rows})
+    by_category = {
+        cat: [m for m in materials if lib.get(m, {}).get("category") == cat]
+        for cat in (Library.SHEET_GOODS, Library.LUMBER)
+    }
+    summary = len(rows) + 3
+    _write_row(cut, summary, [f"Sheets (panel-saw layout, kerf {kerf:g} mm, trim {trim:g} mm)"])
+    for material, count, share in _write_sheet_layouts(
+        doc, rows, by_category[Library.SHEET_GOODS], lib, label, kerf, trim
+    ):
+        summary += 1
+        _write_row(cut, summary, [label(material), f"{share:.0%} used", "", "", "", "", count])
+    summary += 2
+    _write_row(cut, summary, [f"Lumber (stock lengths, kerf {kerf:g} mm)"])
+    for material, stock, count in _write_lumber_plan(
+        doc, rows, by_category[Library.LUMBER], lib, label, kerf
+    ):
+        summary += 1
+        _write_row(cut, summary, [label(material), f"{stock:g} mm", "", "", "", "", count])
+    summary += 2
+    _write_row(cut, summary, ["Hardware"])
+    for name, qty in CutList.hardware([part for _, part in parts], lib):
+        summary += 1
+        _write_row(cut, summary, [name, "", "", "", "", "", qty])
+    doc.recompute()
+    return cut
+
+
+def _write_sheet_layouts(doc, rows, materials, lib, label, kerf, trim):
+    """Lays out sheet materials; yields (material, sheets, share used)."""
     layout = _sheet(doc, "SheetLayout")
     _write_row(
         layout,
         1,
         ["Material", "Sheet", "Part", "X (mm)", "Y (mm)", "Across (mm)", "Along (mm)", "Rotated"],
     )
-    summary = len(rows) + 3
-    _write_row(cut, summary, [f"Sheets (panel-saw layout, kerf {kerf:g} mm, trim {trim:g} mm)"])
-    shapes, offset, row = [], 0.0, 2
-    for material in sorted({r[0] for r in rows}):
-        item = lib.get(material)
-        if item is None or "actual" not in item:
-            continue  # sheet_thickness() already reported a missing material
+    shapes, offset, row, out = [], 0.0, 2, []
+    for material in materials:
+        item = lib[material]
         sheet_w, sheet_h = Library.mm(item, "w"), Library.mm(item, "h")
         sheets = CutList.layout_sheets(
             CutList.pieces(rows, material),
@@ -321,38 +434,35 @@ def write_cut_list(doc):
             grain_locked=item.get("grain_axis") is not None,
         )
         used = sum(p.w * p.h for placed in sheets for p in placed)
-        share = used / (len(sheets) * sheet_w * sheet_h)
-        summary += 1
-        _write_row(
-            cut, summary, [label(material), f"{share:.0%} used", "", "", "", "", len(sheets)]
-        )
+        out.append((material, len(sheets), used / (len(sheets) * sheet_w * sheet_h)))
         for number, placed in enumerate(sheets, start=1):
             outline = Part.makePlane(sheet_w, sheet_h, FreeCAD.Vector(offset, 0, 0)).OuterWire
             shapes.append(outline)
             for p in placed:
+                rotated = "yes" if p.rotated else "no"
                 _write_row(
-                    layout,
-                    row,
-                    [
-                        label(material),
-                        number,
-                        p.name,
-                        p.x,
-                        p.y,
-                        p.w,
-                        p.h,
-                        "yes" if p.rotated else "no",
-                    ],
+                    layout, row, [label(material), number, p.name, p.x, p.y, p.w, p.h, rotated]
                 )
                 shapes.append(Part.makePlane(p.w, p.h, FreeCAD.Vector(offset + p.x, p.y, 0)))
                 row += 1
             offset += sheet_w + 200.0  # sheets side by side, 200 mm apart
-    summary += 2
-    _write_row(cut, summary, ["Hardware"])
-    for name, qty in CutList.hardware([part for _, part in parts], lib):
-        summary += 1
-        _write_row(cut, summary, [name, "", "", "", "", "", qty])
     view = doc.getObject("SheetLayoutView") or doc.addObject("Part::Feature", "SheetLayoutView")
     view.Shape = Part.makeCompound(shapes)
-    doc.recompute()
-    return cut
+    return out
+
+
+def _write_lumber_plan(doc, rows, materials, lib, label, kerf):
+    """Plans lumber cuts; returns (material, stock length, boards) per stock length."""
+    plan = _sheet(doc, "LumberPlan")
+    _write_row(plan, 1, ["Material", "Board", "Stock (mm)", "Cuts", "Offcut (mm)"])
+    row, out = 2, []
+    for material in materials:
+        pieces = [(name, length) for name, length, _, _ in CutList.pieces(rows, material)]
+        boards = CutList.plan_lengths(pieces, lib[material]["stock_lengths_mm"], kerf=kerf)
+        for number, board in enumerate(boards, start=1):
+            cuts = ", ".join(f"{name} {length:g}" for name, length in board.cuts)
+            _write_row(plan, row, [label(material), number, board.stock, cuts, board.offcut()])
+            row += 1
+        for stock in sorted({b.stock for b in boards}, reverse=True):
+            out.append((material, stock, sum(1 for b in boards if b.stock == stock)))
+    return out
