@@ -186,10 +186,57 @@ class TestRun(unittest.TestCase):
             self.assertAlmostEqual(hi[0], 2475)
             assert_no_overlap(self, parts)
 
+    def test_per_cabinet_styles(self):
+        run = Cabinet.Run(
+            Cabinet.Cabinet(),
+            length=3100,
+            widths=(1000, 600, 800, 600),
+            styles=("blind_left", "drawers", "sink"),
+            filler_side="both",
+        )
+        widths, left, right = run.layout()
+        self.assertEqual((left, right), (0.0, 100.0))  # blind corner stays in the corner
+        parts = run.parts()
+        assert_no_overlap(self, parts)
+        names = [p.name for p in parts]
+        self.assertEqual(names.count("Blind panel"), 1)
+        self.assertEqual(names.count("False front"), 1)
+        self.assertEqual(len([p for p in parts if p.role == "drawer_front"]), 3 + 1)
+        backs = [p for p in parts if p.name == "Back"]
+        self.assertEqual(len(backs), 3)  # the sink has none
+        blind = next(p for p in parts if p.role == "blind_panel")
+        self.assertEqual(blind.pos[0], 0)
+
+    def test_parse_entries(self):
+        self.assertEqual(
+            Cabinet.parse_entries("1000 blind_left, 600 drawers; 800 sink, 600"),
+            ((1000.0, 600.0, 800.0, 600.0), ("blind_left", "drawers", "sink")),
+        )
+        self.assertEqual(Cabinet.parse_entries(" 600, , 450 "), ((600.0, 450.0), ()))
+        self.assertEqual(Cabinet.parse_entries(""), ((), ()))
+        for text, allow in (
+            ("wide", True),
+            ("600 drawers extra", True),
+            ("600 glass", True),
+            ("-300", True),
+            ("600 drawers", False),
+        ):
+            with self.assertRaises(ValueError, msg=text):
+                Cabinet.parse_entries(text, allow)
+
     def test_rejects_bad_runs(self):
-        for kwargs in ({"length": 0}, {"length": 250}, {"filler_side": "middle"}):
+        for kwargs in (
+            {"length": 0},
+            {"length": 250},
+            {"filler_side": "middle"},
+            {"widths": (600,), "styles": ("glass",)},
+            {"styles": ("drawers",)},  # styles without widths
+            {"widths": (1000, 1000), "styles": ("blind_left", "blind_right")},  # 400 left over
+        ):
             with self.assertRaises(ValueError, msg=str(kwargs)):
                 Cabinet.Run(Cabinet.Cabinet(), **kwargs).parts()
+        with self.assertRaises(ValueError):  # sinks only in base runs
+            Cabinet.Run(Cabinet.defaults("wall"), widths=(600,), styles=("sink",)).parts()
 
 
 class TestCutList(unittest.TestCase):
