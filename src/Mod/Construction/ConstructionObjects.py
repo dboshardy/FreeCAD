@@ -1,10 +1,13 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # FORK: parametric construction objects (design doc §5.4, §5.6).
 
+from dataclasses import replace
+
 import FreeCAD
 import Part
 
 import Cabinet
+import Checks
 import CutList
 import Framing
 import Library
@@ -185,6 +188,17 @@ class CabinetFeature:
     def model_parts(self, obj):
         return self.spec(obj).parts()
 
+    def cabinets(self, obj):
+        return [self.spec(obj)]
+
+    def checks(self, obj, rules):
+        return [r for c in self.cabinets(obj) for r in Checks.cabinet(c, rules)]
+
+    def anchored(self, obj, rules):
+        """Cabinets to fix to the wall."""
+        kinds = rules.get("anchor_cabinet_kinds", ())
+        return sum(1 for c in self.cabinets(obj) if c.kind in kinds)
+
     def parts(self, obj):
         """[(material id, Part)] for the cut list."""
         return [
@@ -259,6 +273,12 @@ class CabinetRunFeature(CabinetFeature):
     def model_parts(self, obj):
         return self.run(obj).parts()
 
+    def cabinets(self, obj):
+        run = self.run(obj)
+        widths, _, _ = run.layout()
+        styles = list(run.styles) + [None] * (len(widths) - len(run.styles))
+        return [Cabinet.styled(replace(run.cabinet, width=w), s) for w, s in zip(widths, styles)]
+
     def execute(self, obj):
         widths, left, right = self.run(obj).layout()
         layout = ", ".join(f"{w:g}" for w in widths)
@@ -330,6 +350,12 @@ class MemberFeature:
         start, end = self.endpoints(obj)
         return [(obj.Material, member_part(obj.Label, start, end, lumber_section(obj.Material)))]
 
+    def checks(self, obj, rules):
+        return []
+
+    def anchored(self, obj, rules):
+        return 0
+
     def execute(self, obj):
         start, end = self.endpoints(obj)
         set_shape(obj, [member_box(start, end, obj.Roll.Value, lumber_section(obj.Material))])
@@ -371,6 +397,13 @@ class WallFrameFeature:
             (LENGTH, "Height", "Bottom of the bottom plate to top of the top plates", d.height),
             (LENGTH, "StudSpacing", "Stud centres, e.g. 400 / 600 mm or 406.4 (16 in)", d.spacing),
             (INTEGER, "TopPlates", "1 or 2", d.top_plates),
+            (
+                "App::PropertyFloat",
+                "HeaderLoad",
+                "Uniform load on each header in kN/m, from your load calculation; "
+                "0 = headers not checked",
+                0.0,
+            ),
             (
                 "App::PropertyString",
                 "Openings",
@@ -417,6 +450,13 @@ class WallFrameFeature:
     def parts(self, obj):
         return [(m, member_part(p.name, p.start, p.end, s)) for p, s, m in self._pieces(obj)]
 
+    def checks(self, obj, rules):
+        values = library_item(obj.HeaderMaterial).get("design_values")
+        return Checks.wall(self.wall(obj), rules, values, float(obj.HeaderLoad))
+
+    def anchored(self, obj, rules):
+        return 0
+
     def execute(self, obj):
         set_shape(obj, [member_box(p.start, p.end, p.roll, s) for p, s, _ in self._pieces(obj)])
 
@@ -446,6 +486,31 @@ def construction_objects(doc):
 
 
 PARAMS = "User parameter:BaseApp/Preferences/Mod/Construction"
+
+
+def rule_set():
+    """The rule set chosen in preferences Mod/Construction/RuleSet."""
+    rule_id = FreeCAD.ParamGet(PARAMS).GetString("RuleSet", "rules.generic-example")
+    return library_item(rule_id)
+
+
+def write_checks(doc):
+    """Writes advisory checks of every construction object to spreadsheet 'Checks'."""
+    rules = rule_set()
+    sheet = _sheet(doc, "Checks")
+    _write_row(sheet, 1, [Checks.DISCLAIMER])
+    _write_row(sheet, 2, [f"Rule set: {rules.get('name', rules['id'])}"])
+    _write_row(sheet, 4, ["Object", "Check", "Status", "Detail"])
+    row, problems = 5, 0
+    for obj in construction_objects(doc):
+        for check, status, detail in obj.Proxy.checks(obj, rules):
+            _write_row(sheet, row, [obj.Label, check, status, detail])
+            row += 1
+            if status in (Checks.WARNING, Checks.REQUIRED):
+                problems += 1
+                FreeCAD.Console.PrintWarning(f"{obj.Label}: {check}: {detail}\n")
+    doc.recompute()
+    return problems
 
 
 def saw_settings():
@@ -510,7 +575,9 @@ def write_cut_list(doc):
         _write_row(cut, summary, [label(material), f"{stock:g} mm", "", "", "", "", count])
     summary += 2
     _write_row(cut, summary, ["Hardware"])
-    for name, qty in CutList.hardware([part for _, part in parts], lib):
+    rules = rule_set()
+    anchored = sum(obj.Proxy.anchored(obj, rules) for obj in construction_objects(doc))
+    for name, qty in CutList.hardware([part for _, part in parts], lib, anchored):
         summary += 1
         _write_row(cut, summary, [name, "", "", "", "", "", qty])
     doc.recompute()

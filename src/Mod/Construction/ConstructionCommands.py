@@ -82,6 +82,29 @@ class WallFrameCommand:
         doc.commitTransaction()
 
 
+class CheckCommand:
+    def GetResources(self):
+        return {
+            "MenuText": QT_TRANSLATE_NOOP("Construction_Check", "Check"),
+            "ToolTip": QT_TRANSLATE_NOOP(
+                "Construction_Check",
+                "Advisory checks against the rule set in preferences (spreadsheet 'Checks'). "
+                "Not a building code compliance check",
+            ),
+        }
+
+    def IsActive(self):
+        if not FreeCAD.ActiveDocument:
+            return False
+        import ConstructionObjects
+
+        return bool(ConstructionObjects.construction_objects(FreeCAD.ActiveDocument))
+
+    def Activated(self):
+        FreeCADGui.addModule("ConstructionObjects")
+        FreeCADGui.doCommand("ConstructionObjects.write_checks(App.ActiveDocument)")
+
+
 class CutListCommand:
     def GetResources(self):
         return {
@@ -178,3 +201,4 @@ for name, command in CABINET_COMMANDS.items():
 FreeCADGui.addCommand("Construction_Member", MemberCommand())
 FreeCADGui.addCommand("Construction_WallFrame", WallFrameCommand())
 FreeCADGui.addCommand("Construction_CutList", CutListCommand())
+FreeCADGui.addCommand("Construction_Check", CheckCommand())

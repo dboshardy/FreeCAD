@@ -1,0 +1,17 @@
+{
+  "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp construction rule sets (design doc §5.5, §12 R14). Advisory checks only. These are EXAMPLE values: they are not taken from any building code and do not show code compliance. Copy this item to your user library under a new id with the values adopted where you build, and have the design reviewed by your building official or a qualified professional.",
+  "source": "Generic example values from conventional framing practice and engineering mechanics (beam bending and deflection; column slenderness l/d); not copied from any code or standard",
+  "data_license": "CC0-1.0",
+  "items": [
+    {
+      "id": "rules.generic-example",
+      "category": "rule_set",
+      "region": "generic",
+      "name": "Generic example - verify for your jurisdiction",
+      "stud_spacing_max_mm": 610,
+      "stud_slenderness_max": 50,
+      "header_deflection_limit": 360,
+      "anchor_cabinet_kinds": ["wall", "tall"]
+    }
+  ]
+}

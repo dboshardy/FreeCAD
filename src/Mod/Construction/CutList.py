@@ -168,10 +168,12 @@ def hinges(door_height, item):
     return last_count + extra
 
 
-def hardware(parts, items):
-    """[(name, qty)] of hinges, drawer slides and shelf pins for a list of Part.
-    items: library id -> item; uses hardware.hinge, hardware.drawer_slide,
-    hardware.shelf_pin. Slides are listed per length."""
+def hardware(parts, items, anchored_cabinets=0):
+    """[(name, qty)] of hinges, drawer slides, shelf pins and wall anchors for a
+    list of Part. items: library id -> item; uses hardware.hinge,
+    hardware.drawer_slide, hardware.shelf_pin, hardware.wall_anchor.
+    anchored_cabinets: cabinets that must be fixed to the wall. Slides are
+    listed per length."""
     hinge = items["hardware.hinge"]
     slide = items["hardware.drawer_slide"]
     pin = items["hardware.shelf_pin"]
@@ -183,6 +185,9 @@ def hardware(parts, items):
             counter[f"{slide['name']}, {part.size[1]:g} mm"] += 1
         elif part.role == "shelf":
             counter[pin["name"]] += pin.get("per_shelf", 4)
+    if anchored_cabinets:
+        anchor = items["hardware.wall_anchor"]
+        counter[anchor["name"]] += anchored_cabinets * anchor.get("per_cabinet", 2)
     return sorted(counter.items())
 
 

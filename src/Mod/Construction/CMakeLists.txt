@@ -5,6 +5,7 @@ set(Construction_SRCS
     Init.py
     InitGui.py
     Cabinet.py
+    Checks.py
     ConstructionCommands.py
     ConstructionObjects.py
     CutList.py

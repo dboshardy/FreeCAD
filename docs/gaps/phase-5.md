@@ -26,6 +26,24 @@ does not depend on fork code from those phases:
 Hotkey context layers (§13 rule 7) are not shipped as defaults; the Construction
 workspace layer can be bound in `Hotkeys.json` (Phase 0 decision 0.6.10).
 
+## Standards and safety policy
+
+Generators follow conventional practice, and `Construction_Check` reports
+advisory checks. Nothing here certifies building-code compliance:
+
+- Building codes and span tables (IRC/IBC, NDS, national codes) are copyrighted
+  and differ by jurisdiction (§2, §12 R14), so none are embedded. The shipped
+  rule set `rules.generic-example` holds example values from conventional
+  practice and mechanics, labelled "verify for your jurisdiction". Users add
+  their adopted values as their own rule set.
+- Structural checks use beam mechanics with design values and loads the user
+  supplies; without them the result is "not checked", never "ok".
+- Every check output starts with the disclaimer in `Checks.DISCLAIMER`
+  (verify with the local code; review by the building official or a
+  qualified professional).
+- Safety items are generated, not left to the user: wall and tall cabinets
+  get wall anchors in the hardware list and a "required" check line.
+
 ## 5.1 Material library
 
 | # | Item | Status | Where / notes |
@@ -77,8 +95,8 @@ workspace layer can be bound in `Hotkeys.json` (Phase 0 decision 0.6.10).
 
 | # | Item | Status | Where / notes |
 |---|---|---|---|
-| 5.5.1 | Beam span / deflection (simple, cantilever, continuous) | Missing | |
-| 5.5.2 | Rise/run, headroom, guardrail rule sets | Missing | |
+| 5.5.1 | Beam span / deflection (simple, cantilever, continuous) | Partial | `Checks.header`: simply supported headers, bending and deflection (span/limit) from beam mechanics; needs the header lumber `design_values` (Fb, E) in the user library and a `HeaderLoad` on the wall, otherwise "not checked". No cantilever / continuous, no joists or rafters yet |
+| 5.5.2 | Rise/run, headroom, guardrail rule sets | Partial | Rule set framework (`Checks.py`, library category `rule_set`, preference `Mod/Construction/RuleSet`); shipped `rules.generic-example` covers stud spacing, stud slenderness (l/d), header deflection limit, cabinets needing wall anchors. Stairs and guards not generated yet, so no rise/run, headroom or guard checks |
 
 ## 5.6 Outputs
 
