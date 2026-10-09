@@ -48,7 +48,7 @@ Status: **Present** (done, upstream or fork), **Partial**, **Missing**.
 |---|---|---|---|
 | 0.4.1 | Static network-API check on fork-added code | Present | `check.py network` |
 | 0.4.2 | Inventory of inherited network features | Present | `docs/inherited-conflicts.md` |
-| 0.4.3 | Flags (default on) for inherited network features | Missing | Inherited-feature rule; one flag per row of the inventory |
+| 0.4.3 | Flags (default on) for inherited network features | Present | Runtime flags per feature (`OnlineHelp`, `DownloadManager`, `BIMOnlineLibrary`, `BIMTutorial`, `BIMShapefileDownload`, `BIMDownload`, `CAMMTConnectURL`); Addon Manager via upstream `BUILD_ADDONMGR`. Table in `docs/inherited-conflicts.md` |
 | 0.4.4 | Network-isolation runtime test (§10) | Missing | |
 
 ## 0.5 Inherited risk-register conflicts (§12)
@@ -71,14 +71,14 @@ widget), `src/Gui/InputHint*` (per-tool hints in the status bar),
 |---|---|---|---|
 | 0.6.1 | Context-layered hotkey resolution (command → workspace → global) | Partial | Engine `src/Gui/Hotkeys/HotkeyEngine.h` (Qt-free, tested). Wired in by `src/Gui/Hotkeys/ContextHotkeys.*`: hooks in `ShortcutManager` (key events), `Command::_invoke` (command scope), `ToolHandler` and `ControlSingleton::showDialog` (active tool). Context: workspace = active workbench name, command = command that started the innermost open tool handler or task dialog, selection = element type of the first selected item. Not yet built or run in the app (no local build environment) |
 | 0.6.2 | Chords and sequences | Partial | Engine supports sequences; upstream supports global sequences |
-| 0.6.3 | Per-layer conflict detection, user override, reset to default | Partial | Engine API. Bindings come from `<UserAppData>/Hotkeys.json`, read once at the first key press (restart to apply); conflicts logged as warnings. Remapping UI not extended |
+| 0.6.3 | Per-layer conflict detection, user override, reset to default | Partial | Engine API. Bindings come from `<UserAppData>/Hotkeys.json`; `Std_HotkeysReload` re-reads it and lists conflicts. No remapping UI for context layers |
 | 0.6.4 | Profile import/export (JSON) | Missing | |
-| 0.6.5 | Heads-up hotkey strip (`F1`) | Missing | Build on `InputHint` |
+| 0.6.5 | Heads-up hotkey strip (`F1`) | Partial | Status-bar item "Hotkey Strip" (`src/Gui/Hotkeys/HotkeyCommands.cpp`), shown/hidden from the status-bar context menu; shows the innermost active layer. No `F1` toggle (upstream `F1` is What's This, 0.6.10). Polls the context every 300 ms |
 | 0.6.6 | Next-tool suggestions | Missing | |
-| 0.6.7 | Command palette (`Space`) | Partial | `CommandCompleter` finds commands; no palette dialog |
-| 0.6.8 | Radial menu | Missing | |
+| 0.6.7 | Command palette (`Space`) | Partial | `Std_CommandPalette`: popup search over all commands (upstream `CommandCompleter`). No default key (upstream `Space` is show/hide, 0.6.10) |
+| 0.6.8 | Radial menu | Partial | `Std_RadialMenu`: up to 8 commands around the cursor, per workbench in `BaseApp/Preferences/Fork/RadialMenu`. Opened by command only; right-drag opening (§6) not done, as navigation styles use the right button |
 | 0.6.9 | Inline value entry framework | Partial | Sketcher on-view parameters; not generic |
-| 0.6.10 | Default keymaps (§8.2–8.4) | Missing | Open question: §8.3 single keys (e.g. `G` construction toggle) shadow upstream Sketcher sequences (`G, L`, ...). Shipping §8 defaults changes inherited shortcuts |
+| 0.6.10 | Default keymaps (§8.2–8.4) | Missing | Decision (2026-10-08): upstream keymaps stay the defaults. §8 keys conflict with them (§8.3 `G` shadows Sketcher `G, L`, …; §8.2 `Space` is upstream show/hide; `F1` is What's This). §8 keymaps may ship only as an opt-in profile (0.6.4) |
 
 ## Exit criteria status
 
@@ -87,7 +87,7 @@ widget), `src/Gui/InputHint*` (per-tool hints in the status bar),
 | Branded build installs side-by-side with upstream on 3 OS | Not met (0.1.4, 0.1.5, 0.2.4, 0.2.7) |
 | Upstream tests pass | Not verified (0.1.6) |
 | Fork-added code passes network check | Met |
-| `docs/inherited-conflicts.md` lists all inherited conflicts with flags (default on) | Partial (0.4.3, 0.5.3) |
-| Hotkey context layers switch with the active tool | Not met (0.6.1 wiring) |
-| Remap a hotkey | Upstream global remap only |
-| Command palette finds any registered command | Not met (0.6.7) |
+| `docs/inherited-conflicts.md` lists all inherited conflicts with flags (default on) | Partial (0.5.3 patent review per workbench) |
+| Hotkey context layers switch with the active tool | Implemented, not verified (code not yet compiled, 0.6.1) |
+| Remap a hotkey | Global: upstream dialog. Context layers: edit `Hotkeys.json` + `Std_HotkeysReload` |
+| Command palette finds any registered command | Implemented, not verified (code not yet compiled, 0.6.7) |
