@@ -287,6 +287,26 @@ Every change to an upstream file carries a `// FORK:` (C++) or `# FORK:` (Python
 
 ---
 
+### Phase 5.1 — Woodworking Assemblies & Joinery
+**Upstream baseline (verify in audit)**: None for woodworking joinery. Builds on Phase 5 (`src/Mod/Construction/`: libraries, `Joinery.py`, cut list, drawings, checks).
+
+**Known gaps**: General woodworking design: free-form boards and panels, user-selected joints and hardware, furniture templates. Phase 5 generators (cabinets, shed) are special-purpose.
+
+**Target scope**
+- One part model for all construction and woodworking (boards, panels, members; material, grain, role), shared by every generator.
+- **Woodworking assembly** (decision 2026-10-10): one FreeCAD object holds a parts table and a joints table; the user picks parts by selecting solids inside it. Joints modify both parts (tenon lengthens one, mortise pockets the other) without document dependency cycles. Phase 5 generators (cabinets, shed, framing) produce assemblies; their parts and joints stay editable.
+- **Board** (stock from the lumber/hardwood library or custom size; length; placement), **Board between** (span two selected faces with a setback), **Panel** (sheet goods or glued-up panel; size; grain).
+- **Joint** command (hotkey `J`): select two parts; the joint types offered follow how they meet (end-to-face, face-to-face, crossing, edge-to-edge, panel-on-frame): mortise and tenon, loose tenon, dowels, pocket screws, screws, biscuits, housing/dado/rabbet, half lap, bridle, glue, tabletop fasteners (figure-8, Z-clip, buttons, slotted screws). Presets from a joint library (sizes relative to stock); hardware chosen from the hardware library; live preview; **Apply to similar** for repeated joints.
+- Joint and hardware libraries are data (`source`, `data_license`, user overrides), like Phase 5 libraries.
+- Outputs reuse Phase 5: cut list with operations (e.g. mortise sizes) and parts lengthened by joinery, hardware list, sheet/lumber layout, drawings with tags.
+- Checks (advisory): tenon wall thickness, fastener edge distances, wood movement of solid tops against the chosen fastening.
+- Templates as assemblies: end table first (height, top size, overhang, leg and apron sizes, joinery choice, top attachment, optional shelf), then bookcase, workbench, table; cabinets and the shed migrate onto assemblies.
+- Tutorials with tested examples (§5.7 pattern): building an end table from the template and by hand.
+
+**Exit criteria**: Build a 500 × 500 × 600 mm end table by hand (4 legs, 4 aprons, top) with mortise-and-tenon apron joints applied once and repeated with Apply to similar, and figure-8 top fasteners; cut list shows tenon-lengthened aprons and mortise operations, hardware list counts the fasteners; the same table from the template matches.
+
+---
+
 ### Phase 6 — Direct, Surface, Mesh & Freeform Modeling
 **Upstream baseline (verify in audit)**: Part and Surface workbenches (OCCT surfacing), Mesh/MeshPart (repair, mesh-to-shape), Part defeaturing.
 
