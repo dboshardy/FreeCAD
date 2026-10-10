@@ -18,6 +18,7 @@ import Framing  # noqa: E402
 import Joinery  # noqa: E402
 import Library  # noqa: E402
 import Member  # noqa: E402
+import Parts  # noqa: E402
 import Sheathing  # noqa: E402
 import Shed  # noqa: E402
 
@@ -155,11 +156,11 @@ class TestCabinet(unittest.TestCase):
                 Cabinet.Cabinet(**kwargs).parts()
 
     def test_cut_size_follows_grain(self):
-        side = Cabinet.Part("Side", "carcass", (18, 574, 770), (0, 0, 0), "z")
+        side = Parts.Part("Side", "carcass", (18, 574, 770), (0, 0, 0), "z")
         self.assertEqual(side.cut_size(), (770, 574, 18))
-        shelf = Cabinet.Part("Shelf", "carcass", (562, 554, 18), (0, 0, 0), "x")
+        shelf = Parts.Part("Shelf", "carcass", (562, 554, 18), (0, 0, 0), "x")
         self.assertEqual(shelf.cut_size(), (562, 554, 18))  # grain along the shorter side kept
-        mdf = Cabinet.Part("Panel", "carcass", (300, 18, 500), (0, 0, 0), None)
+        mdf = Parts.Part("Panel", "carcass", (300, 18, 500), (0, 0, 0), None)
         self.assertEqual(mdf.cut_size(), (500, 300, 18))
 
 
@@ -982,9 +983,9 @@ class TestJoinery(unittest.TestCase):
     def carcass(self):
         # Two 18 mm sides with a bottom between them (like Cabinet parts).
         return [
-            Joinery.Box("Left side", (18, 560, 770), (0, 0, 0)),
-            Joinery.Box("Right side", (18, 560, 770), (582, 0, 0)),
-            Joinery.Box("Bottom", (564, 560, 18), (18, 0, 0)),
+            Parts.Part("Left side", "", (18, 560, 770), (0, 0, 0)),
+            Parts.Part("Right side", "", (18, 560, 770), (582, 0, 0)),
+            Parts.Part("Bottom", "", (564, 560, 18), (18, 0, 0)),
         ]
 
     def test_contact(self):
@@ -992,7 +993,7 @@ class TestJoinery(unittest.TestCase):
         axis, sign, (lo, hi) = Joinery.contact(side, bottom)
         self.assertEqual((axis, sign), (0, 1))
         self.assertEqual((lo, hi), ((18, 0, 0), (18, 560, 18)))
-        self.assertIsNone(Joinery.contact(side, Joinery.Box("x", (10, 10, 10), (500, 0, 0))))
+        self.assertIsNone(Joinery.contact(side, Parts.Part("x", "", (10, 10, 10), (500, 0, 0))))
 
     def test_housing_lengthens_and_pockets(self):
         rules = [Joinery.Rule("*side", "Bottom", "housing", depth=6)]
@@ -1007,8 +1008,8 @@ class TestJoinery(unittest.TestCase):
 
     def test_rabbet_at_an_edge(self):
         # A back flush with the side's rear edge: the pocket opens to the edge.
-        side = Joinery.Box("Side", (18, 560, 770), (0, 0, 0))
-        back = Joinery.Box("Back", (6, 6, 770), (18, 554, 0))
+        side = Parts.Part("Side", "", (18, 560, 770), (0, 0, 0))
+        back = Parts.Part("Back", "", (6, 6, 770), (18, 554, 0))
         result = Joinery.apply([side, back], [Joinery.Rule("Side", "Back", "housing", depth=9)])
         ((_, pocket),) = result.pockets
         self.assertEqual(pocket.pos[1] + pocket.size[1], 560)  # reaches the edge
@@ -1019,9 +1020,9 @@ class TestJoinery(unittest.TestCase):
         # Contact 560 long: 460 between the end screws -> 4 per side.
         self.assertEqual(result.fasteners, {"screw": 8})
         studs = [
-            Joinery.Box("Plate", (3600, 95, 45), (0, 0, 0)),
-            Joinery.Box("Stud", (45, 95, 2300), (0, 0, 45)),
-            Joinery.Box("Stud", (45, 95, 2300), (600, 0, 45)),
+            Parts.Part("Plate", "", (3600, 95, 45), (0, 0, 0)),
+            Parts.Part("Stud", "", (45, 95, 2300), (0, 0, 45)),
+            Parts.Part("Stud", "", (45, 95, 2300), (600, 0, 45)),
         ]
         nails = Joinery.apply(studs, [Joinery.Rule("Plate", "Stud", fastener="nail", per_joint=2)])
         self.assertEqual(nails.fasteners, {"nail": 4})
@@ -1029,16 +1030,16 @@ class TestJoinery(unittest.TestCase):
 
     def test_symmetric_rule_counts_once(self):
         plates = [
-            Joinery.Box("Top plate", (3600, 95, 45), (0, 0, 0)),
-            Joinery.Box("Top plate", (3600, 95, 45), (0, 0, 45)),
+            Parts.Part("Top plate", "", (3600, 95, 45), (0, 0, 0)),
+            Parts.Part("Top plate", "", (3600, 95, 45), (0, 0, 45)),
         ]
         rule = Joinery.Rule("Top plate", "Top plate", fastener="nail", spacing=400, edge=100)
         # 3600 - 2 x 100 = 3400 at 400 -> 9 spaces, 10 nails; counted once, not twice.
         self.assertEqual(Joinery.apply(plates, [rule]).fasteners, {"nail": 10})
 
     def test_half_lap(self):
-        a = Joinery.Box("Rail", (1000, 45, 95), (0, 0, 0))
-        b = Joinery.Box("Rail", (45, 1000, 95), (400, -400, 0))
+        a = Parts.Part("Rail", "", (1000, 45, 95), (0, 0, 0))
+        b = Parts.Part("Rail", "", (45, 1000, 95), (400, -400, 0))
         result = Joinery.apply([a, b], [Joinery.Rule("Rail", "Rail", "half_lap")])
         self.assertEqual(len(result.pockets), 2)
         depths = sorted(p.size[2] for _, p in result.pockets)

@@ -2,7 +2,7 @@
 # FORK: joinery for every construction object (design doc §5.3). No FreeCAD imports.
 """Joints between parts that touch.
 
-Parts are axis-aligned boxes in one coordinate frame: (name, size, pos). Two
+Parts (Parts.Part) are axis-aligned boxes in one coordinate frame. Two
 boxes meet when a face of one lies on a face of the other and the faces
 overlap. A rule names which parts meet (fnmatch patterns on part names: the
 receiving part, then the inserted part) and how they are joined:
@@ -23,20 +23,9 @@ import fnmatch
 import math
 from dataclasses import dataclass, field, replace
 
+from Parts import Part
+
 EPS = 1e-6
-
-
-@dataclass
-class Box:
-    name: str
-    size: tuple  # (dx, dy, dz)
-    pos: tuple  # minimum corner
-
-    def lo(self, k):
-        return self.pos[k]
-
-    def hi(self, k):
-        return self.pos[k] + self.size[k]
 
 
 @dataclass
@@ -54,7 +43,7 @@ class Rule:
 @dataclass
 class Result:
     boxes: list  # parts after joinery (inserted parts lengthened)
-    pockets: list = field(default_factory=list)  # [(part index, Box)] material removed
+    pockets: list = field(default_factory=list)  # [(part index, Part)] material removed
     operations: list = field(default_factory=list)  # [(part index, text)] for the cut list
     fasteners: dict = field(default_factory=dict)  # hardware id -> count
 
@@ -162,7 +151,7 @@ def _housing(out, i, j, k, sign, lo, hi, depth):
         plo[k] = hi[k] - depth
     else:
         phi[k] = lo[k] + depth
-    pocket = Box(f"{out.boxes[i].name} pocket", tuple(h - l for l, h in zip(plo, phi)), tuple(plo))
+    pocket = Part(f"{out.boxes[i].name} pocket", "pocket", tuple(h - l for l, h in zip(plo, phi)), tuple(plo))
     out.pockets.append((i, pocket))
     width = sorted(s for n, s in enumerate(pocket.size) if n != k)
     out.operations.append((i, f"housing {width[0]:g} x {depth:g} deep for {b.name}"))
@@ -181,5 +170,5 @@ def _half_lap(out, i, j, crossing):
         plo, phi = list(lo), list(hi)
         plo[k], phi[k] = a, b
         size = tuple(h - l for l, h in zip(plo, phi))
-        out.pockets.append((index, Box(f"{out.boxes[index].name} lap", size, tuple(plo))))
+        out.pockets.append((index, Part(f"{out.boxes[index].name} lap", "pocket", size, tuple(plo))))
         out.operations.append((index, "half lap"))
