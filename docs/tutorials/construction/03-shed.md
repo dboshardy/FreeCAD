@@ -110,11 +110,18 @@ values of your lumber grade. Tutorial 4 shows how to enter them.
 
 ## 5. Drawing
 
-Select the shed and click **Drawing**. An A3 page (TechDraw) gets front, top and
-right views of it, scaled to fit, and the cut list as a table. Print it, or
-switch to the TechDraw workbench and use **Export Page as PDF**. With nothing
-selected, the
-drawing shows every construction object in the document.
+For a framing drawing, first turn the shed's **ShowSheathing** off: the
+sheathing would hide the framing (the cut list still counts it). Then select the
+shed and click **Drawing**. You get two A3 pages (TechDraw):
+
+- **FramingDrawing**: front, top and right views, scaled to fit, with a
+  numbered tag on each kind of framing member in the front view. The numbers
+  match the **Tag** column of the cut list.
+- **FramingCutList**: the cut list as a table.
+
+Print them, or switch to the TechDraw workbench and use **Export Page as PDF**.
+With nothing selected, the drawing shows every construction object in the
+document.
 
 ## Not in the template yet
 
