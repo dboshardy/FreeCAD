@@ -1,6 +1,6 @@
 {
-  "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp construction library (design doc §9). Generic cabinet hardware used by the cut list. Override an item by id in the user library to match your supplier.",
-  "source": "Common cabinet-making practice; original compilation, no maker's table copied. Check hinge counts against your hinge maker's guidance for heavy or wide doors.",
+  "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp construction library (design doc §9). Generic hardware used by the cut list and joint presets. Override an item by id in the user library to match your supplier.",
+  "source": "Common cabinet-making and woodworking practice; original compilation, no maker's table copied. Check hinge counts against your hinge maker's guidance for heavy or wide doors.",
   "data_license": "CC0-1.0",
   "items": [
     {"id": "hardware.hinge", "category": "hardware", "region": "generic", "name": "Concealed hinge, 35 mm cup, full overlay", "hinges_by_door_height": [[900, 2], [1600, 3], [2000, 4], [2400, 5]], "hinges_per_extra_400mm": 1},
@@ -9,6 +9,13 @@
     {"id": "hardware.nail_framing", "category": "hardware", "region": "generic", "name": "Framing nail, 3.1 x 90 mm"},
     {"id": "hardware.joist_hanger", "category": "hardware", "region": "generic", "name": "Joist hanger, sized for the joist (with its nails)"},
     {"id": "hardware.deck_screw", "category": "hardware", "region": "generic", "name": "Deck screw, 5 x 60 mm"},
-    {"id": "hardware.wall_anchor", "category": "hardware", "region": "generic", "name": "Cabinet wall anchor (screw into wall framing; choose for your wall type and load)", "per_cabinet": 2}
+    {"id": "hardware.wall_anchor", "category": "hardware", "region": "generic", "name": "Cabinet wall anchor (screw into wall framing; choose for your wall type and load)", "per_cabinet": 2},
+    {"id": "hardware.dowel_8x35", "category": "hardware", "region": "generic", "name": "Fluted dowel, 8 x 35 mm"},
+    {"id": "hardware.pocket_screw", "category": "hardware", "region": "generic", "name": "Pocket-hole screw, coarse thread, length for the stock"},
+    {"id": "hardware.wood_screw_4x40", "category": "hardware", "region": "generic", "name": "Wood screw, 4 x 40 mm"},
+    {"id": "hardware.confirmat_7x50", "category": "hardware", "region": "generic", "name": "Confirmat screw, 7 x 50 mm"},
+    {"id": "hardware.biscuit_20", "category": "hardware", "region": "generic", "name": "Biscuit, No. 20"},
+    {"id": "hardware.figure8", "category": "hardware", "region": "generic", "name": "Figure-8 tabletop fastener, with screws"},
+    {"id": "hardware.z_clip", "category": "hardware", "region": "generic", "name": "Z-clip tabletop fastener, with screw"}
   ]
 }

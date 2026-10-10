@@ -1,0 +1,19 @@
+{
+  "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp joint presets (design doc §5.1.1, Phase 5.1). A preset is a joinery rule without part names (see Joinery.py): kind, sizes in mm, fastener (hardware id), spacing / edge / per_joint for the count, operation ({n} = count) and on (receiver, inserted, both). meets lists how the two parts touch for the preset to be offered: end_to_face, face_to_face, edge_to_face, crossing. Copy an item to your user library under a new id to change sizes.",
+  "source": "Common woodworking practice; original compilation, no maker's or book's table copied.",
+  "data_license": "CC0-1.0",
+  "defaults": {"category": "joint", "region": "generic"},
+  "items": [
+    {"id": "joint.mortise_tenon", "name": "Mortise and tenon", "kind": "tenon", "depth": 25, "thickness": 0, "shoulder": 10, "meets": ["end_to_face"]},
+    {"id": "joint.dowel", "name": "Dowels, 8 mm", "kind": "fastened", "fastener": "hardware.dowel_8x35", "spacing": 96, "edge": 32, "operation": "{n} dowel holes, 8 mm", "meets": ["end_to_face", "edge_to_face"]},
+    {"id": "joint.pocket_screw", "name": "Pocket screws", "kind": "fastened", "fastener": "hardware.pocket_screw", "spacing": 150, "edge": 25, "operation": "{n} pocket holes", "on": "inserted", "meets": ["end_to_face", "edge_to_face"]},
+    {"id": "joint.screw", "name": "Screws through the face", "kind": "fastened", "fastener": "hardware.wood_screw_4x40", "spacing": 200, "edge": 50, "operation": "{n} countersunk pilot holes", "on": "receiver", "meets": ["end_to_face", "edge_to_face", "face_to_face"]},
+    {"id": "joint.confirmat", "name": "Confirmat screws", "kind": "fastened", "fastener": "hardware.confirmat_7x50", "spacing": 200, "edge": 50, "operation": "{n} confirmat holes", "meets": ["end_to_face", "edge_to_face"]},
+    {"id": "joint.biscuit", "name": "Biscuits, No. 20", "kind": "fastened", "fastener": "hardware.biscuit_20", "spacing": 150, "edge": 50, "operation": "{n} biscuit slots", "meets": ["end_to_face", "edge_to_face"]},
+    {"id": "joint.dado", "name": "Housing (dado / rabbet)", "kind": "housing", "depth": 6, "meets": ["end_to_face", "edge_to_face"]},
+    {"id": "joint.half_lap", "name": "Half lap", "kind": "half_lap", "meets": ["crossing"]},
+    {"id": "joint.glue", "name": "Glue only", "kind": "fastened", "operation": "glue", "on": "inserted", "meets": ["edge_to_face", "face_to_face"]},
+    {"id": "joint.figure8", "name": "Tabletop fasteners, figure-8", "kind": "fastened", "fastener": "hardware.figure8", "spacing": 400, "edge": 75, "operation": "{n} figure-8 recesses", "on": "receiver", "meets": ["face_to_face"]},
+    {"id": "joint.z_clip", "name": "Tabletop fasteners, Z-clip", "kind": "fastened", "fastener": "hardware.z_clip", "spacing": 300, "edge": 75, "operation": "kerf for {n} Z-clips", "on": "receiver", "meets": ["face_to_face"]}
+  ]
+}
