@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 
 import Joinery
 import Member
+import Parts
 
 OPENING_KINDS = ("door", "window")
 
@@ -54,7 +55,7 @@ def piece_box(piece, size):
         a, b = sorted((piece.start[i], piece.end[i]))
         lo.append(a - half)
         hi.append(b + half)
-    return Joinery.Box(piece.name, tuple(h - l for l, h in zip(lo, hi)), tuple(lo))
+    return Parts.Part(piece.name, "member", tuple(h - l for l, h in zip(lo, hi)), tuple(lo))
 
 
 def fasteners(model, rules):

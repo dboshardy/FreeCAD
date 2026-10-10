@@ -10,8 +10,10 @@ set(Construction_SRCS
     ConstructionObjects.py
     CutList.py
     Framing.py
+    Joinery.py
     Library.py
     Member.py
+    Parts.py
     Sheathing.py
     Shed.py
     TestConstruction.py

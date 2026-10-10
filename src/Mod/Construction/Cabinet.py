@@ -13,38 +13,14 @@ Fronts (doors, drawer fronts) are full overlay and sit in front of the carcass
 import math
 from dataclasses import dataclass, replace
 
+from Parts import Part
+
 KINDS = ("base", "wall", "tall", "sink")
 FRONTS = ("doors", "drawers", "drawer_over_doors", "false_front_over_doors")
 BLIND_SIDES = ("left", "right")
 SLIDE_STEP = 50.0  # drawer slides are sold in 50 mm length steps
 MIN_SLIDE = 250.0
 MIN_DRAWER_BOX_HEIGHT = 60.0
-
-
-@dataclass
-class Part:
-    name: str
-    # carcass, shelf, back, door, blind_panel, drawer_front, drawer_box, drawer_bottom,
-    # plinth, filler
-    role: str
-    size: tuple  # (dx, dy, dz)
-    pos: tuple  # (x, y, z) of the minimum corner
-    grain: str | None = None  # axis the grain runs along: "x", "y", "z" or None
-
-    def cut_size(self):
-        """(length, width, thickness): length along the grain, or the longest side."""
-        dims = dict(zip("xyz", self.size))
-        thick_axis = min(dims, key=dims.get)
-        faces = [a for a in "xyz" if a != thick_axis]
-        if self.grain in faces:
-            length_axis = self.grain
-        else:
-            length_axis = max(faces, key=dims.get)
-        width_axis = next(a for a in faces if a != length_axis)
-        return dims[length_axis], dims[width_axis], dims[thick_axis]
-
-    def moved(self, dx):
-        return replace(self, pos=(self.pos[0] + dx, self.pos[1], self.pos[2]))
 
 
 @dataclass

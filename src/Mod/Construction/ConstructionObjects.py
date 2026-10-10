@@ -14,6 +14,7 @@ import Framing
 import Joinery
 import Library
 import Member
+import Parts
 import Sheathing
 import Shed
 
@@ -125,7 +126,7 @@ def library_item(material_id):
 def member_part(name, start, end, section):
     """Cut-list Part of a member: grain along its length."""
     length = Member.frame(start, end)[0]
-    return Cabinet.Part(name, "member", (*section, length), (0, 0, 0), "z")
+    return Parts.Part(name, "member", (*section, length), (0, 0, 0), "z")
 
 
 def lumber_section(material_id):
@@ -423,7 +424,7 @@ def framing_pieces(model):
 def piece_part(piece, size):
     """Cut-list Part of a framing piece. size: (thickness, depth)."""
     if isinstance(piece, Framing.ProfilePiece):
-        return Cabinet.Part(piece.name, "member", (*size, piece.cut_length()), (0, 0, 0), "z")
+        return Parts.Part(piece.name, "member", (*size, piece.cut_length()), (0, 0, 0), "z")
     return member_part(piece.name, piece.start, piece.end, size)
 
 
@@ -448,7 +449,7 @@ def sheet_panels(surfaces, item, stagger):
 
 def panel_part(surface, panel, t):
     grain = "x" if surface.long_along == "u" else "y"  # the sheet's long side
-    return Cabinet.Part(surface.name, "sheathing", (panel[2], panel[3], t), (0, 0, 0), grain)
+    return Parts.Part(surface.name, "sheathing", (panel[2], panel[3], t), (0, 0, 0), grain)
 
 
 def panel_solid(surface, panel, t):
