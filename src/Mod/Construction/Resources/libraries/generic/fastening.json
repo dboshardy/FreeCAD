@@ -1,0 +1,32 @@
+{
+  "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp fastening schedules (design doc §5.3). EXAMPLE schedule from conventional framing practice; building codes publish their own fastening schedules, which differ by jurisdiction and are not copied here. Copy this item to your user library under a new id with your adopted schedule and set preference Mod/Construction/FasteningSchedule to it. Rules: receiver / inserted are member-name patterns (fnmatch); per_joint = fixed count; spacing and edge (mm) = count along the contact.",
+  "source": "Generic example from conventional framing practice; not copied from any code or standard",
+  "data_license": "CC0-1.0",
+  "items": [
+    {
+      "id": "fastening.generic-example",
+      "category": "fastening_schedule",
+      "region": "generic",
+      "name": "Generic example - verify for your jurisdiction",
+      "rules": [
+        {"receiver": "Bottom plate", "inserted": "*stud", "fastener": "hardware.nail_framing", "per_joint": 2},
+        {"receiver": "Bottom plate", "inserted": "Stud", "fastener": "hardware.nail_framing", "per_joint": 2},
+        {"receiver": "Bottom plate", "inserted": "Cripple", "fastener": "hardware.nail_framing", "per_joint": 2},
+        {"receiver": "Top plate", "inserted": "Top plate", "fastener": "hardware.nail_framing", "spacing": 400, "edge": 100},
+        {"receiver": "Top plate", "inserted": "*", "fastener": "hardware.nail_framing", "per_joint": 2},
+        {"receiver": "King stud", "inserted": "Jack stud", "fastener": "hardware.nail_framing", "spacing": 400, "edge": 100},
+        {"receiver": "King stud", "inserted": "Header", "fastener": "hardware.nail_framing", "per_joint": 2},
+        {"receiver": "Jack stud", "inserted": "Header", "fastener": "hardware.nail_framing", "per_joint": 2},
+        {"receiver": "Header", "inserted": "Header", "fastener": "hardware.nail_framing", "spacing": 400, "edge": 100},
+        {"receiver": "Header", "inserted": "Cripple", "fastener": "hardware.nail_framing", "per_joint": 2},
+        {"receiver": "Sill", "inserted": "Cripple", "fastener": "hardware.nail_framing", "per_joint": 2},
+        {"receiver": "Sill", "inserted": "Jack stud", "fastener": "hardware.nail_framing", "per_joint": 2},
+        {"receiver": "Rim joist", "inserted": "Joist", "fastener": "hardware.nail_framing", "per_joint": 3},
+        {"receiver": "Ledger", "inserted": "Joist", "fastener": "hardware.joist_hanger", "per_joint": 1},
+        {"receiver": "Beam", "inserted": "Joist", "fastener": "hardware.nail_framing", "per_joint": 1},
+        {"receiver": "Beam", "inserted": "Beam", "fastener": "hardware.nail_framing", "spacing": 400, "edge": 100},
+        {"receiver": "Joist", "inserted": "Decking", "fastener": "hardware.deck_screw", "per_joint": 2}
+      ]
+    }
+  ]
+}

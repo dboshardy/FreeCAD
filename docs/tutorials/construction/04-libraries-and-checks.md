@@ -64,6 +64,13 @@ Example: the plywood your yard sells is 17.5 mm thick, and you also use
 | `Kerf` | Float | 3.2 | Saw blade width in mm, between every two cuts |
 | `Trim` | Float | 10 | Edge strip taken off every side of a shop sheet (not sheathing) |
 | `RuleSet` | String | `rules.generic-example` | Rule set used by **Check** |
+| `FasteningSchedule` | String | `fastening.generic-example` | Nails, screws and hangers counted into the cut list's Hardware |
+
+The fastening schedule is library data like the rest. Each rule names the part
+that receives a fastener and the part fastened to it (patterns on part names),
+then a fixed count per joint or a spacing along the joint. The shipped schedule
+is an example of conventional practice; enter your own the same way as a rule
+set (see `Resources/libraries/generic/fastening.json`).
 
 ## 3. Checks, rule sets and loads
 

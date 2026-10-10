@@ -6,6 +6,9 @@
     {"id": "hardware.hinge", "category": "hardware", "region": "generic", "name": "Concealed hinge, 35 mm cup, full overlay", "hinges_by_door_height": [[900, 2], [1600, 3], [2000, 4], [2400, 5]], "hinges_per_extra_400mm": 1},
     {"id": "hardware.drawer_slide", "category": "hardware", "region": "generic", "name": "Drawer slide pair, side mount, full extension"},
     {"id": "hardware.shelf_pin", "category": "hardware", "region": "generic", "name": "Shelf pin, 5 mm", "per_shelf": 4},
+    {"id": "hardware.nail_framing", "category": "hardware", "region": "generic", "name": "Framing nail, 3.1 x 90 mm"},
+    {"id": "hardware.joist_hanger", "category": "hardware", "region": "generic", "name": "Joist hanger, sized for the joist (with its nails)"},
+    {"id": "hardware.deck_screw", "category": "hardware", "region": "generic", "name": "Deck screw, 5 x 60 mm"},
     {"id": "hardware.wall_anchor", "category": "hardware", "region": "generic", "name": "Cabinet wall anchor (screw into wall framing; choose for your wall type and load)", "per_cabinet": 2}
   ]
 }

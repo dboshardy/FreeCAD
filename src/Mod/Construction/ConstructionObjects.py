@@ -11,6 +11,7 @@ import Cabinet
 import Checks
 import CutList
 import Framing
+import Joinery
 import Library
 import Member
 import Sheathing
@@ -198,6 +199,9 @@ class CabinetFeature:
     def checks(self, obj, rules):
         return [r for c in self.cabinets(obj) for r in Checks.cabinet(c, rules)]
 
+    def fasteners(self, obj, schedule):
+        return {}
+
     def anchored(self, obj, rules):
         """Cabinets to fix to the wall."""
         kinds = rules.get("anchor_cabinet_kinds", ())
@@ -362,6 +366,9 @@ class MemberFeature:
     def anchored(self, obj, rules):
         return 0
 
+    def fasteners(self, obj, schedule):
+        return {}
+
     def solids(self, obj):
         start, end = self.endpoints(obj)
         return [member_box(start, end, obj.Roll.Value, lumber_section(obj.Material))]
@@ -514,6 +521,9 @@ class FramingFeature:
 
     def anchored(self, obj, rules):
         return 0
+
+    def fasteners(self, obj, schedule):
+        return Framing.fasteners(self.model(obj), schedule)
 
     def dumps(self):
         return None
@@ -836,6 +846,9 @@ class SheathingFeature:
     def anchored(self, obj, rules):
         return 0
 
+    def fasteners(self, obj, schedule):
+        return {}
+
     def dumps(self):
         return None
 
@@ -996,6 +1009,14 @@ class ShedFeature:
     def anchored(self, obj, rules):
         return 0
 
+    def fasteners(self, obj, schedule):
+        """Per component; joints between components (e.g. wall to floor) are not counted."""
+        total = {}
+        for c in self.model(obj).components():
+            for hardware_id, count in Framing.fasteners(c.model, schedule).items():
+                total[hardware_id] = total.get(hardware_id, 0) + count
+        return total
+
     def dumps(self):
         return None
 
@@ -1044,6 +1065,14 @@ def write_checks(doc):
                 FreeCAD.Console.PrintWarning(f"{obj.Label}: {check}: {detail}\n")
     doc.recompute()
     return problems
+
+
+def fastening_schedule():
+    """Joinery rules of the schedule chosen in preferences Mod/Construction/FasteningSchedule."""
+    schedule_id = FreeCAD.ParamGet(PARAMS).GetString(
+        "FasteningSchedule", "fastening.generic-example"
+    )
+    return [Joinery.Rule(**r) for r in library_item(schedule_id)["rules"]]
 
 
 def saw_settings():
@@ -1129,7 +1158,13 @@ def write_cut_list(doc):
     _write_row(cut, summary, ["Hardware"])
     rules = rule_set()
     anchored = sum(obj.Proxy.anchored(obj, rules) for obj in construction_objects(doc))
-    for name, qty in CutList.hardware([part for _, part in parts], lib, anchored):
+    schedule = fastening_schedule()
+    fasteners = {}
+    for obj in construction_objects(doc):
+        for hardware_id, count in obj.Proxy.fasteners(obj, schedule).items():
+            fasteners[hardware_id] = fasteners.get(hardware_id, 0) + count
+    hardware = CutList.hardware([part for _, part in parts], lib, anchored, fasteners)
+    for name, qty in hardware:
         summary += 1
         _write_row(cut, summary, [name, "", "", "", "", "", qty])
     doc.recompute()
