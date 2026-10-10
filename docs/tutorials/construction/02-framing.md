@@ -157,7 +157,12 @@ Click **Stair** and set **TotalRise** (finished floor to finished floor) and
   run (riser face to riser face) follows from that, so no board is ripped;
 - cuts the stringers from **StringerMaterial**, dropped by the tread thickness
   so the first and last risers equal the others, as many as keep them within
-  **StringerSpacing**.
+  **StringerSpacing**;
+- on each of the **OpenSides** (`both`, `left`, `right` or `none`), adds a
+  guard: newel posts at the bottom and top, a handrail **HandrailHeight** above
+  the nosings, and balusters on the treads with clear gaps no wider than
+  **BalusterGap**. With `none` (walls on both sides) it adds a handrail on the
+  left wall.
 
 ```pycon
 >>> stair = Framing.Stair(total_rise=2600, max_riser=190, stringer=(38.1, 285.75))
@@ -168,10 +173,9 @@ Click **Stair** and set **TotalRise** (finished floor to finished floor) and
 ```
 
 **Check** reports riser height, tread run, the comfort rule
-(2 × riser + tread), the wood left under the stringer cuts (throat), and
-lists handrails and guards as **required** when the stair is tall enough: they
-are not generated, so add them. Headroom is not checked; it depends on the
-floor opening above.
+(2 × riser + tread), the wood left under the stringer cuts (throat), and the
+handrail and guard heights and baluster gaps against the rule set. Headroom is
+not checked; it depends on the floor opening above.
 
 ```pycon
 >>> import Checks, Library
@@ -183,8 +187,8 @@ Tread run: ok
 Comfort (2 x riser + tread): ok
 Equal risers: ok
 Stringer throat: ok
-Handrail: required
-Guards: required
+Handrail: ok
+Guards: ok
 Headroom: not checked
 ```
 

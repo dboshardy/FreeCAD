@@ -7,6 +7,7 @@
     {"id": "lumber.metric.38x63", "name": "38x63", "actual": {"w": 38, "h": 63, "unit": "mm"}},
     {"id": "lumber.metric.38x89", "name": "38x89", "actual": {"w": 38, "h": 89, "unit": "mm"}},
     {"id": "lumber.metric.38x140", "name": "38x140", "actual": {"w": 38, "h": 140, "unit": "mm"}},
+    {"id": "lumber.metric.45x45", "name": "45x45", "actual": {"w": 45, "h": 45, "unit": "mm"}},
     {"id": "lumber.metric.45x70", "name": "45x70", "actual": {"w": 45, "h": 70, "unit": "mm"}},
     {"id": "lumber.metric.45x95", "name": "45x95", "actual": {"w": 45, "h": 95, "unit": "mm"}},
     {"id": "lumber.metric.45x145", "name": "45x145", "actual": {"w": 45, "h": 145, "unit": "mm"}},

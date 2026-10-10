@@ -459,6 +459,9 @@ class GableRoof:
         ]
 
 
+OPEN_SIDES = ("both", "left", "right", "none")
+
+
 @dataclass
 class Stair:
     """Straight stair on cut stringers. Coordinates: x across the stair, y along
@@ -481,6 +484,14 @@ class Stair:
     stringer: tuple = (45.0, 220.0)
     max_stringer_spacing: float = 450.0
     max_piece: float = 6000.0
+    # Handrails and guards. Every open side gets newel posts, a handrail and
+    # balusters (a guard); with no open side, a handrail on the left wall.
+    open_sides: str = "both"
+    handrail_height: float = 900.0  # top of the rail above the nosing line
+    rail: tuple = (45.0, 70.0)
+    post: tuple = (70.0, 70.0)
+    baluster: tuple = (45.0, 45.0)
+    max_baluster_gap: float = 100.0  # clear gap between balusters and posts
 
     def risers(self):
         return math.ceil(self.total_rise / self.max_riser - 1e-9)
@@ -522,6 +533,14 @@ class Stair:
         longest = max(b.cut_length() for b in self._stringers())
         if longest > self.max_piece + 1e-6:
             raise ValueError(f"stringers ({longest:.0f} mm) longer than the longest stock length")
+        if self.open_sides not in OPEN_SIDES:
+            raise ValueError(f"open sides must be one of {', '.join(OPEN_SIDES)}")
+        if min(self.rail + self.post + self.baluster) <= 0 or self.max_baluster_gap <= 0:
+            raise ValueError("handrail and guard sizes must be positive")
+        if self.handrail_height <= self.rail[1]:
+            raise ValueError("handrail height below the rail's own depth")
+        if self.width < 2 * self.post[0] + self.stringer[0]:
+            raise ValueError("stair too narrow for newel posts on both sides")
 
     def stringer_centres(self):
         t = self.stringer[0]
@@ -559,7 +578,7 @@ class Stair:
         return self._stringers()
 
     def pieces(self):
-        """Tread boards (members along x, laid flat)."""
+        """Tread boards (members along x, laid flat), handrails and guards."""
         self.validate()
         r, t, tt, bd = self.riser(), self.run(), self.tread[0], self.tread[1]
         out = []
@@ -569,6 +588,60 @@ class Stair:
                 y = front + j * (bd + self.tread_gap) + bd / 2
                 z = i * r - tt / 2
                 out.append(Piece("Tread", (0.0, y, z), (self.width, y, z), 90.0, "tread"))
+        for x, guarded in self.rail_lines():
+            out += self._railing(x, guarded)
+        return out
+
+    def rail_lines(self):
+        """[(x of the rail centre line, has a guard)] per side with a handrail."""
+        left, right = self.post[0] / 2, self.width - self.post[0] / 2
+        sides = {"both": [left, right], "left": [left], "right": [right], "none": []}
+        lines = [(x, True) for x in sides[self.open_sides]]
+        return lines or [(self.rail[0] / 2, False)]  # wall rail on the left
+
+    def nosing_line(self, y):
+        """Height of the line through the tread nosings at y."""
+        r, t = self.riser(), self.run()
+        return r + (y + self.nosing) * r / t
+
+    def _rail_centre(self, y):
+        half = self.rail[1] / 2 / math.cos(math.radians(self.angle()))  # vertical half-depth
+        return self.nosing_line(y) + self.handrail_height - half
+
+    def _railing(self, x, guarded):
+        n, t = self.risers(), self.run()
+        a = math.radians(self.angle())
+        half_rail = self.rail[1] / 2 / math.cos(a)
+        y0, y1 = -self.nosing, (n - 1) * t  # first nosing, top riser face
+        out = [
+            Piece(
+                "Handrail",
+                (x, y0, self._rail_centre(y0)),
+                (x, y1, self._rail_centre(y1)),
+                0.0,
+                "rail",
+            )
+        ]
+        if not guarded:
+            return out
+        p = self.post[1]
+        for name, y, z0, z_rail in (
+            ("Newel post", y0 - p / 2, 0.0, self._rail_centre(y0)),
+            ("Newel post", y1 + p / 2, self.total_rise, self._rail_centre(y1)),
+        ):
+            out.append(Piece(name, (x, y, z0), (x, y, z_rail + half_rail + 50.0), 0.0, "post"))
+        # Balusters: the same number on every tread at the same positions, so
+        # they repeat in as many lengths as there are per tread. The pitch keeps
+        # clear gaps no wider than max_baluster_gap.
+        bt = self.baluster[1]
+        per_tread = math.ceil(t / (bt + self.max_baluster_gap) - 1e-9)
+        pitch = t / per_tread
+        for m in range(per_tread * (n - 1)):
+            y = y0 + (m + 0.5) * pitch
+            tread = m // per_tread + 1
+            bottom = tread * self.riser()
+            top = self._rail_centre(y - bt / 2) - half_rail  # under the rail's lowest point
+            out.append(Piece("Baluster", (x, y, bottom), (x, y, top), 0.0, "baluster"))
         return out
 
 

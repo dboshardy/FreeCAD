@@ -858,7 +858,7 @@ class TestStair(unittest.TestCase):
     def test_treads_rest_on_the_stringer_cuts(self):
         stair = Framing.Stair()
         r, t, tt = stair.riser(), stair.run(), stair.tread[0]
-        treads = stair.pieces()
+        treads = [p for p in stair.pieces() if p.name == "Tread"]
         self.assertEqual(len(treads), (stair.risers() - 1) * stair.tread_boards)
         tops = sorted({round(p.start[2] + tt / 2, 6) for p in treads})
         self.assertEqual(tops, [round(i * r, 6) for i in range(1, stair.risers())])
@@ -877,6 +877,45 @@ class TestStair(unittest.TestCase):
         us = Framing.Stair(stringer=(38.1, 285.75))  # a 2x12 leaves more throat
         self.assertGreater(us.throat(), stair.throat())
 
+    def test_handrails_and_guards(self):
+        stair = Framing.Stair(open_sides="both")
+        pieces = stair.pieces()
+        counts = Counter(p.name for p in pieces)
+        self.assertEqual(counts["Handrail"], 2)
+        self.assertEqual(counts["Newel post"], 4)
+        r, a = stair.riser(), math.radians(stair.angle())
+        half_rail = stair.rail[1] / 2 / math.cos(a)
+        rail = next(p for p in pieces if p.name == "Handrail")
+        # Rail top sits handrail_height above the nosing line at both ends.
+        for point in (rail.start, rail.end):
+            self.assertAlmostEqual(point[2] + half_rail - stair.nosing_line(point[1]), 900)
+        for side in (stair.post[0] / 2, stair.width - stair.post[0] / 2):
+            balusters = sorted(
+                (p for p in pieces if p.name == "Baluster" and p.start[0] == side),
+                key=lambda p: p.start[1],
+            )
+            ys = [b.start[1] for b in balusters]
+            posts = sorted(
+                p.start[1] for p in pieces if p.name == "Newel post" and p.start[0] == side
+            )
+            faces = [posts[0] + stair.post[1] / 2] + ys + [posts[-1] - stair.post[1] / 2]
+            gaps = [b - a - stair.baluster[1] for a, b in zip(ys, ys[1:])]
+            gaps += [
+                ys[0] - stair.baluster[1] / 2 - faces[0],
+                faces[-1] - ys[-1] - stair.baluster[1] / 2,
+            ]
+            self.assertLessEqual(max(gaps), stair.max_baluster_gap + 1e-6)
+            lengths = {round(b.length(), 1) for b in balusters}
+            self.assertEqual(len(lengths), 2)  # 2 per tread: 2 lengths repeat
+            for b in balusters:
+                self.assertAlmostEqual(b.start[2] / r, round(b.start[2] / r))  # on a tread top
+                low = rail.start[2] + (
+                    b.start[1] - stair.baluster[1] / 2 - rail.start[1]
+                ) * math.tan(a)
+                self.assertLessEqual(b.end[2], low - half_rail + 1e-6)  # under the rail
+        walled = Counter(p.name for p in Framing.Stair(open_sides="none").pieces())
+        self.assertEqual((walled["Handrail"], walled["Baluster"], walled["Newel post"]), (1, 0, 0))
+
     def test_rejects(self):
         for kwargs in (
             {"total_rise": 150},  # one riser
@@ -884,6 +923,8 @@ class TestStair(unittest.TestCase):
             {"stringer": (45, 95)},  # cuts go through
             {"width": 60},
             {"total_rise": 6000, "max_piece": 4800},  # stringer too long
+            {"open_sides": "middle"},
+            {"handrail_height": 50},
         ):
             with self.assertRaises(ValueError, msg=str(kwargs)):
                 Framing.Stair(**kwargs).boards()
@@ -1008,14 +1049,20 @@ class TestChecks(unittest.TestCase):
         self.assertEqual(results["Tread run"], Checks.OK)  # 271 >= 250
         self.assertEqual(results["Comfort (2 x riser + tread)"], Checks.OK)  # 2 x 185.7 + 271 = 642
         self.assertEqual(results["Stringer throat"], Checks.OK)
-        self.assertEqual(results["Handrail"], Checks.REQUIRED)  # 14 risers
-        self.assertEqual(results["Guards"], Checks.REQUIRED)  # 2600 mm rise
+        self.assertEqual(results["Handrail"], Checks.OK)  # 900 within 850..1000
+        self.assertEqual(results["Guards"], Checks.OK)  # 900 high, gaps up to 100
         self.assertEqual(results["Headroom"], Checks.NOT_CHECKED)
         shallow = {c: s for c, s, _ in Checks.stair(Framing.Stair(), self.RULES)}
         self.assertEqual(shallow["Stringer throat"], Checks.WARNING)  # 45x220: 67 < 90
         low = {c: s for c, s, _ in Checks.stair(Framing.Stair(total_rise=500), self.RULES)}
         self.assertNotIn("Guards", low)  # 500 mm rise
         self.assertNotIn("Handrail", low)  # 3 risers
+        bad = Framing.Stair(handrail_height=1100, max_baluster_gap=150)
+        bad_results = {c: st for c, st, _ in Checks.stair(bad, self.RULES)}
+        self.assertEqual(bad_results["Handrail"], Checks.WARNING)
+        self.assertEqual(bad_results["Guards"], Checks.WARNING)
+        walled = {c: st for c, st, _ in Checks.stair(Framing.Stair(open_sides="none"), self.RULES)}
+        self.assertNotIn("Guards", walled)
         long_treads = Framing.Stair(tread_boards=3)  # run 422: 2 x 185.7 + 422 = 793
         comfort = {c: s for c, s, _ in Checks.stair(long_treads, self.RULES)}
         self.assertEqual(comfort["Comfort (2 x riser + tread)"], Checks.WARNING)
