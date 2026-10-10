@@ -103,6 +103,13 @@ def add_property(obj, kind, prop, group, tip, value):
     setattr(obj, prop, value)
 
 
+def add_ifc_type(obj, feature):
+    """IfcType, read by the BIM workbench's IFC export (exportIFC.getIfcTypeFromObj)."""
+    add_property(
+        obj, "App::PropertyString", "IfcType", "IFC", "IFC class on export", feature.IFC_TYPE
+    )
+
+
 def add_library_choice(obj, prop, category, default, group, tip):
     """Enumeration of library item ids of one category. A value whose item is
     gone (user library changed) stays selectable and fails in execute()."""
@@ -156,6 +163,7 @@ def set_shape(obj, shapes):
 class CabinetFeature:
     """Frameless cabinet. Every size is a property; edit in the property view."""
 
+    IFC_TYPE = "Furniture"
     skip = ()  # Cabinet properties a subclass does not use
 
     def __init__(self, obj, preset="base"):
@@ -163,6 +171,7 @@ class CabinetFeature:
         self.setProperties(obj, preset)
 
     def setProperties(self, obj, preset="base"):
+        add_ifc_type(obj, self)
         defaults = Cabinet.defaults(preset)
         for prop, field, ptype, group, tip in PROPERTIES:
             if prop not in self.skip:
@@ -327,11 +336,14 @@ def make_cabinet_run(preset="base", doc=None):
 class MemberFeature:
     """Lumber member along a line: a linked straight edge (Base), or Start to End."""
 
+    IFC_TYPE = "Member"
+
     def __init__(self, obj):
         obj.Proxy = self
         self.setProperties(obj)
 
     def setProperties(self, obj):
+        add_ifc_type(obj, self)
         props = [
             ("App::PropertyLinkSub", "Base", "Line or straight edge to follow; empty = Start/End"),
             ("App::PropertyVector", "Start", "Start point when Base is empty"),
@@ -477,6 +489,7 @@ class FramingFeature:
     a Framing.Wall / Floor / GableRoof."""
 
     GROUP = "Framing"
+    IFC_TYPE = "Building Element Part"
     PROPERTIES = []
     MATERIALS = []
 
@@ -485,6 +498,7 @@ class FramingFeature:
         self.setProperties(obj)
 
     def setProperties(self, obj):
+        add_ifc_type(obj, self)
         for ptype, prop, tip, value in self.PROPERTIES:
             add_property(obj, ptype, prop, self.GROUP, tip, value)
         for prop, _, default, tip in self.MATERIALS:
@@ -540,6 +554,7 @@ def _length(prop, tip, value):
 class WallFrameFeature(FramingFeature):
     """Stud wall framing along the object's local X axis (see Framing.py)."""
 
+    IFC_TYPE = "Wall"
     GROUP = "Wall"
     _d = Framing.Wall()
     PROPERTIES = [
@@ -597,6 +612,7 @@ LOAD_TIP = "from your load calculation; 0 = not checked"
 class FloorFrameFeature(FramingFeature):
     """Floor platform: joists along local Y between rim joists along X."""
 
+    IFC_TYPE = "Slab"
     GROUP = "Floor"
     _d = Framing.Floor()
     PROPERTIES = [
@@ -624,6 +640,7 @@ class FloorFrameFeature(FramingFeature):
 class GableRoofFeature(FramingFeature):
     """Gable roof framing: ridge along local X, z = 0 at the top of the wall plates."""
 
+    IFC_TYPE = "Roof"
     GROUP = "Roof"
     _d = Framing.GableRoof()
     PROPERTIES = [
@@ -674,6 +691,7 @@ class GableRoofFeature(FramingFeature):
 class StairFeature(FramingFeature):
     """Straight stair on cut stringers; the riser limit comes from the rule set."""
 
+    IFC_TYPE = "Stair"
     GROUP = "Stair"
     _d = Framing.Stair()
     PROPERTIES = [
@@ -725,6 +743,7 @@ class StairFeature(FramingFeature):
 class DeckFeature(FramingFeature):
     """Deck against a house: ledger, joists, rim, dropped beam on posts, decking."""
 
+    IFC_TYPE = "Slab"
     GROUP = "Deck"
     _d = Framing.Deck()
     PROPERTIES = [
@@ -809,12 +828,19 @@ FLOOR_SHEATHING = "sheet.metric.plywood.18"
 class SheathingFeature:
     """Sheet goods on a framing object's surfaces (see Sheathing.py)."""
 
+    IFC_TYPE = "Covering"
+
     def __init__(self, obj, material=DEFAULT_SHEATHING):
         obj.Proxy = self
         self.setProperties(obj, material)
 
     def setProperties(self, obj, material=DEFAULT_SHEATHING):
-        add_property(obj, "App::PropertyLink", "Base", "Sheathing", "Framing to cover", None)
+        add_ifc_type(obj, self)
+        # "Host", not "Base": BIM's IFC export treats a Base as a sub-part and drops it.
+        add_property(obj, "App::PropertyLink", "Host", "Sheathing", "Framing to cover", None)
+        if "Base" in obj.PropertiesList:  # files from before the rename
+            obj.Host = obj.Base
+            obj.removeProperty("Base")
         add_property(
             obj, "App::PropertyBool", "Stagger", "Sheathing", "Offset every other row", True
         )
@@ -825,9 +851,9 @@ class SheathingFeature:
 
     def _panels(self, obj):
         """[(surface, (u0, v0, du, dv))] and the sheet thickness."""
-        if obj.Base is None or not isinstance(obj.Base.Proxy, FramingFeature):
+        if obj.Host is None or not isinstance(obj.Host.Proxy, FramingFeature):
             raise ValueError("Base must be a wall, floor or roof framing object")
-        model = obj.Base.Proxy.model(obj.Base)
+        model = obj.Host.Proxy.model(obj.Host)
         return sheet_panels(Sheathing.surfaces(model), library_item(obj.Material), obj.Stagger)
 
     def parts(self, obj):
@@ -863,7 +889,7 @@ def make_sheathing(base, doc=None, name="Sheathing"):
     material = FLOOR_SHEATHING if isinstance(base.Proxy, FloorFrameFeature) else DEFAULT_SHEATHING
     obj = doc.addObject("Part::FeaturePython", name)
     SheathingFeature(obj, material)
-    obj.Base = base
+    obj.Host = base
     obj.setExpression("Placement", f"{base.Name}.Placement")
     if FreeCAD.GuiUp:
         obj.ViewObject.Proxy = 0
@@ -875,6 +901,7 @@ class ShedFeature:
     """Gable shed template (see Shed.py): every part regenerates from its properties."""
 
     GROUP = "Shed"
+    IFC_TYPE = "Element Assembly"
     _d = Shed.Shed()
     PROPERTIES = [
         _length("Length", "Front and back walls, outside", _d.length),
@@ -916,6 +943,7 @@ class ShedFeature:
         self.setProperties(obj)
 
     def setProperties(self, obj):
+        add_ifc_type(obj, self)
         for ptype, prop, tip, value in self.PROPERTIES:
             add_property(obj, ptype, prop, self.GROUP, tip, value)
         for prop, section, default in self.LUMBER:

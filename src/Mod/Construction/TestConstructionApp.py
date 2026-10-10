@@ -86,6 +86,27 @@ class TestConstructionApp(unittest.TestCase):
         self.assertIn("Advisory only", checks.get("A1"))
         self.assertGreaterEqual(problems, 1)  # the tall cabinet must be anchored
 
+    def test_ifc_export(self):
+        import os
+        import tempfile
+
+        import ifcopenshell
+        from importers import exportIFC
+
+        objects = [CO.make_shed(self.doc), CO.make_cabinet("base", self.doc)]
+        objects.append(CO.make_wall_frame(self.doc))
+        objects.append(CO.make_sheathing(objects[-1], self.doc))
+        path = os.path.join(tempfile.mkdtemp(), "construction.ifc")
+        exportIFC.export(objects, path)
+        ifc = ifcopenshell.open(path)
+        for ifc_type, count in (
+            ("IfcElementAssembly", 1),
+            ("IfcFurnishingElement", 1),
+            ("IfcWall", 1),
+            ("IfcCovering", 1),
+        ):
+            self.assertEqual(len(ifc.by_type(ifc_type)), count, ifc_type)
+
     def test_drawing(self):
         shed = CO.make_shed(self.doc)
         page = CO.make_drawing([shed], self.doc)
