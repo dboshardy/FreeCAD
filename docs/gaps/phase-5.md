@@ -106,7 +106,7 @@ advisory checks. Nothing here certifies building-code compliance:
 | 5.6.2 | Cut list (dimensions, grain, labels) | Partial | `Construction_CutList` writes spreadsheet `CutList`: material, part, length (along grain), width, thickness, grain, qty. Missing: angles, edge banding, part labels |
 | 5.6.3 | 1D stock optimization (kerf, waste/cost) | Partial | `CutList.plan_lengths`: first-fit decreasing, each board shrunk to the shortest stock length that holds its cuts; kerf between pieces; spreadsheet `LumberPlan` (cuts and offcut per board). Heuristic; exact optimization (OR-Tools, §3.2) not added. No cost weighting |
 | 5.6.4 | 2D sheet nesting (guillotine; true-shape) | Partial | Guillotine for panel saws: `CutList.layout_sheets` (kerf and trim from preferences `Mod/Construction/Kerf`, `/Trim`; grain parts stay along the sheet length; sheets without grain, e.g. MDF, allow rotation). Writes spreadsheet `SheetLayout` (part positions) and `SheetLayoutView` (flat drawing of the sheets). Multi-pass greedy, not optimal; prior art in `docs/prior-art/guillotine-sheet-layout.md`. True-shape: upstream `ArchNesting.py` |
-| 5.6.5 | Framing plans / elevations with member tags | Partial | `Construction_Drawing` (`make_drawing`): A3 page, projection group (front, top, right, automatic scale) of the selected construction objects, cut list as a table (`DrawViewSpreadsheet`). Missing: member tags (balloons need their anchor points verified in a running TechDraw), section views, dimensions |
+| 5.6.5 | Framing plans / elevations with member tags | Partial | `Construction_Drawing` (`make_drawing`): A3 page with a projection group (front, top, right, automatic scale) of the selected construction objects and member tags: one balloon per cut-list row of framing members on the front view, at the instance nearest the viewer, numbered like the cut list's Tag column, bubbles in a column beside the view; a second A3 page with the cut list table. Title block filled in. Checked by exporting the shed's page to SVG and inspecting it. Shed `ShowSheathing` hides sheathing for framing drawings. Missing: section views, dimensions, tags on the top and side views |
 | 5.6.6 | Build-sequence views | Missing | |
 | 5.6.7 | Export CSV/XLSX, PDF shop drawings, labels | Partial | Spreadsheet CSV export (upstream); no labels |
 
@@ -123,7 +123,7 @@ advisory checks. Nothing here certifies building-code compliance:
 | Criterion | Status |
 |---|---|
 | Gable shed from template; edit wall height and door width; framing regenerates | Met: `TestShed.test_editing_regenerates` (geometry) and, in the app, `TestConstructionApp.test_edit_regenerates` (the Shed object rebuilds) |
-| BOM, optimized cut list, sheet nesting, framing drawings match hand count | Partial: framing quantities (`TestShed.test_hand_count`) and sheathing sheets (`test_sheathing_hand_count`) match hand counts; lumber plan places every piece. Framing drawings: page with views and the cut list table (`Construction_Drawing`, created in the app by `TestConstructionApp.test_drawing`); member tags missing (5.6.5) |
+| BOM, optimized cut list, sheet nesting, framing drawings match hand count | Partial: framing quantities (`TestShed.test_hand_count`) and sheathing sheets (`test_sheathing_hand_count`) match hand counts; lumber plan places every piece. Framing drawings with member tags matching the cut list (`Construction_Drawing`; `TestConstructionApp.test_drawing`, page inspected visually) (5.6.5) |
 
 ## Verification
 

@@ -90,7 +90,22 @@ class TestConstructionApp(unittest.TestCase):
         self.assertEqual(page.TypeId, "TechDraw::DrawPage")
         views = [v.TypeId for v in page.Views]
         self.assertIn("TechDraw::DrawProjGroup", views)
-        self.assertIn("TechDraw::DrawViewSpreadsheet", views)
+        table_page = self.doc.getObject("FramingCutList")
+        self.assertIn("TechDraw::DrawViewSpreadsheet", [v.TypeId for v in table_page.Views])
+        texts = page.Template.EditableTexts
+        self.assertNotIn("Stainless", texts["part_material"])
+        # One balloon per cut-list row of framing members, numbered like the Tag column.
+        balloons = [v for v in page.Views if v.TypeId == "TechDraw::DrawViewBalloon"]
+        cut = self.doc.getObject("CutList")
+        tags = set()
+        row = 2
+        while cut.getContents(f"H{row}"):
+            if not cut.get(f"A{row}").startswith("Plywood"):  # sheathing: not tagged
+                tags.add(str(int(float(cut.get(f"H{row}")))))
+            row += 1
+        self.assertEqual(sorted(b.Text for b in balloons), sorted(tags))
+        for b in balloons:
+            self.assertNotIn("Invalid", b.State, b.Label)
 
 
 if __name__ == "__main__":

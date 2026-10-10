@@ -209,11 +209,13 @@ class CabinetFeature:
             for p in self.model_parts(obj)
         ]
 
+    def solids(self, obj):
+        """Solids in the order of parts(), in the object's coordinates."""
+        return [Part.makeBox(*p.size, FreeCAD.Vector(*p.pos)) for p in self.model_parts(obj)]
+
     def execute(self, obj):
         # ValueError from validate() marks the object as failed with its message.
-        set_shape(
-            obj, [Part.makeBox(*p.size, FreeCAD.Vector(*p.pos)) for p in self.model_parts(obj)]
-        )
+        set_shape(obj, self.solids(obj))
 
     def dumps(self):
         return None
@@ -359,9 +361,12 @@ class MemberFeature:
     def anchored(self, obj, rules):
         return 0
 
-    def execute(self, obj):
+    def solids(self, obj):
         start, end = self.endpoints(obj)
-        set_shape(obj, [member_box(start, end, obj.Roll.Value, lumber_section(obj.Material))])
+        return [member_box(start, end, obj.Roll.Value, lumber_section(obj.Material))]
+
+    def execute(self, obj):
+        set_shape(obj, self.solids(obj))
 
     def dumps(self):
         return None
@@ -497,8 +502,11 @@ class FramingFeature:
     def parts(self, obj):
         return [(material, piece_part(p, size)) for p, (material, size) in self._all(obj)]
 
+    def solids(self, obj):
+        return [piece_solid(p, size) for p, (_, size) in self._all(obj)]
+
     def execute(self, obj):
-        set_shape(obj, [piece_solid(p, size) for p, (_, size) in self._all(obj)])
+        set_shape(obj, self.solids(obj))
 
     def design_values(self, obj, prop):
         return library_item(getattr(obj, prop)).get("design_values")
@@ -802,9 +810,12 @@ class SheathingFeature:
         panels, t = self._panels(obj)
         return [(obj.Material, panel_part(surface, panel, t)) for surface, panel in panels]
 
-    def execute(self, obj):
+    def solids(self, obj):
         panels, t = self._panels(obj)
-        set_shape(obj, [panel_solid(surface, panel, t) for surface, panel in panels])
+        return [panel_solid(surface, panel, t) for surface, panel in panels]
+
+    def execute(self, obj):
+        set_shape(obj, self.solids(obj))
 
     def checks(self, obj, rules):
         return []
@@ -852,6 +863,12 @@ class ShedFeature:
         ("App::PropertyFloat", "HeaderLoad", "kN/m on the door header, " + LOAD_TIP, 0.0),
         ("App::PropertyFloat", "FloorLoad", "kPa, " + LOAD_TIP, 0.0),
         ("App::PropertyFloat", "RoofLoad", "kPa on plan, " + LOAD_TIP, 0.0),
+        (
+            "App::PropertyBool",
+            "ShowSheathing",
+            "Show the sheathing; turn off for a framing drawing (the cut list keeps it)",
+            True,
+        ),
     ]
     LUMBER = [  # property, framing section, default
         ("StudMaterial", "stud", "lumber.metric.45x95"),
@@ -929,13 +946,20 @@ class ShedFeature:
     def parts(self, obj):
         return [(material, part) for _, material, part, _ in self._items(obj)]
 
-    def execute(self, obj):
+    def solids(self, obj):
         shapes = []
         for placement, _, _, (build, *args) in self._items(obj):
             solid = build(*args)
             solid.Placement = placement.multiply(solid.Placement)
             shapes.append(solid)
-        set_shape(obj, shapes)
+        return shapes
+
+    def execute(self, obj):
+        solids = self.solids(obj)
+        if not obj.ShowSheathing:
+            parts = self.parts(obj)
+            solids = [s for s, (_, p) in zip(solids, parts) if p.role != "sheathing"]
+        set_shape(obj, solids)
 
     def checks(self, obj, rules):
         def values(prop):
@@ -1045,10 +1069,22 @@ def write_cut_list(doc):
         return lib.get(material, {}).get("name", material)
 
     cut = _sheet(doc, "CutList")
-    headers = ["Material", "Part", "Length (mm)", "Width (mm)", "Thickness (mm)", "Grain", "Qty"]
+    headers = [
+        "Material",
+        "Part",
+        "Length (mm)",
+        "Width (mm)",
+        "Thickness (mm)",
+        "Grain",
+        "Qty",
+        "Tag",
+    ]
     _write_row(cut, 1, headers)
+    cut.setColumnWidth("A", 240)  # material names are long
+    cut.setColumnWidth("B", 150)
     for r, (material, name, length, width, thick, grain, qty) in enumerate(rows, start=2):
-        _write_row(cut, r, [label(material), name, length, width, thick, grain, qty])
+        # Tag: the row number, used by the balloons on drawings (CutList.row_numbers).
+        _write_row(cut, r, [label(material), name, length, width, thick, grain, qty, r - 1])
 
     def of_category(cut_rows, category):
         materials = sorted({r[0] for r in cut_rows})
@@ -1148,19 +1184,37 @@ def _write_lumber_plan(doc, rows, materials, lib, label, kerf):
 
 
 DRAWING_TEMPLATE = ("Mod", "TechDraw", "Templates", "ISO", "A3_Landscape_ISO5457_minimal.svg")
+TAGS_PER_COLUMN = 16  # bubbles in one column before a new one starts
+TAG_GAP = 1 / 7  # spacing between bubbles, as a share of the view's height
+
+
+def _page(doc, name, title):
+    page = doc.addObject("TechDraw::DrawPage", name)
+    template = doc.addObject("TechDraw::DrawSVGTemplate", name + "Template")
+    template.Template = os.path.join(FreeCAD.getResourceDir(), *DRAWING_TEMPLATE)
+    texts = template.EditableTexts
+    texts.update(
+        {
+            "title": title,
+            "part_material": "Timber and sheet goods: see the cut list",
+            "document_type": "Framing drawing",
+        }
+    )
+    template.EditableTexts = texts
+    page.Template = template
+    return page
 
 
 def make_drawing(objects, doc=None):
-    """A3 drawing page of construction objects: front, top and right views in
-    a projection group, and the cut list as a table. Returns the page."""
+    """Framing drawing of construction objects: an A3 page with front, top and
+    right views in a projection group and member tags (balloons) numbered like
+    the cut list's Tag column, and a second page with the cut list table.
+    Returns the views page."""
     if not objects:
         raise ValueError("select the construction objects to draw")
     doc = doc or objects[0].Document
-    page = doc.addObject("TechDraw::DrawPage", "FramingDrawing")
-    template = doc.addObject("TechDraw::DrawSVGTemplate", "FramingTemplate")
-    template.Template = os.path.join(FreeCAD.getResourceDir(), *DRAWING_TEMPLATE)
-    page.Template = template
-
+    title = ", ".join(o.Label for o in objects)
+    page = _page(doc, "FramingDrawing", title)
     group = doc.addObject("TechDraw::DrawProjGroup", "FramingViews")
     page.addView(group)
     group.Source = list(objects)
@@ -1172,14 +1226,75 @@ def make_drawing(objects, doc=None):
     group.addProjection("Top")
     group.addProjection("Right")
 
-    # ponytail: no member tags (balloons) yet: their anchor points need
-    # checking against a running TechDraw (docs/gaps/phase-5.md 5.6.5).
     sheet = write_cut_list(doc)
     parts = [mp for obj in construction_objects(doc) for mp in obj.Proxy.parts(obj)]
+    table_page = _page(doc, "FramingCutList", title + ": cut list")
     table = doc.addObject("TechDraw::DrawViewSpreadsheet", "CutListTable")
     table.Source = sheet
     table.CellStart = "A1"
-    table.CellEnd = f"G{len(CutList.rows(parts)) + 1}"
-    page.addView(table)
+    table.CellEnd = f"H{len(CutList.rows(parts)) + 1}"
+    table_page.addView(table)
+    doc.recompute()
+    _add_tags(page, group.Anchor, objects)
     doc.recompute()
     return page
+
+
+def _add_tags(page, view, objects):
+    """One balloon per cut-list row of framing members on the front view,
+    numbered like the cut list's Tag column, pointing at the instance nearest
+    the viewer. Bubbles stand in a column right of the view, centred on it,
+    TAG_GAP of the view's height apart (spacing follows the view, not the page
+    scale, which TechDraw settles only after the page is shown); more than
+    TAGS_PER_COLUMN start a new column. Balloon coordinates are
+    unscaled view coordinates: the
+    projected point minus the projected centre of the view's sources' bounding
+    box."""
+    doc = page.Document
+    every = construction_objects(doc)
+    pairs = [(obj, mp) for obj in every for mp in obj.Proxy.parts(obj)]
+    tags = iter(CutList.row_numbers(mp for _, mp in pairs))
+    nearest = {}  # tag -> world point of its front-most instance
+    for obj in every:
+        for (_, part), solid in zip(obj.Proxy.parts(obj), obj.Proxy.solids(obj)):
+            tag = next(tags)
+            if obj not in objects or part.role == "sheathing":
+                continue
+            centre = obj.Placement.multVec(solid.BoundBox.Center)
+            if tag not in nearest or centre.y < nearest[tag].y:
+                nearest[tag] = centre
+    if not nearest:
+        return []
+    box = objects[0].Shape.BoundBox
+    for obj in objects[1:]:
+        box.add(obj.Shape.BoundBox)
+    centre = view.projectPoint(box.Center)
+    corners = [
+        view.projectPoint(FreeCAD.Vector(x, y, z)) - centre
+        for x in (box.XMin, box.XMax)
+        for y in (box.YMin, box.YMax)
+        for z in (box.ZMin, box.ZMax)
+    ]
+    right = max(c.x for c in corners)
+    top, bottom = max(c.y for c in corners), min(c.y for c in corners)
+    per_column = TAGS_PER_COLUMN
+    gap = (top - bottom) * TAG_GAP
+    rows = min(per_column, len(nearest))
+    first = (top + bottom) / 2 + (rows - 1) * gap / 2  # column centred on the view
+    origins = sorted(
+        ((tag, view.projectPoint(p) - centre) for tag, p in nearest.items()),
+        key=lambda t: -t[1].y,
+    )
+    balloons = []
+    for i, (tag, origin) in enumerate(origins):
+        column, slot = divmod(i, per_column)
+        balloon = doc.addObject("TechDraw::DrawViewBalloon", f"Tag{tag}")
+        balloon.SourceView = view
+        balloon.OriginX = origin.x
+        balloon.OriginY = origin.y
+        balloon.Text = str(tag)
+        balloon.X = right + 2 * gap + column * 1.5 * gap
+        balloon.Y = first - slot * gap
+        page.addView(balloon)
+        balloons.append(balloon)
+    return balloons

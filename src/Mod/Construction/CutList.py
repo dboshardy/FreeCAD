@@ -8,6 +8,11 @@ from dataclasses import dataclass
 EPS = 1e-6
 
 
+def _key(material, part):
+    length, width, thick = (round(v, 1) for v in part.cut_size())
+    return (material, length, width, thick, part.grain is not None)
+
+
 def rows(parts_by_material):
     """Groups identical parts. parts_by_material: iterable of (material id, Part).
     Returns [(material, name, length, width, thickness, grain, qty)] sorted by
@@ -15,8 +20,7 @@ def rows(parts_by_material):
     counter = Counter()
     names = {}
     for material, part in parts_by_material:
-        length, width, thick = (round(v, 1) for v in part.cut_size())
-        key = (material, length, width, thick, part.grain is not None)
+        key = _key(material, part)
         counter[key] += 1
         names.setdefault(key, part.name)
     out = [
@@ -25,6 +29,16 @@ def rows(parts_by_material):
     ]
     out.sort(key=lambda r: (r[0], -r[2] * r[3], r[1]))
     return out
+
+
+def row_numbers(parts_by_material):
+    """1-based row of rows() each part falls in, in input order: the part's tag."""
+    parts = list(parts_by_material)
+    order = {
+        (material, length, width, thick, grain == "yes"): i
+        for i, (material, _, length, width, thick, grain, _) in enumerate(rows(parts), start=1)
+    }
+    return [order[_key(material, part)] for material, part in parts]
 
 
 @dataclass

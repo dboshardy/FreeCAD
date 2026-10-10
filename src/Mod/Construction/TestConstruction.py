@@ -247,6 +247,17 @@ class TestRun(unittest.TestCase):
 
 
 class TestCutList(unittest.TestCase):
+    def test_row_numbers_tag_each_part(self):
+        parts = [("ply", p) for p in Cabinet.Cabinet(width=600, shelves=0).parts()]
+        rows = CutList.rows(parts)
+        tags = CutList.row_numbers(parts)
+        self.assertEqual(len(tags), len(parts))
+        for (material, part), tag in zip(parts, tags):
+            row = rows[tag - 1]
+            self.assertEqual((row[0], row[2]), (material, round(part.cut_size()[0], 1)))
+        sides = [tag for (_, p), tag in zip(parts, tags) if p.name.endswith("side")]
+        self.assertEqual(len(set(sides)), 1)  # both sides share a tag
+
     def test_groups_identical_parts(self):
         parts = Cabinet.Cabinet(width=600, shelves=0).parts()
         rows = CutList.rows(("ply", p) for p in parts)
