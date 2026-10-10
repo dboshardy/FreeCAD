@@ -6,6 +6,7 @@
   "items": [
     {"id": "lumber.us.1x4", "name": "1x4", "nominal": {"w": 1, "h": 4, "unit": "in"}, "actual": {"w": 19.05, "h": 88.9, "unit": "mm"}, "stock_lengths_mm": [2438.4, 3048, 3657.6, 4267.2, 4876.8]},
     {"id": "lumber.us.1x6", "name": "1x6", "nominal": {"w": 1, "h": 6, "unit": "in"}, "actual": {"w": 19.05, "h": 139.7, "unit": "mm"}, "stock_lengths_mm": [2438.4, 3048, 3657.6, 4267.2, 4876.8]},
+    {"id": "lumber.us.2x2", "name": "2x2", "nominal": {"w": 2, "h": 2, "unit": "in"}, "actual": {"w": 38.1, "h": 38.1, "unit": "mm"}, "stock_lengths_mm": [2438.4, 3048]},
     {"id": "lumber.us.2x3", "name": "2x3", "nominal": {"w": 2, "h": 3, "unit": "in"}, "actual": {"w": 38.1, "h": 63.5, "unit": "mm"}, "stock_lengths_mm": [2352.7, 2438.4, 3048]},
     {"id": "lumber.us.2x4", "name": "2x4", "nominal": {"w": 2, "h": 4, "unit": "in"}, "actual": {"w": 38.1, "h": 88.9, "unit": "mm"}, "stock_lengths_mm": [2352.7, 2438.4, 2657.5, 3048, 3657.6, 4267.2, 4876.8, 5486.4, 6096]},
     {"id": "lumber.us.2x6", "name": "2x6", "nominal": {"w": 2, "h": 6, "unit": "in"}, "actual": {"w": 38.1, "h": 139.7, "unit": "mm"}, "stock_lengths_mm": [2352.7, 2438.4, 2657.5, 3048, 3657.6, 4267.2, 4876.8, 5486.4, 6096]},

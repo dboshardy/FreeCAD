@@ -20,7 +20,11 @@
       "stair_comfort_max_mm": 660,
       "stair_throat_min_mm": 90,
       "handrail_min_risers": 4,
+      "handrail_height_min_mm": 850,
+      "handrail_height_max_mm": 1000,
       "guard_min_rise_mm": 750,
+      "guard_height_min_mm": 900,
+      "guard_opening_max_mm": 100,
       "anchor_cabinet_kinds": ["wall", "tall"]
     }
   ]

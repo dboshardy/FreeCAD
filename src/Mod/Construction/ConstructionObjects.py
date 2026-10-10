@@ -87,6 +87,7 @@ CHOICES = {
     "Fronts": Cabinet.FRONTS,
     "FillerSide": Cabinet.FILLER_SIDES,
     "BlindSide": Cabinet.BLIND_SIDES,
+    "OpenSides": Framing.OPEN_SIDES,
 }
 
 
@@ -671,10 +672,16 @@ class StairFeature(FramingFeature):
         _length("TreadGap", "Gap between tread boards", _d.tread_gap),
         _length("Nosing", "Tread overhang past the riser face", _d.nosing),
         _length("StringerSpacing", "Largest distance between stringers", _d.max_stringer_spacing),
+        (ENUM, "OpenSides", "Sides without a wall: they get a guard", _d.open_sides),
+        _length("HandrailHeight", "Top of the handrail above the nosings", _d.handrail_height),
+        _length("BalusterGap", "Largest clear gap between balusters", _d.max_baluster_gap),
     ]
     MATERIALS = [
         ("StringerMaterial", "stringer", "lumber.metric.45x220", "Stringers (cut)"),
         ("TreadMaterial", "tread", "lumber.metric.45x145", "Tread boards, laid flat"),
+        ("RailMaterial", "rail", "lumber.metric.45x70", "Handrails"),
+        ("PostMaterial", "post", "lumber.metric.70x70", "Newel posts"),
+        ("BalusterMaterial", "baluster", "lumber.metric.45x45", "Balusters"),
     ]
 
     def model(self, obj):
@@ -692,6 +699,12 @@ class StairFeature(FramingFeature):
             stringer=lumber_section(obj.StringerMaterial),
             max_stringer_spacing=float(obj.StringerSpacing.Value),
             max_piece=self.max_piece(obj),
+            open_sides=obj.OpenSides,
+            handrail_height=float(obj.HandrailHeight.Value),
+            rail=lumber_section(obj.RailMaterial),
+            post=lumber_section(obj.PostMaterial),
+            baluster=lumber_section(obj.BalusterMaterial),
+            max_baluster_gap=float(obj.BalusterGap.Value),
         )
 
     def checks(self, obj, rules):

@@ -200,21 +200,30 @@ def stair(stair, rules):
     limit("Stringer throat", stair.throat(), "stair_throat_min_mm", low_is_bad=True)
     risers = rules.get("handrail_min_risers")
     if risers is not None and stair.risers() >= risers:
+        low, high = rules.get("handrail_height_min_mm"), rules.get("handrail_height_max_mm")
+        h = stair.handrail_height
+        ok = (low is None or h >= low - 1e-6) and (high is None or h <= high + 1e-6)
         out.append(
             (
                 "Handrail",
-                REQUIRED,
-                f"{stair.risers()} risers (rule: from {risers}); " "not generated, add one",
+                OK if ok else WARNING,
+                f"{h:.0f} mm above the nosings, rule {low:g} to {high:g} mm "
+                f"({stair.risers()} risers, rule: from {risers})",
             )
         )
     rise = rules.get("guard_min_rise_mm")
-    if rise is not None and stair.total_rise > rise:
+    open_sides = stair.open_sides != "none"
+    if rise is not None and stair.total_rise > rise and open_sides:
+        height_min = rules.get("guard_height_min_mm")
+        gap_max = rules.get("guard_opening_max_mm")
+        ok_height = height_min is None or stair.handrail_height >= height_min - 1e-6
+        ok_gap = gap_max is None or stair.max_baluster_gap <= gap_max + 1e-6
         out.append(
             (
                 "Guards",
-                REQUIRED,
-                f"open sides rise {stair.total_rise:.0f} mm (rule: above "
-                f"{rise:g} mm); not generated, add them",
+                OK if ok_height and ok_gap else WARNING,
+                f"height {stair.handrail_height:.0f} mm (rule min {height_min:g}), baluster gap "
+                f"up to {stair.max_baluster_gap:.0f} mm (rule max {gap_max:g}) on the open sides",
             )
         )
     out.append(("Headroom", NOT_CHECKED, "depends on the floor opening above the stair"))
