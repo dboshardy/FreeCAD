@@ -15,6 +15,7 @@ import Cabinet  # noqa: E402
 import Checks  # noqa: E402
 import CutList  # noqa: E402
 import Framing  # noqa: E402
+import Joinery  # noqa: E402
 import Library  # noqa: E402
 import Member  # noqa: E402
 import Sheathing  # noqa: E402
@@ -975,6 +976,73 @@ class TestDeck(unittest.TestCase):
         for kwargs in ({"height": 300}, {"cantilever": 3000}, {"projection": 7000}):
             with self.assertRaises(ValueError, msg=str(kwargs)):
                 Framing.Deck(**kwargs).pieces()
+
+
+class TestJoinery(unittest.TestCase):
+    def carcass(self):
+        # Two 18 mm sides with a bottom between them (like Cabinet parts).
+        return [
+            Joinery.Box("Left side", (18, 560, 770), (0, 0, 0)),
+            Joinery.Box("Right side", (18, 560, 770), (582, 0, 0)),
+            Joinery.Box("Bottom", (564, 560, 18), (18, 0, 0)),
+        ]
+
+    def test_contact(self):
+        side, _, bottom = self.carcass()
+        axis, sign, (lo, hi) = Joinery.contact(side, bottom)
+        self.assertEqual((axis, sign), (0, 1))
+        self.assertEqual((lo, hi), ((18, 0, 0), (18, 560, 18)))
+        self.assertIsNone(Joinery.contact(side, Joinery.Box("x", (10, 10, 10), (500, 0, 0))))
+
+    def test_housing_lengthens_and_pockets(self):
+        rules = [Joinery.Rule("*side", "Bottom", "housing", depth=6)]
+        result = Joinery.apply(self.carcass(), rules)
+        bottom = result.boxes[2]
+        self.assertEqual((bottom.size[0], bottom.pos[0]), (564 + 12, 12))  # 6 into each side
+        pockets = sorted((i, p.pos, p.size) for i, p in result.pockets)
+        self.assertEqual(pockets, [(0, (12, 0, 0), (6, 560, 18)), (1, (582, 0, 0), (6, 560, 18))])
+        self.assertEqual(len(result.operations), 2)
+        with self.assertRaises(ValueError):  # deeper than the side is thick
+            Joinery.apply(self.carcass(), [Joinery.Rule("*side", "Bottom", "housing", depth=20)])
+
+    def test_rabbet_at_an_edge(self):
+        # A back flush with the side's rear edge: the pocket opens to the edge.
+        side = Joinery.Box("Side", (18, 560, 770), (0, 0, 0))
+        back = Joinery.Box("Back", (6, 6, 770), (18, 554, 0))
+        result = Joinery.apply([side, back], [Joinery.Rule("Side", "Back", "housing", depth=9)])
+        ((_, pocket),) = result.pockets
+        self.assertEqual(pocket.pos[1] + pocket.size[1], 560)  # reaches the edge
+
+    def test_fasteners_by_spacing_and_per_joint(self):
+        rules = [Joinery.Rule("*side", "Bottom", fastener="screw", spacing=200, edge=50)]
+        result = Joinery.apply(self.carcass(), rules)
+        # Contact 560 long: 460 between the end screws -> 4 per side.
+        self.assertEqual(result.fasteners, {"screw": 8})
+        studs = [
+            Joinery.Box("Plate", (3600, 95, 45), (0, 0, 0)),
+            Joinery.Box("Stud", (45, 95, 2300), (0, 0, 45)),
+            Joinery.Box("Stud", (45, 95, 2300), (600, 0, 45)),
+        ]
+        nails = Joinery.apply(studs, [Joinery.Rule("Plate", "Stud", fastener="nail", per_joint=2)])
+        self.assertEqual(nails.fasteners, {"nail": 4})
+        self.assertEqual(nails.boxes, studs)  # fastened: no change
+
+    def test_symmetric_rule_counts_once(self):
+        plates = [
+            Joinery.Box("Top plate", (3600, 95, 45), (0, 0, 0)),
+            Joinery.Box("Top plate", (3600, 95, 45), (0, 0, 45)),
+        ]
+        rule = Joinery.Rule("Top plate", "Top plate", fastener="nail", spacing=400, edge=100)
+        # 3600 - 2 x 100 = 3400 at 400 -> 9 spaces, 10 nails; counted once, not twice.
+        self.assertEqual(Joinery.apply(plates, [rule]).fasteners, {"nail": 10})
+
+    def test_half_lap(self):
+        a = Joinery.Box("Rail", (1000, 45, 95), (0, 0, 0))
+        b = Joinery.Box("Rail", (45, 1000, 95), (400, -400, 0))
+        result = Joinery.apply([a, b], [Joinery.Rule("Rail", "Rail", "half_lap")])
+        self.assertEqual(len(result.pockets), 2)
+        depths = sorted(p.size[2] for _, p in result.pockets)
+        self.assertEqual(depths, [47.5, 47.5])  # half of 95 each
 
 
 class TestChecks(unittest.TestCase):
