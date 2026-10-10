@@ -10,18 +10,28 @@ receiving part, then the inserted part) and how they are joined:
 - "housing": the inserted part is lengthened by `depth` into the receiving
   part, which gets a pocket of the inserted part's section. A dado, groove or
   housed end; at the receiver's edge the pocket is a rabbet.
+- "tenon": mortise and tenon. The inserted part is lengthened by `depth`; its
+  end is cut to a tenon `thickness` thick (0 = a third of the part) centred
+  on the part, with `shoulder` cut off each edge of its width. The receiving
+  part gets the matching mortise.
 - "half_lap": crossing parts each lose half their depth where they overlap.
 - "fastened": no change to the parts; fasteners only.
 
 Any rule may add fasteners: `fastener` is a hardware id, `spacing` the
 largest distance between fasteners along the contact, `edge` the distance of
 the first and last from the contact's ends, `per_joint` a fixed count
-instead (e.g. 2 nails per stud end, 1 joist hanger).
+instead (e.g. 2 nails per stud end, 1 joist hanger). `operation` is the
+shop work the fasteners need, written to the cut list of the parts named by
+`on` ("receiver", "inserted" or "both"); "{n}" in it becomes the count, e.g.
+"{n} pocket holes".
+
+Joint presets in the library (category "joint") are rules without the part
+names: `rule(item, receiver, inserted)` makes one.
 """
 
 import fnmatch
 import math
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field, fields, replace
 
 from Parts import Part
 
@@ -32,12 +42,23 @@ EPS = 1e-6
 class Rule:
     receiver: str  # fnmatch pattern of the receiving part's name
     inserted: str  # fnmatch pattern of the other part's name
-    kind: str = "fastened"  # "housing", "half_lap", "fastened"
-    depth: float = 0.0  # housing depth into the receiver
+    kind: str = "fastened"  # "housing", "tenon", "half_lap", "fastened"
+    depth: float = 0.0  # housing depth or tenon length into the receiver
+    thickness: float = 0.0  # tenon thickness; 0 = a third of the inserted part
+    shoulder: float = 0.0  # tenon: cut off each edge of the inserted part's width
     fastener: str = ""  # hardware id
     spacing: float = 0.0  # mm between fasteners along the contact; 0 = use per_joint
     edge: float = 0.0  # mm from the contact's ends to the first and last fastener
     per_joint: int = 0  # fixed fastener count per joint
+    operation: str = ""  # shop work per joint, "{n}" = fastener count
+    on: str = "both"  # parts the operation applies to: "receiver", "inserted", "both"
+
+
+def rule(item, receiver, inserted, **overrides):
+    """Rule from a library joint preset (extra keys such as id and name ignored)."""
+    names = {f.name for f in fields(Rule)}
+    values = {k: v for k, v in {**item, **overrides}.items() if k in names}
+    return Rule(**{**values, "receiver": receiver, "inserted": inserted})
 
 
 @dataclass
@@ -127,10 +148,17 @@ def apply(boxes, rules):
                 k, sign, (lo, hi) = touch
                 if rule.kind == "housing":
                     _housing(out, i, j, k, sign, lo, hi, rule.depth)
+                elif rule.kind == "tenon":
+                    _tenon(out, i, j, k, sign, rule)
                 length = max(h - l for n, (l, h) in enumerate(zip(lo, hi)) if n != k)
             count = fastener_count(rule, length)
             if count and rule.fastener:
                 out.fasteners[rule.fastener] = out.fasteners.get(rule.fastener, 0) + count
+            if rule.operation:
+                text = rule.operation.format(n=count)
+                for index, side in ((i, "receiver"), (j, "inserted")):
+                    if rule.on in (side, "both"):
+                        out.operations.append((index, text))
     return out
 
 
@@ -172,3 +200,52 @@ def _half_lap(out, i, j, crossing):
         size = tuple(h - l for l, h in zip(plo, phi))
         out.pockets.append((index, Part(f"{out.boxes[index].name} lap", "pocket", size, tuple(plo))))
         out.operations.append((index, "half lap"))
+
+
+def _tenon(out, i, j, k, sign, rule):
+    """Lengthen part j by rule.depth into part i along axis k, cut the
+    lengthened end to a tenon, and mortise part i."""
+    a, b = out.boxes[i], out.boxes[j]
+    depth = rule.depth
+    if depth <= 0:
+        raise ValueError(f"tenon on {b.name} needs a length")
+    face = a.hi(k) if sign == 1 else a.lo(k)
+    end = (face - depth, face) if sign == 1 else (face, face + depth)
+    t_axis, w_axis = sorted((n for n in range(3) if n != k), key=lambda n: b.size[n])
+    thick = rule.thickness or b.size[t_axis] / 3
+    mid = b.lo(t_axis) + b.size[t_axis] / 2
+    tenon = {k: end, t_axis: (mid - thick / 2, mid + thick / 2)}
+    tenon[w_axis] = (b.lo(w_axis) + rule.shoulder, b.hi(w_axis) - rule.shoulder)
+    if any(hi - lo < EPS for lo, hi in tenon.values()):
+        raise ValueError(f"tenon on {b.name}: shoulders or thickness leave no tenon")
+    if any(tenon[n][0] < a.lo(n) - EPS or tenon[n][1] > a.hi(n) + EPS for n in range(3)):
+        raise ValueError(f"mortise for {b.name} breaks out of {a.name}")
+
+    def box(name, role, spans):
+        lo = tuple(spans[n][0] for n in range(3))
+        return Part(name, role, tuple(spans[n][1] - spans[n][0] for n in range(3)), lo)
+
+    size, pos = list(b.size), list(b.pos)
+    size[k] += depth
+    if sign == 1:
+        pos[k] -= depth
+    out.boxes[j] = replace(b, size=tuple(size), pos=tuple(pos))
+    out.pockets.append((i, box(f"{a.name} mortise", "pocket", tenon)))
+    # The lengthened end minus the tenon: two cheeks across the full width,
+    # then the shoulders beside the tenon.
+    t_lo, t_hi = tenon[t_axis]
+    w_lo, w_hi = tenon[w_axis]
+    waste = [
+        {k: end, t_axis: (b.lo(t_axis), t_lo), w_axis: (b.lo(w_axis), b.hi(w_axis))},
+        {k: end, t_axis: (t_hi, b.hi(t_axis)), w_axis: (b.lo(w_axis), b.hi(w_axis))},
+        {k: end, t_axis: (t_lo, t_hi), w_axis: (b.lo(w_axis), w_lo)},
+        {k: end, t_axis: (t_lo, t_hi), w_axis: (w_hi, b.hi(w_axis))},
+    ]
+    for spans in waste:
+        if all(hi - lo > EPS for lo, hi in spans.values()):
+            out.pockets.append((j, box(f"{b.name} tenon cheek", "pocket", spans)))
+    # ponytail: two tenons into one leg from adjacent sides can meet inside it;
+    # not detected. Shorten or miter them by hand until a check reports it.
+    w, t = round(w_hi - w_lo, 1), round(t_hi - t_lo, 1)
+    out.operations.append((i, f"mortise {w:g} x {t:g} x {depth:g} deep for {b.name}"))
+    out.operations.append((j, f"tenon {w:g} x {t:g} x {depth:g} long"))

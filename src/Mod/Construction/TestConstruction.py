@@ -1046,6 +1046,51 @@ class TestJoinery(unittest.TestCase):
         self.assertEqual(depths, [47.5, 47.5])  # half of 95 each
 
 
+    def table(self):
+        # Two 45 mm legs, 700 tall, and a 20 x 100 apron between them, flush at the top.
+        return [
+            Parts.Part("Leg", "", (45, 45, 700), (0, 0, 0)),
+            Parts.Part("Leg", "", (45, 45, 700), (495, 0, 0)),
+            Parts.Part("Apron", "", (450, 20, 100), (45, 12.5, 600)),
+        ]
+
+    def test_mortise_and_tenon(self):
+        rule = Joinery.Rule("Leg", "Apron", "tenon", depth=25, shoulder=10)
+        result = Joinery.apply(self.table(), [rule])
+        apron = result.boxes[2]
+        self.assertEqual((apron.size[0], apron.pos[0]), (500, 20))  # 25 into each leg
+        mortises = [p for i, p in result.pockets if i in (0, 1)]
+        self.assertEqual([m.pos[0] for m in mortises], [20, 495])
+        for m in mortises:
+            self.assertAlmostEqual(m.size[1], 20 / 3)  # a third of the apron
+            self.assertEqual((m.size[0], m.size[2], m.pos[2]), (25, 80, 610))
+        waste = [p for i, p in result.pockets if i == 2]
+        self.assertEqual(len(waste), 8)  # 2 cheeks + 2 shoulders per end
+        volume = sum(p.size[0] * p.size[1] * p.size[2] for p in waste)
+        # Per end: the 20 x 100 x 25 lengthening minus the 6.7 x 80 x 25 tenon.
+        self.assertAlmostEqual(volume, 2 * (20 * 100 * 25 - 20 / 3 * 80 * 25))
+        texts = sorted(t for _, t in result.operations)
+        self.assertEqual(texts[0], "mortise 80 x 6.7 x 25 deep for Apron")
+        self.assertEqual(texts[-1], "tenon 80 x 6.7 x 25 long")
+        with self.assertRaises(ValueError):  # longer than the leg is thick
+            Joinery.apply(self.table(), [Joinery.Rule("Leg", "Apron", "tenon", depth=50)])
+
+    def test_presets_from_library(self):
+        items = Library.load()
+        joints = Library.of_category(items, "joint")
+        self.assertGreaterEqual(len(joints), 10)
+        for joint in joints:
+            rule = Joinery.rule(joint, "Leg", "Apron")
+            self.assertIn(rule.kind, ("housing", "tenon", "half_lap", "fastened"), joint["id"])
+            if rule.fastener:
+                self.assertEqual(items[rule.fastener]["category"], "hardware", joint["id"])
+        pocket = Joinery.rule(items["joint.pocket_screw"], "Leg", "Apron")
+        result = Joinery.apply(self.table(), [pocket])
+        # Contact 100 tall: 50 between the end screws -> 2 per apron end.
+        self.assertEqual(result.fasteners, {"hardware.pocket_screw": 4})
+        self.assertEqual(result.operations, [(2, "2 pocket holes"), (2, "2 pocket holes")])
+
+
 class TestFastening(unittest.TestCase):
     def schedule(self):
         item = Library.load()["fastening.generic-example"]
