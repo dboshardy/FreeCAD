@@ -17,7 +17,7 @@ Status: **Present** (done, upstream or fork), **Partial**, **Missing**.
 | 0.1.3 | Base on latest stable tag (1.1.x) | Missing | Based on upstream `main` (see `SURVEY.md`); re-base onto tag |
 | 0.1.4 | CI builds on Windows, macOS, Linux | Partial | Upstream `CI_primary.yml`, `sub_build*.yml`; not yet run with fork branding |
 | 0.1.5 | Installers (MSI, DMG, AppImage/Flatpak) | Partial | Upstream `build_release.yml`; installer metadata not rebranded |
-| 0.1.6 | Upstream test suite passing | Missing | Not yet verified on the fork |
+| 0.1.6 | Upstream test suite passing | Partial | Local macOS arm64 build (pixi, `build/relWithDebInfo`), 2026-10-09: C++ suite (ctest) 2183 / 2184 pass. Failing: `CrashReporterTests.realCrashCapturesUsableFrames` (captures 0 stack frames on this Mac; the fork does not touch the crash reporter). Python `TestApp` suite not yet run. CI not yet run on the fork |
 
 ## 0.2 Rebrand (§2)
 
@@ -69,7 +69,7 @@ widget), `src/Gui/InputHint*` (per-tool hints in the status bar),
 
 | # | Item | Status | Where / notes |
 |---|---|---|---|
-| 0.6.1 | Context-layered hotkey resolution (command → workspace → global) | Partial | Engine `src/Gui/Hotkeys/HotkeyEngine.h` (Qt-free, tested). Wired in by `src/Gui/Hotkeys/ContextHotkeys.*`: hooks in `ShortcutManager` (key events), `Command::_invoke` (command scope), `ToolHandler` and `ControlSingleton::showDialog` (active tool). Context: workspace = active workbench name, command = command that started the innermost open tool handler or task dialog, selection = element type of the first selected item. Not yet built or run in the app (no local build environment) |
+| 0.6.1 | Context-layered hotkey resolution (command → workspace → global) | Partial | Engine `src/Gui/Hotkeys/HotkeyEngine.h` (Qt-free, tested). Wired in by `src/Gui/Hotkeys/ContextHotkeys.*`: hooks in `ShortcutManager` (key events), `Command::_invoke` (command scope), `ToolHandler` and `ControlSingleton::showDialog` (active tool). Context: workspace = active workbench name, command = command that started the innermost open tool handler or task dialog, selection = element type of the first selected item. Built; in the app, `TestConstructionGui.TestContextHotkeys` binds a workspace-layer key and pressing it runs the command; the strip shows the binding. Command-layer switching with an active tool not yet tested in the app |
 | 0.6.2 | Chords and sequences | Partial | Engine supports sequences; upstream supports global sequences |
 | 0.6.3 | Per-layer conflict detection, user override, reset to default | Partial | Engine API. Bindings come from `<UserAppData>/Hotkeys.json`; `Std_HotkeysReload` re-reads it and lists conflicts. No remapping UI for context layers |
 | 0.6.4 | Profile import/export (JSON) | Missing | |
@@ -85,9 +85,9 @@ widget), `src/Gui/InputHint*` (per-tool hints in the status bar),
 | Criterion | Status |
 |---|---|
 | Branded build installs side-by-side with upstream on 3 OS | Not met (0.1.4, 0.1.5, 0.2.4, 0.2.7) |
-| Upstream tests pass | Not verified (0.1.6) |
+| Upstream tests pass | Partial: 2183 / 2184 C++ tests locally (0.1.6) |
 | Fork-added code passes network check | Met |
 | `docs/inherited-conflicts.md` lists all inherited conflicts with flags (default on) | Partial (0.5.3 patent review per workbench) |
-| Hotkey context layers switch with the active tool | Implemented, not verified (code not yet compiled, 0.6.1) |
+| Hotkey context layers switch with the active tool | Partial: workspace layer verified in the app; command layer (active tool) not yet tested in the app (0.6.1) |
 | Remap a hotkey | Global: upstream dialog. Context layers: edit `Hotkeys.json` + `Std_HotkeysReload` |
-| Command palette finds any registered command | Implemented, not verified (code not yet compiled, 0.6.7) |
+| Command palette finds any registered command | Met in the app: the palette's completer lists registered commands (`TestCoreUx`) |
