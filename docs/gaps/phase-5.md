@@ -72,8 +72,8 @@ advisory checks. Nothing here certifies building-code compliance:
 
 | # | Item | Status | Where / notes |
 |---|---|---|---|
-| 5.3.1 | Joint types (butt … scarf) | Partial | Cabinet carcass uses butt joints implicitly; no joint objects |
-| 5.3.2 | Fastener placement rules, hardware BOM | Partial | Cut list "Hardware" section: hinges per door by height, slide pairs per drawer by length, 4 shelf pins per shelf (`CutList.hardware`). No fastener placement or screw counts |
+| 5.3.1 | Joint types (butt … scarf) | Partial | `Joinery.py` for every construction object: contact detection between axis-aligned parts, housings (dado, groove, rabbet, housed end), half laps, fastened joints, matched by part-name rules. Used by framing so far. Missing: mortise and tenon, dovetail, box joint, miter, scarf; cabinets not yet on joinery; joints between separate objects |
+| 5.3.2 | Fastener placement rules, hardware BOM | Partial | Fastening schedules as library data (`fastening.generic-example`, preference `Mod/Construction/FasteningSchedule`): walls (studs, plates, kings, jacks, headers, cripples, sills), floors (rims), decks (joist hangers at the ledger, rim nails, beam nails, deck screws) counted into the cut list's Hardware. Rafters, stairs and joints between objects not counted |
 
 ## 5.4 Generators
 

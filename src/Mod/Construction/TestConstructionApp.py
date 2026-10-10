@@ -79,6 +79,8 @@ class TestConstructionApp(unittest.TestCase):
         for name in ("SheetLayout", "LumberPlan", "SheetLayoutView"):
             self.assertIsNotNone(self.doc.getObject(name), name)
         self.assertEqual(self.doc.getObject("LumberPlan").get("A1"), "Material")
+        column_a = [sheet.getContents(f"A{r}") for r in range(1, 200)]
+        self.assertTrue(any("Framing nail" in c for c in column_a))  # the shed's schedule
         problems = CO.write_checks(self.doc)
         checks = self.doc.getObject("Checks")
         self.assertIn("Advisory only", checks.get("A1"))

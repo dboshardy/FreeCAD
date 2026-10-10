@@ -17,6 +17,7 @@ import math
 import re
 from dataclasses import dataclass, field
 
+import Joinery
 import Member
 
 OPENING_KINDS = ("door", "window")
@@ -41,6 +42,27 @@ class Piece:
 
     def length(self):
         return Member.frame(self.start, self.end)[0]
+
+
+def piece_box(piece, size):
+    """Axis-aligned box of a member (exact for members along x, y or z)."""
+    w, h = size
+    _, x, y, z = Member.frame(piece.start, piece.end, piece.roll)
+    lo, hi = [], []
+    for i in range(3):
+        half = abs(x[i]) * w / 2 + abs(y[i]) * h / 2
+        a, b = sorted((piece.start[i], piece.end[i]))
+        lo.append(a - half)
+        hi.append(b + half)
+    return Joinery.Box(piece.name, tuple(h - l for l, h in zip(lo, hi)), tuple(lo))
+
+
+def fasteners(model, rules):
+    """Fasteners for a framing model's members under a fastening schedule
+    (Joinery rules matched on member names). hardware id -> count."""
+    sections = model.sections()
+    boxes = [piece_box(p, sections[p.section]) for p in model.pieces()]
+    return Joinery.apply(boxes, rules).fasteners
 
 
 @dataclass
@@ -100,6 +122,9 @@ class Wall:
             raise ValueError("last opening too close to the wall end")
 
     # ----------------------------------------------------------------- sizes
+
+    def sections(self):
+        return {"stud": self.stud, "header": self.header}
 
     def stud_length(self):
         return self.height - (1 + self.top_plates) * self.stud[0]
@@ -261,6 +286,9 @@ class Floor:
     def joist_centres(self):
         return end_and_layout(self.length, self.spacing, self.joist[0])
 
+    def sections(self):
+        return {"joist": self.joist}
+
     def pieces(self):
         self.validate()
         t, d = self.joist
@@ -310,6 +338,14 @@ class GableRoof:
     gable_studs: bool = True  # studs in the gable triangles over the end walls
     gable_stud: tuple = (45.0, 95.0)  # (thickness, depth): depth across the end wall
     max_piece: float = 6000.0
+
+    def sections(self):
+        return {
+            "rafter": self.rafter,
+            "ridge": self.ridge,
+            "tie": self.tie,
+            "gable_stud": self.gable_stud,
+        }
 
     def slope(self):
         return math.tan(math.radians(self.pitch))
@@ -493,6 +529,15 @@ class Stair:
     baluster: tuple = (45.0, 45.0)
     max_baluster_gap: float = 100.0  # clear gap between balusters and posts
 
+    def sections(self):
+        return {
+            "tread": self.tread,
+            "stringer": self.stringer,
+            "rail": self.rail,
+            "post": self.post,
+            "baluster": self.baluster,
+        }
+
     def risers(self):
         return math.ceil(self.total_rise / self.max_riser - 1e-9)
 
@@ -665,6 +710,9 @@ class Deck:
     decking: tuple = (28.0, 120.0)  # (thickness, width) of a board, laid flat
     decking_gap: float = 5.0
     max_piece: float = 6000.0
+
+    def sections(self):
+        return {"joist": self.joist, "beam": self.beam, "post": self.post, "decking": self.decking}
 
     def joist_top(self):
         return self.height - self.decking[0]

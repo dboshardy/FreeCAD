@@ -1045,6 +1045,39 @@ class TestJoinery(unittest.TestCase):
         self.assertEqual(depths, [47.5, 47.5])  # half of 95 each
 
 
+class TestFastening(unittest.TestCase):
+    def schedule(self):
+        item = Library.load()["fastening.generic-example"]
+        return [Joinery.Rule(**r) for r in item["rules"]]
+
+    def test_wall(self):
+        wall = Framing.Wall(length=3600, height=2440, spacing=600, top_plates=2)
+        # 7 studs x 2 nails into the bottom plate and 2 into the lower top plate (28),
+        # top plates face-nailed: (3600 - 200) / 400 -> 9 spaces, 10 nails. 38.
+        self.assertEqual(Framing.fasteners(wall, self.schedule()), {"hardware.nail_framing": 38})
+
+    def test_floor(self):
+        floor = Framing.Floor(length=3600, width=3000, spacing=400)
+        # 10 joists x 2 rims x 3 nails.
+        self.assertEqual(Framing.fasteners(floor, self.schedule()), {"hardware.nail_framing": 60})
+
+    def test_deck(self):
+        deck = Framing.Deck(length=3600, projection=3000, height=600)
+        self.assertEqual(
+            Framing.fasteners(deck, self.schedule()),
+            {
+                "hardware.joist_hanger": 10,  # each joist at the ledger
+                "hardware.nail_framing": 30 + 20 + 10,  # rim 3 x 10, beam 1 x 10 x 2 plies, plies
+                "hardware.deck_screw": 2 * 24 * 10,  # 24 boards over 10 joists
+            },
+        )
+
+    def test_wall_with_door_uses_the_schedule(self):
+        wall = Framing.Wall(length=4800, openings=Framing.parse_openings("door 900x2100 @ 700"))
+        nails = Framing.fasteners(wall, self.schedule())["hardware.nail_framing"]
+        self.assertGreater(nails, 38)  # kings, jacks, header and cripple joints add nails
+
+
 class TestChecks(unittest.TestCase):
     RULES = Library.load()["rules.generic-example"]
 
