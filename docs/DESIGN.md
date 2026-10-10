@@ -288,13 +288,13 @@ Every change to an upstream file carries a `// FORK:` (C++) or `# FORK:` (Python
 ---
 
 ### Phase 5.1 — Woodworking Assemblies & Joinery
-**Upstream baseline (verify in audit)**: None for woodworking joinery. Builds on Phase 5 (`src/Mod/Construction/`: libraries, `Joinery.py`, cut list, drawings, checks).
+**Upstream baseline (verify in audit)**: None for woodworking joinery. The Assembly workbench's joints position parts for motion, not joinery. The Woodworking add-on (MIT, not in tree) was reviewed 2026-10-10 and not incorporated: its joints are hand-placed PartDesign pockets inside Qt dialogs, with no joint model to build on (see `docs/gaps/phase-5.md`). Builds on Phase 5 (`src/Mod/Construction/`: `Parts.py`, libraries, `Joinery.py`, cut list, drawings, checks) and BIM's IFC export.
 
 **Known gaps**: General woodworking design: free-form boards and panels, user-selected joints and hardware, furniture templates. Phase 5 generators (cabinets, shed) are special-purpose.
 
 **Target scope**
 - One part model for all construction and woodworking (boards, panels, members; material, grain, role), shared by every generator.
-- **Woodworking assembly** (decision 2026-10-10): one FreeCAD object holds a parts table and a joints table; the user picks parts by selecting solids inside it. Joints modify both parts (tenon lengthens one, mortise pockets the other) without document dependency cycles. Phase 5 generators (cabinets, shed, framing) produce assemblies; their parts and joints stay editable.
+- **Woodworking assembly** (decision 2026-10-10), named **Build** in the UI so it is not confused with the Assembly workbench: one FreeCAD object holds a parts table and a joints table; the user picks parts by selecting solids inside it. Joints modify both parts (tenon lengthens one, mortise pockets the other) without document dependency cycles. Phase 5 generators (cabinets, shed, framing) produce assemblies; their parts and joints stay editable. IFC export writes a Build as an `IfcElementAssembly` (as Construction objects already carry `IfcType`).
 - **Board** (stock from the lumber/hardwood library or custom size; length; placement), **Board between** (span two selected faces with a setback), **Panel** (sheet goods or glued-up panel; size; grain).
 - **Joint** command (hotkey `J`): select two parts; the joint types offered follow how they meet (end-to-face, face-to-face, crossing, edge-to-edge, panel-on-frame): mortise and tenon, loose tenon, dowels, pocket screws, screws, biscuits, housing/dado/rabbet, half lap, bridle, glue, tabletop fasteners (figure-8, Z-clip, buttons, slotted screws). Presets from a joint library (sizes relative to stock); hardware chosen from the hardware library; live preview; **Apply to similar** for repeated joints.
 - Joint and hardware libraries are data (`source`, `data_license`, user overrides), like Phase 5 libraries.

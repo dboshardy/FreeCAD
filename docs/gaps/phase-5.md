@@ -118,6 +118,17 @@ advisory checks. Nothing here certifies building-code compliance:
 | 5.7.2 | Examples kept true | Present | Every `pycon` block runs under doctest in `TestConstruction.TestTutorials`. GUI steps are written from the code and not yet followed in a running app |
 | 5.7.3 | Shown in the in-app help | Partial | Installed with the workbench (`Mod/Construction/Tutorials`); **Construction > Tutorials** opens the index through upstream `Help.show` (rendering follows the Help preferences). Not yet tried in a running app |
 
+## Upstream and add-on overlap (reviewed 2026-10-10)
+
+What FreeCAD already provides, and what Construction does with it:
+
+| Existing tool | Provides | Construction |
+|---|---|---|
+| BIM workbench | Walls, Structure members with profiles (`Presets/profiles.csv`), Stairs, Roof, Truss, Frame, Panel / PanelCut / PanelSheet, `ArchNesting`, Schedule, IFC export | No stud layout, joinery or cut-length optimisation there, so the generators stay. Construction objects carry an `IfcType` (wall, slab, roof, stair, member, covering, furnishing element, element assembly), so BIM's IFC export writes them as typed elements (`TestConstructionApp.test_ifc_export`). Sheathing links its framing as `Host`, not `Base`, so the export keeps both. |
+| Assembly workbench | Kinematic joints (fixed, revolute, ...) between parts | Different meaning of "joint". Phase 5.1's woodworking object must not be called "Assembly" in the UI. |
+| TechDraw, Spreadsheet | Drawings, tables | Used directly. |
+| Woodworking add-on (MIT, dprojects/Woodworking, not in this tree) | Cabinet start-up dialog, dowels and screws placed by hand, drilling (holes, countersinks, counterbores, pocket holes), mortise and tenon from a sketch pattern, cut list and BOM export (and export for cutlistoptimizer.com), edge banding | Reviewed, not incorporated. It is a 67k-line GUI tool: every operation turns the selected `Part::Box` into a PartDesign Body and adds pockets chosen by hand, with the logic inside Qt dialogs. There is no data model of joints, no contact detection, no rule or hardware libraries and no sheet layout. That conflicts with the single assembly object of Phase 5.1, so no code is taken. Ideas used: the hardware presets it offers (dowels 8 x 35, wood screws, confirmat screws 7 x 40/50/70) become library entries, and pocket-hole parameters (angle, penetration) become joint presets. Users can still install the add-on from the Addon Manager alongside the workbench. |
+
 ## Exit criteria status
 
 | Criterion | Status |
