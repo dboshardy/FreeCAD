@@ -149,5 +149,5 @@ folder, then run **Tools > Reload Hotkeys**:
 }
 ```
 
-Press `C` then `B` for a base cabinet. **Reload Hotkeys** lists any bindings
-that conflict.
+Press `C` then `B` for a base cabinet. **Reload Hotkeys** reports in the
+status bar and lists any conflicting bindings in the Report view.

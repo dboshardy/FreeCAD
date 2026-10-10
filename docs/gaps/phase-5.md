@@ -122,13 +122,18 @@ advisory checks. Nothing here certifies building-code compliance:
 
 | Criterion | Status |
 |---|---|
-| Gable shed from template; edit wall height and door width; framing regenerates | Met in tests (`TestShed.test_editing_regenerates`); not yet run in the app (no local build) |
-| BOM, optimized cut list, sheet nesting, framing drawings match hand count | Partial: framing quantities (`TestShed.test_hand_count`) and sheathing sheets (`test_sheathing_hand_count`) match hand counts; lumber plan places every piece. Framing drawings: page with views and the cut list table (`Construction_Drawing`), not yet run in the app; member tags missing (5.6.5) |
+| Gable shed from template; edit wall height and door width; framing regenerates | Met: `TestShed.test_editing_regenerates` (geometry) and, in the app, `TestConstructionApp.test_edit_regenerates` (the Shed object rebuilds) |
+| BOM, optimized cut list, sheet nesting, framing drawings match hand count | Partial: framing quantities (`TestShed.test_hand_count`) and sheathing sheets (`test_sheathing_hand_count`) match hand counts; lumber plan places every piece. Framing drawings: page with views and the cut list table (`Construction_Drawing`, created in the app by `TestConstructionApp.test_drawing`); member tags missing (5.6.5) |
 
 ## Verification
 
-`python3 src/Mod/Construction/TestConstruction.py` (no FreeCAD needed) tests cabinet
-geometry (outer size, no overlapping parts for every kind / front style, front and door coverage, drawer box sizes, invalid sizes), run layout and fillers,
-cut-list grouping, sheet estimate, and the library. The FreeCAD object and
-commands (`ConstructionObjects.py`, `ConstructionCommands.py`, `InitGui.py`) have
-not been run in the app yet (no local build environment).
+- `python3 src/Mod/Construction/TestConstruction.py` (no application needed):
+  geometry, layouts, checks, library, and every tutorial example (doctest).
+- In the application (local macOS build): `FreeCADCmd -t TestConstruction`,
+  `FreeCADCmd -t TestConstructionApp` (every object builds a valid solid, edits
+  regenerate, bad sizes mark objects invalid, members follow edges,
+  spreadsheets and the drawing page are written), and
+  `FreeCAD -t TestConstructionGui` (commands registered and runnable from the
+  workbench, Tools menu entries, palette, radial menu, hotkey strip, a context
+  hotkey running its command). All pass.
+- Not yet followed by hand: the tutorials' GUI steps in an interactive session.

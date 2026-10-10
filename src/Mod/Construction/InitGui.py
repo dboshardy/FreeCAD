@@ -37,3 +37,4 @@ class ConstructionWorkbench(Workbench):
 
 
 Gui.addWorkbench(ConstructionWorkbench())
+FreeCAD.__unit_test__ += ["TestConstructionGui"]

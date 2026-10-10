@@ -9,7 +9,6 @@
 #include <QCursor>
 #include <QLabel>
 #include <QLineEdit>
-#include <QMessageBox>
 #include <QStringList>
 #include <QTimer>
 #include <QToolButton>
@@ -173,7 +172,8 @@ StdCmdHotkeysReload::StdCmdHotkeysReload()
     sGroup = "Tools";
     sMenuText = QT_TR_NOOP("Reload &Hotkeys");
     sToolTipText = QT_TR_NOOP(
-        "Re-reads the context hotkeys file (Hotkeys.json in the user data folder)"
+        "Re-reads the context hotkeys file (Hotkeys.json in the user data folder); "
+        "conflicts are listed in the Report view"
     );
     sWhatsThis = "Std_HotkeysReload";
     sStatusTip = sToolTipText;
@@ -182,15 +182,14 @@ StdCmdHotkeysReload::StdCmdHotkeysReload()
 
 void StdCmdHotkeysReload::activated(int)
 {
+    // Conflicts are listed in the Report view by reload(); no modal dialog.
     const auto conflicts = reload();
-    QStringList lines;
-    for (const auto& c : conflicts) {
-        lines << QString::fromStdString(c);
-    }
-    const QString text = lines.isEmpty()
+    const QString text = conflicts.empty()
         ? QObject::tr("Hotkeys reloaded. No conflicts.")
-        : QObject::tr("Hotkeys reloaded. Conflicts:\n%1").arg(lines.join(QLatin1Char('\n')));
-    QMessageBox::information(getMainWindow(), QObject::tr("Hotkeys"), text);
+        : QObject::tr("Hotkeys reloaded. %n conflict(s), see the Report view.",
+                      "",
+                      int(conflicts.size()));
+    getMainWindow()->showMessage(text, 10000);
 }
 
 // ---------------------------------------------------------------- setup
