@@ -262,33 +262,108 @@ def end_and_layout(length, spacing, t):
 
 @dataclass
 class Floor:
-    """Joists spanning y between two rim joists running along x."""
+    """Joists spanning y between two rim joists running along x. Optional:
+    dropped beams under the joists at `beams` (y of their centres, joists
+    butt-joined over them) on posts `post_height` tall (0: none, the beams
+    bear on a foundation); `blocking_rows` rows of blocking in each span;
+    floor `openings` (x, y, width along x, length along y) framed with doubled
+    trimmer joists, doubled header joists and tail joists. z = 0 at the
+    underside of the joists."""
 
     length: float = 3600.0
     width: float = 3000.0
     spacing: float = 400.0
     joist: tuple = (45.0, 195.0)
     max_piece: float = 6000.0
+    beams: tuple = ()
+    beam: tuple = (45.0, 195.0)
+    beam_plies: int = 2
+    post: tuple = (95.0, 95.0)
+    post_height: float = 0.0
+    max_post_spacing: float = 1800.0
+    blocking_rows: int = 0
+    openings: tuple = ()
+    footing: tuple = (400.0, 600.0)  # (side, depth) of a square post footing
+
+    def concrete_m3(self):
+        """Concrete for the post footings (none without posts)."""
+        if self.post_height <= 0:
+            return 0.0
+        side, depth = self.footing
+        return len(self.beams) * len(self.post_centres()) * side * side * depth / 1e9
 
     def validate(self):
         t, d = self.joist
         for name in ("length", "width", "spacing", "max_piece"):
             if getattr(self, name) <= 0:
                 raise ValueError(f"{name} must be positive")
-        if min(self.joist) <= 0:
+        if min(self.joist + self.beam + self.post) <= 0:
             raise ValueError("lumber sizes must be positive")
         if self.spacing < 2 * t:
             raise ValueError("joist spacing too small for the joist thickness")
         if self.length < 2 * t or self.width < 3 * t:
             raise ValueError("floor too small for its joists")
-        if self.width - 2 * t > self.max_piece + 1e-6:
-            raise ValueError("joists longer than the longest stock length (joists are not spliced)")
+        if self.blocking_rows < 0 or self.beam_plies < 1 or self.post_height < 0:
+            raise ValueError("blocking rows, beam plies and post height must be sensible")
+        supports = self.supports()
+        for y in self.beams:
+            if not 2 * t <= y <= self.width - 2 * t:
+                raise ValueError(f"beam at {y:g} mm is not between the rim joists")
+        for a, b in zip(supports, supports[1:]):
+            if b - a > self.max_piece + 1e-6:
+                raise ValueError(
+                    "joists longer than the longest stock length: add a beam or use longer stock"
+                )
+        for x, y, w, l in self.openings:
+            if w <= 0 or l <= 0 or x < 3 * t or x + w > self.length - 3 * t:
+                raise ValueError("opening must leave room for doubled trimmers inside the rims")
+            if y < 3 * t or y + l > self.width - 3 * t:
+                raise ValueError("opening must leave room for doubled headers inside the rims")
+            if any(y - 2 * t < b < y + l + 2 * t for b in self.beams):
+                raise ValueError("opening crosses a beam")
+
+    def supports(self):
+        """y of the joist bearings: the rim and beam centres."""
+        t = self.joist[0]
+        return [t / 2] + sorted(self.beams) + [self.width - t / 2]
+
+    def spans(self):
+        """Joist spans between supports (rim or beam centre to the next)."""
+        s = self.supports()
+        return [b - a for a, b in zip(s, s[1:])]
 
     def joist_centres(self):
         return end_and_layout(self.length, self.spacing, self.joist[0])
 
     def sections(self):
-        return {"joist": self.joist}
+        return {"joist": self.joist, "beam": self.beam, "post": self.post}
+
+    def post_centres(self):
+        t = self.post[0]
+        bays = max(1, math.ceil((self.length - t) / self.max_post_spacing - 1e-9))
+        return [t / 2 + i * (self.length - t) / bays for i in range(bays + 1)]
+
+    def _joist_runs(self):
+        """[(name, x, y0, y1)] of every joist-like member along y."""
+        t = self.joist[0]
+        ends = (t, self.width - t)  # inside the rims
+        trimmers = [
+            c
+            for x, _, w, _ in self.openings
+            for c in (x - t / 2, x - 3 * t / 2, x + w + t / 2, x + w + 3 * t / 2)
+        ]
+        runs = [("Trimmer", c, *ends) for c in trimmers]
+        for c in self.joist_centres():
+            if any(abs(c - tc) < t - 1e-6 for tc in trimmers):
+                continue  # the trimmer takes this joist's place
+            inside = [(y, l) for x, y, w, l in self.openings if x < c < x + w]
+            if not inside:
+                runs.append(("Joist", c, *ends))
+                continue
+            ((y, l),) = inside
+            runs.append(("Tail joist", c, ends[0], y - 2 * t))
+            runs.append(("Tail joist", c, y + l + 2 * t, ends[1]))
+        return runs
 
     def pieces(self):
         self.validate()
@@ -298,8 +373,47 @@ class Floor:
         for y in (t / 2, W - t / 2):
             for a, b in splice(0.0, L, self.joist_centres(), self.max_piece):
                 out.append(Piece("Rim joist", (a, y, d / 2), (b, y, d / 2), 0.0, "joist"))
-        for x in self.joist_centres():
-            out.append(Piece("Joist", (x, t, d / 2), (x, W - t, d / 2), 0.0, "joist"))
+        runs = self._joist_runs()
+        breaks = sorted(self.beams)
+        for name, x, y0, y1 in runs:
+            # Butt-joined over the beams.
+            cuts = [y0] + [b for b in breaks if y0 < b < y1] + [y1]
+            for a, b in zip(cuts, cuts[1:]):
+                out.append(Piece(name, (x, a, d / 2), (x, b, d / 2), 0.0, "joist"))
+        for x, y, w, l in self.openings:
+            for yc in (y - t / 2, y - 3 * t / 2, y + l + t / 2, y + l + 3 * t / 2):
+                out.append(Piece("Header joist", (x, yc, d / 2), (x + w, yc, d / 2), 0.0, "joist"))
+        # Blocking between neighbouring members, in rows across each span.
+        supports = self.supports()
+        for s0, s1 in zip(supports, supports[1:]):
+            for k in range(1, self.blocking_rows + 1):
+                yb = s0 + (s1 - s0) * k / (self.blocking_rows + 1)
+                xs = sorted(x for _, x, y0, y1 in runs if y0 - 1e-6 <= yb <= y1 + 1e-6)
+                holes = [(x, x + w) for x, y, w, l in self.openings if y <= yb <= y + l]
+                for a, b in zip(xs, xs[1:]):
+                    if b - a > t + 1e-6 and not any(a < h1 and b > h0 for h0, h1 in holes):
+                        out.append(
+                            Piece(
+                                "Blocking",
+                                (a + t / 2, yb, d / 2),
+                                (b - t / 2, yb, d / 2),
+                                0.0,
+                                "joist",
+                            )
+                        )
+        # Dropped beams on edge under the joists, plies along x, spliced over posts.
+        bt, bd = self.beam
+        posts = self.post_centres()
+        for yc in self.beams:
+            first = yc - self.beam_plies * bt / 2
+            for k in range(self.beam_plies):
+                yp = first + (k + 0.5) * bt
+                for a, b in splice(0.0, L, posts, self.max_piece):
+                    out.append(Piece("Beam", (a, yp, -bd / 2), (b, yp, -bd / 2), 0.0, "beam"))
+            if self.post_height > 0:
+                for x in posts:
+                    top, bottom = -bd, -bd - self.post_height
+                    out.append(Piece("Post", (x, yc, bottom), (x, yc, top), 0.0, "post"))
         return out
 
 
@@ -695,8 +809,12 @@ class Stair:
 class Deck:
     """Deck against a house: ledger on the house side, joists on centres to a
     rim joist, carried by a dropped beam on posts, decking boards across the
-    joists. Coordinates: x along the house, y out from the house face, z up
-    from grade. Footings and guards are not generated (see Checks.deck)."""
+    joists. Freestanding (attached False): a rim joist instead of the ledger
+    and a second beam on posts mirrored near the house side. Optional rows of
+    blocking between the joists. Coordinates: x along the house, y out from
+    the house face, z up from grade. Footings (square, `footing` = (side,
+    depth)) are counted for concrete, not drawn; guards are not generated (see
+    Checks.deck)."""
 
     length: float = 3600.0  # along the house
     projection: float = 3000.0  # out from the house face, to the outside of the rim
@@ -711,9 +829,30 @@ class Deck:
     decking: tuple = (28.0, 120.0)  # (thickness, width) of a board, laid flat
     decking_gap: float = 5.0
     max_piece: float = 6000.0
+    attached: bool = True
+    blocking_rows: int = 0
+    footing: tuple = (400.0, 600.0)
 
     def sections(self):
         return {"joist": self.joist, "beam": self.beam, "post": self.post, "decking": self.decking}
+
+    def beam_lines(self):
+        """y of every beam's centre: near the rim, and (freestanding) near the house."""
+        if self.attached:
+            return [self.beam_y()]
+        return [self.cantilever + self.beam_plies * self.beam[0] / 2, self.beam_y()]
+
+    def joist_span(self):
+        """Joist span: ledger face (or the house-side beam) to the outer beam's centre."""
+        lines = self.beam_lines()
+        return lines[-1] - (self.joist[0] if self.attached else lines[0])
+
+    def posts(self):
+        return len(self.beam_lines()) * len(self.post_centres())
+
+    def concrete_m3(self):
+        side, depth = self.footing
+        return self.posts() * side * side * depth / 1e9
 
     def joist_top(self):
         return self.height - self.decking[0]
@@ -741,7 +880,13 @@ class Deck:
                 raise ValueError(f"{name} must be positive")
         if min(self.joist + self.beam + self.post + self.decking) <= 0:
             raise ValueError("lumber sizes must be positive")
-        if self.beam_plies < 1 or self.cantilever < 0 or self.decking_gap < 0:
+        if (
+            self.beam_plies < 1
+            or self.cantilever < 0
+            or self.decking_gap < 0
+            or self.blocking_rows < 0
+            or min(self.footing) < 0
+        ):
             raise ValueError("beam plies, cantilever and decking gap must be sensible")
         if self.spacing < 2 * self.joist[0]:
             raise ValueError("joist spacing too small for the joist thickness")
@@ -752,6 +897,9 @@ class Deck:
             raise ValueError("cantilever too long for the projection")
         if self.projection - 2 * self.joist[0] > self.max_piece + 1e-6:
             raise ValueError("joists longer than the longest stock length")
+        lines = self.beam_lines()
+        if len(lines) == 2 and lines[1] - lines[0] < self.beam_plies * self.beam[0] + self.joist[0]:
+            raise ValueError("cantilevers too long for a freestanding deck this narrow")
 
     def pieces(self):
         self.validate()
@@ -761,7 +909,8 @@ class Deck:
         zj = top - d / 2
         centres = self.joist_centres()
         out = []
-        for name, y in (("Ledger", t / 2), ("Rim joist", P - t / 2)):
+        house = "Ledger" if self.attached else "Rim joist"
+        for name, y in ((house, t / 2), ("Rim joist", P - t / 2)):
             for a, b in splice(0.0, L, centres, self.max_piece):
                 out.append(Piece(name, (a, y, zj), (b, y, zj), 0.0, "joist"))
         for x in centres:
@@ -771,21 +920,24 @@ class Deck:
         bt, bd = self.beam
         zb = self.beam_bottom() + bd / 2
         posts = self.post_centres()
-        first = self.beam_y() - self.beam_plies * bt / 2
-        for k in range(self.beam_plies):
-            y = first + (k + 0.5) * bt
-            for a, b in splice(0.0, L, posts, self.max_piece):
-                out.append(Piece("Beam", (a, y, zb), (b, y, zb), 0.0, "beam"))
-        for x in posts:
-            out.append(
-                Piece(
-                    "Post",
-                    (x, self.beam_y(), 0.0),
-                    (x, self.beam_y(), self.beam_bottom()),
-                    0.0,
-                    "post",
+        for yc in self.beam_lines():
+            first = yc - self.beam_plies * bt / 2
+            for k in range(self.beam_plies):
+                y = first + (k + 0.5) * bt
+                for a, b in splice(0.0, L, posts, self.max_piece):
+                    out.append(Piece("Beam", (a, y, zb), (b, y, zb), 0.0, "beam"))
+            for x in posts:
+                out.append(Piece("Post", (x, yc, 0.0), (x, yc, self.beam_bottom()), 0.0, "post"))
+
+        # Blocking in rows across the joist span, between neighbouring joists.
+        lines = self.beam_lines()
+        start = t if self.attached else lines[0]
+        for k in range(1, self.blocking_rows + 1):
+            yb = start + (lines[-1] - start) * k / (self.blocking_rows + 1)
+            for a, b in zip(centres, centres[1:]):
+                out.append(
+                    Piece("Blocking", (a + t / 2, yb, zj), (b - t / 2, yb, zj), 0.0, "joist")
                 )
-            )
 
         # Decking across the joists from the house, joints over joists and
         # staggered between neighbouring rows. The nearest whole number of rows:
@@ -824,4 +976,28 @@ def parse_openings(text):
             )
         kind, width, height, x, sill = m.groups()
         out.append(Opening(kind.lower(), float(x), float(width), float(height), float(sill or 0)))
+    return out
+
+
+def parse_numbers(text):
+    """'1500, 3000' -> [1500.0, 3000.0]."""
+    try:
+        return [float(v) for v in text.replace(";", ",").split(",") if v.strip()]
+    except ValueError:
+        raise ValueError(f"'{text}': write numbers in mm separated by commas, e.g. 1500, 3000")
+
+
+def parse_floor_openings(text):
+    """'900x2400 @ 600, 300; ...' -> [(x, y, width, length)]."""
+    pattern = re.compile(r"^([\d.]+)\s*[x×]\s*([\d.]+)\s*@\s*([\d.]+)\s*,\s*([\d.]+)$")
+    out = []
+    for entry in filter(None, (e.strip() for e in text.split(";"))):
+        m = pattern.match(entry)
+        if not m:
+            raise ValueError(
+                f"'{entry}': write e.g. '900x2400 @ 600, 300' (width x length @ x, y in mm); "
+                "separate openings with ;"
+            )
+        w, l, x, y = map(float, m.groups())
+        out.append((x, y, w, l))
     return out

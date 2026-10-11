@@ -99,22 +99,41 @@ def _area_load(name, span, section, spacing, values, load_kpa, limit, how):
     return (name, status, f"{detail}; span {span:.0f} mm {how}, {load_kpa:g} kPa")
 
 
-def floor(floor, rules, values=None, load_kpa=0.0):
-    """Checks a Framing.Floor: joists simply supported between the rims (the
-    conservative case when no intermediate support is modelled)."""
-    t = floor.joist[0]
-    return [
+def floor(floor, rules, values=None, load_kpa=0.0, beam_values=None):
+    """Checks a Framing.Floor: joists simply supported over their longest span
+    (rim or beam to the next; conservative where they are butt-joined over
+    beams), each beam between its posts carrying half the spans either side.
+    A beam without posts bears on a foundation: not checked here."""
+    limit = rules.get("floor_joist_deflection_limit")
+    supports = floor.supports()
+    how = "rim to rim" if not floor.beams else "longest span between supports"
+    out = [
         _area_load(
-            "Joists",
-            floor.width - t,
-            floor.joist,
-            floor.spacing,
-            values,
-            load_kpa,
-            rules.get("floor_joist_deflection_limit"),
-            "rim to rim",
+            "Joists", max(floor.spans()), floor.joist, floor.spacing, values, load_kpa, limit, how
         )
     ]
+    for n, y in enumerate(supports[1:-1], start=1):
+        name = f"Beam at {y:g}"
+        if floor.post_height <= 0:
+            out.append((name, NOT_CHECKED, "bears on a foundation: check the foundation"))
+            continue
+        posts = floor.post_centres()
+        span = max(b - a for a, b in zip(posts, posts[1:]))
+        tributary = (supports[n + 1] - supports[n - 1]) / 2
+        section = (floor.beam[0] * floor.beam_plies, floor.beam[1])
+        out.append(
+            _area_load(name, span, section, tributary, beam_values, load_kpa, limit, "post to post")
+        )
+    if floor.post_height > 0 and floor.beams:
+        count = len(floor.beams) * len(floor.post_centres())
+        out.append(
+            (
+                "Footings",
+                REQUIRED,
+                f"{count} posts need footings sized for your soil and frost depth",
+            )
+        )
+    return out
 
 
 def roof(roof, rules, values=None, load_kpa=0.0):
@@ -234,8 +253,7 @@ def stair(stair, rules):
 
 def deck(deck, rules, joist_values=None, beam_values=None, load_kpa=0.0):
     """Checks a Framing.Deck. load_kpa: live + dead load on the deck surface."""
-    t = deck.joist[0]
-    joist_span = deck.beam_y() - t  # ledger face to beam centre
+    joist_span = deck.joist_span()
     out = [
         _area_load(
             "Joists",
@@ -245,11 +263,12 @@ def deck(deck, rules, joist_values=None, beam_values=None, load_kpa=0.0):
             joist_values,
             load_kpa,
             rules.get("floor_joist_deflection_limit"),
-            "ledger to beam",
+            "ledger to beam" if deck.attached else "beam to beam",
         )
     ]
     # Beam: simply supported between posts, carrying half the joist span plus
-    # the cantilever (its tributary width).
+    # the cantilever (its tributary width; the same for both beams of a
+    # freestanding deck, which is symmetric).
     posts = deck.post_centres()
     span = max(b - a for a, b in zip(posts, posts[1:]))
     tributary = joist_span / 2 + deck.cantilever + deck.beam_plies * deck.beam[0] / 2
@@ -266,20 +285,23 @@ def deck(deck, rules, joist_values=None, beam_values=None, load_kpa=0.0):
             "post to post",
         )
     )
-    out.append(
-        (
-            "Ledger attachment",
-            REQUIRED,
-            "bolt or through-bolt the ledger to the house framing "
-            "to a design for your site, with flashing; fasteners are not generated",
+    if deck.attached:
+        out.append(
+            (
+                "Ledger attachment",
+                REQUIRED,
+                "bolt or through-bolt the ledger to the house framing "
+                "to a design for your site, with flashing; fasteners are not generated",
+            )
         )
-    )
+    side, depth = deck.footing
     out.append(
         (
             "Footings",
             REQUIRED,
-            f"{len(posts)} posts need footings sized for your soil and "
-            "frost depth; not generated",
+            f"{deck.posts()} posts need footings sized for your soil and frost depth "
+            f"(counted at {side:g} x {side:g} x {depth:g} mm: {deck.concrete_m3():.2f} m³ of "
+            "concrete in the cut list); not drawn",
         )
     )
     rise = rules.get("guard_min_rise_mm")
