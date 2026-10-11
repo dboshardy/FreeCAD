@@ -1455,6 +1455,33 @@ class TestBuild(unittest.TestCase):
         # 900 tall on a 600 deep footprint: not slender enough to need anchoring.
         self.assertFalse(Checks.build_anchored([p for _, p in parts], rules))
 
+    def test_template_merge(self):
+        old = [("A", 1), ("B", 2), ("C", 3)]
+        new = [("A", 10), ("B", 20), ("D", 40)]  # C gone, D new
+        current = [("A", 1), ("B", 5), ("C", 3), ("X", 9)]  # B edited, X added
+        merged = Build.merge(old, new, current, lambda r: r[0])
+        self.assertEqual(
+            merged, [(("A", 10), False), (("B", 5), True), (("X", 9), False), (("D", 40), False)]
+        )
+        # Table values come back as floats: 1.0 is still the untouched 1.
+        self.assertEqual(Build.merge(old, new, [("A", 1.0)], lambda r: r[0])[0], (("A", 10), False))
+
+    def test_template_round_trip(self):
+        template, arguments = Build.preset_arguments("dining_table")
+        values = Build.property_values(template, arguments)
+        self.assertEqual(values["TopBoards"], "lumber.metric.hw.20x145")
+        self.assertEqual(values["Shelf"], "none")
+
+        def lumber(i):
+            item = self.ITEMS[i]
+            return Library.mm(item, "w"), Library.mm(item, "h")
+
+        def sheet(i):
+            return Library.mm(self.ITEMS[i], "t")
+
+        again = Build.template_arguments(template, values, lumber, sheet)
+        self.assertEqual(Build.table(**again), Build.dining_table())
+
     def test_bookcase_template(self):
         parts, result = Build.build(*Build.bookcase(), self.ITEMS)
         rows = {r[1]: r for r in CutList.rows(parts)}

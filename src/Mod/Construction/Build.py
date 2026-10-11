@@ -258,39 +258,43 @@ def end_table(**sizes):
     return table(**sizes)
 
 
+_DINING = dict(
+    width=1600,
+    depth=900,
+    height=750,
+    overhang=50,
+    leg=("lumber.metric.hw.70x70", 70),
+    apron=("lumber.metric.hw.20x120", 20, 120),
+    top_boards=("lumber.metric.hw.20x145", 20, 145),
+)
+
+
 def dining_table(**sizes):
     """A 1600 x 900 x 750 mm dining table: 70 mm legs, 20 x 120 aprons and a
     top glued up from 20 x 145 boards (table() arguments override)."""
-    defaults = dict(
-        width=1600,
-        depth=900,
-        height=750,
-        overhang=50,
-        leg=("lumber.metric.hw.70x70", 70),
-        apron=("lumber.metric.hw.20x120", 20, 120),
-        top_boards=("lumber.metric.hw.20x145", 20, 145),
-    )
-    return table(**{**defaults, **sizes})
+    return table(**{**_DINING, **sizes})
+
+
+_WORKBENCH = dict(
+    width=1500,
+    depth=600,
+    height=900,
+    overhang=30,
+    setback=10,
+    leg=("lumber.metric.70x70", 70),
+    apron=("lumber.metric.45x95", 45, 95),
+    top_boards=("lumber.metric.45x145", 45, 145),
+    shelf=("sheet.metric.plywood.18", 18),
+    shelf_height=250,
+    joint="joint.mortise_tenon",
+)
 
 
 def workbench(**sizes):
     """A 1500 x 600 x 900 mm workbench in softwood: 70 mm legs, 45 x 95 aprons
     and stretchers, a top of 45 x 145 boards and a plywood shelf at 150 mm
     (table() arguments override)."""
-    defaults = dict(
-        width=1500,
-        depth=600,
-        height=900,
-        overhang=30,
-        setback=10,
-        leg=("lumber.metric.70x70", 70),
-        apron=("lumber.metric.45x95", 45, 95),
-        top_boards=("lumber.metric.45x145", 45, 145),
-        shelf=("sheet.metric.plywood.18", 18),
-        shelf_height=250,
-        joint="joint.mortise_tenon",
-    )
-    return table(**{**defaults, **sizes})
+    return table(**{**_WORKBENCH, **sizes})
 
 
 def bookcase(
@@ -332,3 +336,139 @@ def bookcase(
     joints.append(("*side", "Kick board", "joint.pocket_screw", ""))
     joints += [(name, "Back", "joint.brad_nail", "") for name in ("*side", "Top", "Bottom")]
     return parts, joints
+
+
+# ---------------------------------------------------------------- parametric templates
+
+# Template parameters: (property name, kind, template argument). Kinds:
+# length / count / bool: a number or flag; "leg": a lumber id -> (id, thickness);
+# "board": a lumber id -> (id, thickness, width); "sheet": a sheet id ->
+# (id, thickness); "optional_board" / "optional_sheet": the same or "none" -> None;
+# "joint" / "top_joint": a joint preset id (end to face / face to face).
+TEMPLATES = {
+    "table": (
+        table,
+        [
+            ("Width", "length", "width"),
+            ("Depth", "length", "depth"),
+            ("Height", "length", "height"),
+            ("Overhang", "length", "overhang"),
+            ("Setback", "length", "setback"),
+            ("LegStock", "leg", "leg"),
+            ("ApronStock", "board", "apron"),
+            ("TopStock", "sheet", "top"),
+            ("TopBoards", "optional_board", "top_boards"),
+            ("Joint", "joint", "joint"),
+            ("TopJoint", "top_joint", "top_joint"),
+            ("Shelf", "optional_sheet", "shelf"),
+            ("ShelfHeight", "length", "shelf_height"),
+        ],
+    ),
+    "bookcase": (
+        bookcase,
+        [
+            ("Width", "length", "width"),
+            ("Height", "length", "height"),
+            ("Depth", "length", "depth"),
+            ("Shelves", "count", "shelves"),
+            ("Kick", "length", "kick"),
+            ("PanelStock", "sheet", "panel"),
+            ("BackStock", "sheet", "back"),
+            ("Joint", "joint", "joint"),
+        ],
+    ),
+}
+# Presets: template name and the arguments that differ from its defaults.
+PRESETS = {
+    "end_table": ("table", {}),
+    "dining_table": ("table", {}),
+    "workbench": ("table", {}),
+    "bookcase": ("bookcase", {}),
+}
+
+
+def preset_arguments(preset):
+    """(template name, {argument: value}) of a preset: the template's
+    defaults with the preset's changes."""
+    import inspect
+
+    name = PRESETS[preset][0]
+    function = TEMPLATES[name][0]
+    values = {
+        k: p.default
+        for k, p in inspect.signature(function).parameters.items()
+        if p.default is not inspect.Parameter.empty
+    }
+    changes = {"dining_table": _DINING, "workbench": _WORKBENCH}.get(preset, {})
+    return name, {**values, **changes}
+
+
+def property_values(template, arguments):
+    """{property: value} for a template's arguments (ids and numbers)."""
+    out = {}
+    for prop, kind, arg in TEMPLATES[template][1]:
+        value = arguments[arg]
+        if kind.startswith("optional_"):
+            value = value[0] if value else "none"
+        elif kind in ("leg", "board", "sheet"):
+            value = value[0]
+        out[prop] = value
+    return out
+
+
+def template_arguments(template, values, lumber, sheet):
+    """Template arguments from property values. lumber(id) -> (thickness,
+    width); sheet(id) -> thickness."""
+    out = {}
+    for prop, kind, arg in TEMPLATES[template][1]:
+        value = values[prop]
+        if kind.startswith("optional_"):
+            if value == "none":
+                out[arg] = None
+                continue
+            kind = kind[len("optional_") :]
+        if kind == "leg":
+            value = (value, lumber(value)[0])
+        elif kind == "board":
+            value = (value, *lumber(value))
+        elif kind == "sheet":
+            value = (value, sheet(value))
+        elif kind == "count":
+            value = int(value)
+        elif kind == "length":
+            value = float(value)
+        out[arg] = value
+    return out
+
+
+def _norm(row):
+    """A table row as comparable text (numbers rounded like the table)."""
+    out = []
+    for v in row:
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            out.append(f"{round(float(v), 6):g}")
+        else:
+            out.append("" if v is None else str(v))
+    return tuple(out)
+
+
+def merge(old, new, current, key):
+    """Rows after regenerating a template: `old` and `new` are the template's
+    rows before and after the change, `current` the table as the user left
+    it. A row the user did not touch follows the template (or goes, when the
+    template no longer makes it); a row the user edited or added stays, an
+    edited one marked as an override. key(row) identifies a row. Returns
+    [(row, overridden)]."""
+    old_by = {key(r): _norm(r) for r in old}
+    new_by = {key(r): r for r in new}
+    out, seen = [], set()
+    for row in current:
+        k = key(row)
+        seen.add(k)
+        if k in old_by and _norm(row) == old_by[k]:
+            if k in new_by:
+                out.append((new_by[k], False))
+        else:
+            out.append((row, k in new_by or k in old_by))
+    out += [(r, False) for r in new if key(r) not in seen]
+    return out

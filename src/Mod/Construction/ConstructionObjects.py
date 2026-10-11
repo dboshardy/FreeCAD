@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # FORK: parametric construction objects (design doc §5.4, §5.6).
 
+import json
 import os
 from dataclasses import replace
 
@@ -1312,8 +1313,69 @@ class BuildFeature:
             "Stock for new panels",
         )
 
+        add_property(obj, "App::PropertyString", "Template", self.GROUP, "Template it follows", "")
+        obj.setEditorMode("Template", 1)  # read-only
+        add_property(obj, "App::PropertyString", "Generated", self.GROUP, "Template rows", "")
+        obj.setEditorMode("Generated", 2)  # hidden: the rows last generated, as JSON
+
     def onDocumentRestored(self, obj):
         self.setProperties(obj)
+        self.ready = True
+
+    # -------------------------------------------------------- templates
+
+    def template_properties(self, obj):
+        return [prop for prop, _, _ in Build.TEMPLATES[obj.Template][1]] if obj.Template else []
+
+    def add_template_properties(self, obj, values):
+        """Template parameters as properties (group "Template") with values."""
+        for prop, kind, arg in Build.TEMPLATES[obj.Template][1]:
+            value, tip = values[prop], arg.replace("_", " ")
+            if kind == "length":
+                add_property(obj, LENGTH, prop, "Template", tip, value)
+            elif kind == "count":
+                add_property(obj, INTEGER, prop, "Template", tip, value)
+            elif kind in ("leg", "board", "optional_board"):
+                add_library_choice(obj, prop, Library.LUMBER, value, "Template", tip)
+            elif kind in ("sheet", "optional_sheet"):
+                add_library_choice(obj, prop, Library.SHEET_GOODS, value, "Template", tip)
+            elif kind == "joint":
+                add_library_choice(obj, prop, "joint", value, "Template", tip, fixes_end_to_face)
+            elif kind == "top_joint":
+                where = lambda j: "face_to_face" in j.get("meets", ())  # noqa: E731
+                add_library_choice(obj, prop, "joint", value, "Template", tip, where)
+
+    def template_values(self, obj):
+        return {
+            prop: getattr(getattr(obj, prop), "Value", getattr(obj, prop))
+            for prop in self.template_properties(obj)
+        }
+
+    def onChanged(self, obj, prop):
+        if getattr(self, "ready", False) and prop in self.template_properties(obj):
+            self.regenerate(obj)
+
+    def regenerate(self, obj):
+        """Rewrites the tables from the template's current parameters, keeping
+        rows the user edited or added (see Build.merge)."""
+        function = Build.TEMPLATES[obj.Template][0]
+        try:
+            arguments = Build.template_arguments(
+                obj.Template, self.template_values(obj), lumber_section, sheet_thickness
+            )
+            parts, joints = function(**arguments)
+        except ValueError as e:
+            self.error = str(e)  # execute() reports it
+            obj.touch()
+            return
+        self.error = None
+        old = json.loads(obj.Generated) if obj.Generated else {"parts": [], "joints": []}
+        merged = Build.merge(old["parts"], parts, self.part_rows(obj), lambda r: r[0])
+        _rewrite_table(obj.PartsTable, Build.PARTS_HEADER, merged)
+        merged = Build.merge(old["joints"], joints, self.joint_rows(obj), lambda r: tuple(r[:2]))
+        _rewrite_table(obj.JointsTable, Build.JOINTS_HEADER, merged)
+        obj.Generated = json.dumps({"parts": parts, "joints": joints})
+        obj.touch()
 
     def part_rows(self, obj):
         return _table_rows(obj.PartsTable, len(Build.PARTS_HEADER))
@@ -1331,6 +1393,8 @@ class BuildFeature:
         return joined_solids(self._build(obj)[1])
 
     def execute(self, obj):
+        if getattr(self, "error", None):
+            raise ValueError(f"template: {self.error}")
         set_shape(obj, self.solids(obj))
 
     def checks(self, obj, rules):
@@ -1414,37 +1478,51 @@ def make_build(doc=None, name="Build"):
 
 
 def make_end_table(doc=None, name="EndTable", **sizes):
-    """A build filled from the end table template (Build.end_table: sizes)."""
-    return make_from_template(Build.end_table, doc, name, **sizes)
+    """A build from the end table template (Build.table: sizes)."""
+    return make_from_template("end_table", doc, name, **sizes)
 
 
 def make_dining_table(doc=None, name="DiningTable", **sizes):
     """A build filled from the dining table template (Build.dining_table: sizes)."""
-    return make_from_template(Build.dining_table, doc, name, **sizes)
+    return make_from_template("dining_table", doc, name, **sizes)
 
 
 def make_workbench(doc=None, name="Workbench", **sizes):
     """A build filled from the workbench template (Build.workbench: sizes)."""
-    return make_from_template(Build.workbench, doc, name, **sizes)
+    return make_from_template("workbench", doc, name, **sizes)
 
 
 def make_bookcase(doc=None, name="Bookcase", **sizes):
     """A build filled from the bookcase template (Build.bookcase: sizes)."""
-    return make_from_template(Build.bookcase, doc, name, **sizes)
+    return make_from_template("bookcase", doc, name, **sizes)
 
 
-def make_from_template(template, doc=None, name="Build", **sizes):
-    """A build filled from a Build.py template; edit it afterwards in its
-    tables like any build."""
-    parts, joints = template(**sizes)
+def make_from_template(preset, doc=None, name="Build", **sizes):
+    """A build following a Build.py template preset (Build.PRESETS): its sizes
+    and choices are properties (group "Template"); changing one regenerates
+    the tables, keeping rows edited by hand. sizes: template arguments."""
+    template, arguments = Build.preset_arguments(preset)
+    values = Build.property_values(template, {**arguments, **sizes})
     build = make_build(doc, name)
-    for r, row in enumerate(parts, start=2):
-        _write_row(build.PartsTable, r, list(row))
-    for r, row in enumerate(joints, start=2):
-        _write_row(build.JointsTable, r, list(row))
-    build.touch()
+    build.Template = template
+    build.Proxy.add_template_properties(build, values)
+    build.Proxy.regenerate(build)
+    build.Proxy.ready = True
     build.Document.recompute()
     return build
+
+
+def _rewrite_table(sheet, header, rows):
+    """Rewrites a build table below its header: [(row, overridden)]; an
+    overridden row is marked "edited" after its last column."""
+    for cell in sheet.getUsedCells():
+        if int("".join(c for c in cell if c.isdigit())) >= 2:
+            sheet.clear(cell)
+    note = chr(65 + len(header))
+    for r, (row, overridden) in enumerate(rows, start=2):
+        _write_row(sheet, r, list(row))
+        if overridden:
+            sheet.set(f"{note}{r}", "'edited")
 
 
 def add_board(

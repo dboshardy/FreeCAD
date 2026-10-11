@@ -118,9 +118,18 @@ True
 
 ```
 
-The template's sizes are its arguments: `width`, `depth`, `height`,
-`overhang`, `setback`, the leg, apron and top stock, `joint` and
-`top_joint`. After creating it, edit it like any build.
+The template's sizes and choices are properties of the build, in the
+**Template** group of the Property view: **Width**, **Depth**, **Height**,
+**Overhang**, **Setback**, **LegStock**, **ApronStock**, **TopStock** (or
+**TopBoards** to glue the top up from boards), **Joint**, **TopJoint**,
+**Shelf** and **ShelfHeight**. Change one and the tables follow: set
+**Height** to `650` and the legs become 632 mm; set **TopJoint** to *Z-clip*
+and the figure-8 fasteners become Z-clips.
+
+You can still edit the tables. A row you change by hand is kept when a
+template property changes, and is marked `edited` after its last column; to
+let the template take it back, delete the mark's row and change any template
+property.
 
 ## 5. Check it
 
