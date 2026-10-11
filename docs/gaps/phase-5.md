@@ -50,15 +50,15 @@ advisory checks. Nothing here certifies building-code compliance:
 |---|---|---|---|
 | 5.1.1 | Data-driven library, `source` + `data_license` per item (§9) | Partial | `Construction/Library.py`, `Resources/libraries/{US,metric}/*.json`; CI `check.py data`. User overrides in `<user data>/Construction/libraries/` |
 | 5.1.2 | Dimensional lumber (US nominal / metric) | Partial | Fork library: US 1x4–4x6 with PS 20 dressed sizes and stock lengths incl. precut studs (92-5/8", 104-5/8"); metric 38/45 mm sections, 70x70, 95x95, stock 2.4–6.0 m. No species grades or design values (user-supplied, §9) |
-| 5.1.3 | Engineered lumber (LVL, glulam, I-joist) | Missing | |
-| 5.1.4 | Sheet goods (plywood, OSB, MDF, particleboard, HDF; US 4×8, metric) | Partial | Fork library: US 5 items, metric 6 items. No drywall / cement board yet |
-| 5.1.5 | Hardwood stock, board-foot calc | Missing | |
+| 5.1.3 | Engineered lumber (LVL, glulam, I-joist) | Present | `metric/` and `US/engineered_lumber.json`: common LVL, glulam and I-joist sizes (I-joists as flange × depth rectangles), selectable wherever lumber is; design values from the maker go in the user library |
+| 5.1.4 | Sheet goods (plywood, OSB, MDF, particleboard, HDF; US 4×8, metric) | Present | US plywood, OSB, MDF, drywall, cement board; metric plywood, MDF, OSB, edge-glued panels, gypsum and cement board. Particleboard / HDF: add by user library |
+| 5.1.5 | Hardwood stock, board-foot calc | Present | `metric/furniture_stock.json` (planed hardwood, leg blanks, edge-glued panels); `CutList.board_feet` (nominal size when given) and `volume_m3`; the cut list gives m³ and board feet bought per lumber material |
 | 5.1.6 | Steel shapes | Partial | Upstream `profiles.csv` (W, RHS, …) |
 | 5.1.7 | Masonry, concrete, rebar | Partial | Upstream BIM rebar, structure; no fork library |
-| 5.1.8 | Area materials (roofing, siding, insulation) | Missing | |
+| 5.1.8 | Area materials (roofing, siding, insulation) | Partial | `generic/area_materials.json` (shingles, felt and synthetic underlayment, house wrap; coverage per unit and waste); **Covering** on Sheathing, **RoofCovering** / **WallCovering** on the shed; cut list Coverings section. No siding courses or insulation items shipped (add by user library) |
 | 5.1.9 | Hardware (hinges, slides, shelf pins, connectors) | Partial | `Resources/libraries/generic/hardware.json`: concealed hinge, drawer slide pair, shelf pin, framing nail, joist hanger, deck screw, wall anchor, dowel, pocket screw, wood and confirmat screws, biscuit, tabletop fasteners; override by id in the user library. Counted through joint presets (`generic/joints.json`: hinges by door height, slides by depth, pins per shelf end) |
-| 5.1.10 | Cost / SKU per item | Missing | Schema fields only (§9) |
-| 5.1.11 | Region switch per document | Missing | All regions listed together in material choices |
+| 5.1.10 | Cost / SKU per item | Present | Optional `price` / `price_per` (each, m, board foot, m³) per item, `sku` free field; cut list Cost column and Total cost (counts unpriced lines). No prices shipped (they vary by supplier) |
+| 5.1.11 | Region switch per document | Present | **Library Region** command stores the region in the document (`Meta`); library choices narrow to it plus generic items; preference `Region` for new documents |
 | 5.1.12 | Library editor UI, CSV import/export | Missing | |
 
 ## 5.2 Structural members
@@ -87,7 +87,7 @@ advisory checks. Nothing here certifies building-code compliance:
 | 5.4.6 | Foundations | Partial | Upstream `ArchStructure` slabs/footings; no concrete-volume report |
 | 5.4.7 | Sheathing / cladding layers | Partial | `Construction_Sheathing` (`Sheathing.py`): sheet goods on floor (long side across joists), wall (upright, openings cut out) and both roof slopes, seams staggered when a row needs more than one sheet; laid out on sheets with no edge trim (factory edges), whole sheets counted as whole. Missing: seam-over-framing alignment, siding, roofing, membranes |
 | 5.4.8 | Cabinets | Partial | `Construction/Cabinet.py`, `ConstructionObjects.py`. Frameless base / wall / tall / sink cabinets (base: top stretchers + plinth; wall / tall: full top; wall cabinets created at 1400 mm; sink: front stretcher only, no back, false front over doors) and blind-corner cabinets (any kind; blind panel left or right, doors on the open width). Carcass joint chosen from the joint library (**CarcassJoint**: confirmat by default, dowels, pocket screws, biscuits, dado, ...), adjustable shelves, full-overlay fronts: doors, drawer bank, drawer over doors, false front over doors. Drawer boxes sized from slide clearances (side, height, rear), depth rounded down to 50 mm slide lengths. Runs along a wall (`Construction_BaseRun`, `Construction_WallRun`): given widths, or widths chosen from a standard list to leave the least filler, fillers left / right / both; per-cabinet styles in Widths (`1000 blind_left, 600 drawers, 800 sink, 600`), a blind corner at a run end keeps the filler off the corner side. Missing: diagonal and L-shaped corner cabinets, corner fillers between meeting runs, face-frame, back fastening, shaker doors, toe-kick notch option, per-cabinet sizes other than width inside a run |
-| 5.4.9 | Furniture primitives | Missing | |
+| 5.4.9 | Furniture primitives | Present | Phase 5.1 builds: Board, Board Between, Panel, joints from the library (`docs/gaps/phase-5.1.md`) |
 | 5.4.10 | Building elements (walls, doors, windows, levels, rooms) | Present | Upstream BIM |
 | 5.4.11 | Templates (shed, garage, kitchen run, bookcase, workbench) | Partial | `Construction_Shed` (`Shed.py`, `ShedFeature`): gable shed from one object — floor platform, front wall with a centred door, back and side walls, gable roof with ceiling joists, sheathing on floor, walls (side sheathing wraps the corners), gable ends (panels clipped to the gable outline) and roof; every size, spacing, lumber and sheet is a property and everything regenerates. Missing: garage / kitchen / bookcase / workbench templates |
 

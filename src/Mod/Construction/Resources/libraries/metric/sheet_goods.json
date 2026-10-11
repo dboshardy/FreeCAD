@@ -8,6 +8,9 @@
     {"id": "sheet.metric.plywood.18", "category": "sheet_goods", "region": "metric", "name": "Plywood 18 mm 2440x1220", "material": "plywood", "actual": {"w": 1220, "h": 2440, "t": 18, "unit": "mm"}, "grain_axis": "length", "density_kg_m3": 550},
     {"id": "sheet.metric.mdf.18", "category": "sheet_goods", "region": "metric", "name": "MDF 18 mm 2440x1220", "material": "mdf", "actual": {"w": 1220, "h": 2440, "t": 18, "unit": "mm"}, "grain_axis": null, "density_kg_m3": 750},
     {"id": "sheet.metric.particleboard.18", "category": "sheet_goods", "region": "metric", "name": "Melamine particleboard 18 mm 2800x2070", "material": "particleboard", "actual": {"w": 2070, "h": 2800, "t": 18, "unit": "mm"}, "grain_axis": null, "density_kg_m3": 650},
-    {"id": "sheet.metric.hdf.3", "category": "sheet_goods", "region": "metric", "name": "HDF 3 mm 2440x1220", "material": "hdf", "actual": {"w": 1220, "h": 2440, "t": 3, "unit": "mm"}, "grain_axis": null, "density_kg_m3": 850}
+    {"id": "sheet.metric.hdf.3", "category": "sheet_goods", "region": "metric", "name": "HDF 3 mm 2440x1220", "material": "hdf", "actual": {"w": 1220, "h": 2440, "t": 3, "unit": "mm"}, "grain_axis": null, "density_kg_m3": 850},
+    {"id": "sheet.metric.drywall.12-5", "category": "sheet_goods", "region": "metric", "name": "Gypsum board 12.5 mm 1200x2400", "material": "gypsum", "actual": {"w": 1200, "h": 2400, "t": 12.5, "unit": "mm"}, "grain_axis": null, "density_kg_m3": 700},
+    {"id": "sheet.metric.drywall.15", "category": "sheet_goods", "region": "metric", "name": "Gypsum board 15 mm (fire) 1200x2400", "material": "gypsum", "actual": {"w": 1200, "h": 2400, "t": 15, "unit": "mm"}, "grain_axis": null, "density_kg_m3": 800},
+    {"id": "sheet.metric.cement_board.12-5", "category": "sheet_goods", "region": "metric", "name": "Cement board 12.5 mm 900x1200", "material": "cement board", "actual": {"w": 900, "h": 1200, "t": 12.5, "unit": "mm"}, "grain_axis": null, "density_kg_m3": 1150}
   ]
 }

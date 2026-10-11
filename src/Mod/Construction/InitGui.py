@@ -38,6 +38,7 @@ class ConstructionWorkbench(Workbench):
             "Construction_CutList",
             "Construction_Check",
             "Construction_Drawing",
+            "Construction_Region",
         ]
         self.appendToolbar("Construction", commands)
         self.appendMenu("&Construction", commands + ["Separator", "Construction_Tutorials"])

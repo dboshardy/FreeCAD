@@ -475,6 +475,42 @@ class AlignCommand:
         build.Document.commitTransaction()
 
 
+class RegionCommand:
+    def GetResources(self):
+        return {
+            "MenuText": QT_TRANSLATE_NOOP("Construction_Region", "Library Region"),
+            "ToolTip": QT_TRANSLATE_NOOP(
+                "Construction_Region",
+                "Chooses which region's lumber and sheet sizes this document offers "
+                "(metric, US or all); generic items are always offered",
+            ),
+        }
+
+    def IsActive(self):
+        return FreeCAD.ActiveDocument is not None
+
+    def Activated(self):
+        from PySide import QtGui
+
+        import ConstructionObjects as CO
+
+        doc = FreeCAD.ActiveDocument
+        current = CO.document_region(doc)
+        region, ok = QtGui.QInputDialog.getItem(
+            FreeCADGui.getMainWindow(),
+            translate("Construction", "Library Region"),
+            translate("Construction", "Library items for this document:"),
+            list(CO.REGIONS),
+            list(CO.REGIONS).index(current) if current in CO.REGIONS else 0,
+            False,
+        )
+        if ok:
+            FreeCADGui.addModule("ConstructionObjects")
+            FreeCADGui.doCommand(
+                f"ConstructionObjects.set_document_region(App.ActiveDocument, {region!r})"
+            )
+
+
 EDIT_HINT = "; edit its sizes in the property view"
 CABINET_COMMANDS = {
     "Construction_BaseCabinet": MakeCommand(
@@ -647,6 +683,7 @@ FreeCADGui.addCommand(
     ),
 )
 FreeCADGui.addCommand("Construction_Joint", JointCommand())
+FreeCADGui.addCommand("Construction_Region", RegionCommand())
 FreeCADGui.addCommand("Construction_Align", AlignCommand())
 FreeCADGui.addCommand(
     "Construction_DiningTable",
