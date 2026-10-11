@@ -4,6 +4,7 @@
 # standalone geometry; this covers the FreeCAD side: objects, recompute,
 # spreadsheets and drawings.
 
+import math
 import unittest
 
 import FreeCAD
@@ -181,7 +182,10 @@ class TestConstructionApp(unittest.TestCase):
         cabinet.CarcassJoint = "joint.dado"  # housings: the bottom grows into the sides
         self.doc.recompute()
         self.assertBuilt(cabinet)
-        self.assertAlmostEqual(cabinet.Shape.Volume, volume, delta=1)  # moved, not added
+        # The dado moves material between parts; the confirmat holes are gone:
+        # 12 screws, 5 mm holes through the 18 mm side and 35 mm into the bottom edge.
+        holes = 12 * math.pi * 2.5**2 * (18 + 35)
+        self.assertAlmostEqual(cabinet.Shape.Volume - volume, holes, delta=1)
         bottom = dict((p.name, p) for _, p in cabinet.Proxy.parts(cabinet))["Bottom"]
         self.assertEqual(bottom.size[0], 564 + 12)
         cut = CO.write_cut_list(self.doc)

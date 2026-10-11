@@ -337,6 +337,24 @@ def build(parts, result, rules, items):
         thinnest = walls[1]  # walls[0] is the open face the tenon enters by
         status = OK if thinnest >= limit - 1e-6 else WARNING
         out.append((f"Mortise wall, {a.name}", status, f"{thinnest:.1f} mm, rule min {limit:g} mm"))
+    limit = rules.get("hole_wall_min_mm")
+    thin = set()
+    for i, hole in result.pockets if limit is not None else ():
+        if hole.role != "hole" or i in thin:
+            continue
+        a, k = boxes[i], "xyz".index(hole.grain)
+        walls = [
+            w for n in range(3) if n != k for w in (hole.lo(n) - a.lo(n), a.hi(n) - hole.hi(n))
+        ]
+        breaks = hole.lo(k) < a.lo(k) - 1e-6 or hole.hi(k) > a.hi(k) + 1e-6
+        if min(walls) < limit - 1e-6 or breaks:
+            thin.add(i)
+            detail = (
+                f"a hole leaves {min(walls):.1f} mm (rule min {limit:g} mm)"
+                if not breaks
+                else "a hole is deeper than the part"
+            )
+            out.append((f"Hole wall, {a.name}", WARNING, detail + ": change the joint or stock"))
     by_part = {}
     for i, pocket in result.pockets:
         by_part.setdefault(i, []).append(pocket)

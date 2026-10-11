@@ -27,6 +27,7 @@
       "guard_opening_max_mm": 100,
       "anchor_cabinet_kinds": ["wall", "tall"],
       "mortise_wall_min_mm": 6,
+      "hole_wall_min_mm": 3,
       "anchor_furniture_height_mm": 700,
       "wood_movement_width_mm": 250
     }

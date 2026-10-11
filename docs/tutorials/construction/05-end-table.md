@@ -123,8 +123,10 @@ Click **Check**. For a build the **Checks** sheet lists the wall left around
 each mortise (the thinnest is the 10 mm above it, kept by the tenon's top
 shoulder), cuts that meet inside a part (two tenons that run into each other
 in a leg), and solid wood wider than the rule set's limit that is fixed
-rigidly: change the top's joint to **Screws through the face** and the top is
-flagged, because a 500 mm solid top moves with the seasons.
+rigidly, and holes that leave too thin a wall or break through. Change the
+top's joint to **Screws through the face** and the top is flagged twice: a
+500 mm solid top moves with the seasons, and the preset's 30 mm screw holes
+are deeper than the 18 mm top.
 
 ```pycon
 >>> import Checks
@@ -132,7 +134,7 @@ flagged, because a 500 mm solid top moves with the seasons.
 >>> screwed = Build.end_table(top_joint="joint.screw")
 >>> built, result = Build.build(*screwed, items)
 >>> [c for c, status, _ in Checks.build(built, result, rules, items) if status == Checks.WARNING]
-['Wood movement, Top']
+['Hole wall, Top', 'Wood movement, Top']
 
 ```
 
