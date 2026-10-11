@@ -645,6 +645,73 @@ class TestFloor(unittest.TestCase):
                 Framing.Floor(**kwargs).pieces()
 
 
+class TestFloorFraming(unittest.TestCase):
+    def names(self, floor):
+        return Counter(p.name for p in floor.pieces())
+
+    def test_beam_and_posts(self):
+        floor = Framing.Floor(length=3600, width=6000, beams=(3000,), post_height=600)
+        names = self.names(floor)
+        # Every joist line in two pieces, butt-joined over the beam.
+        self.assertEqual(names["Joist"], 2 * len(floor.joist_centres()))
+        self.assertEqual(names["Beam"], 2)  # 2 plies, 3600 in one piece
+        self.assertEqual(names["Post"], 3)  # 3600 at most 1800 apart -> 2 bays
+        self.assertEqual(floor.spans(), [3000 - 22.5, 3000 - 22.5])
+        with self.assertRaises(ValueError):  # 5955 between rims: longer than 4800 stock
+            Framing.Floor(width=6000, max_piece=4800).pieces()
+
+    def test_opening(self):
+        floor = Framing.Floor(openings=((1000, 800, 900, 1200),))
+        pieces = floor.pieces()
+        names = Counter(p.name for p in pieces)
+        self.assertEqual(names["Trimmer"], 4)  # doubled each side
+        self.assertEqual(names["Header joist"], 4)  # doubled each end, 900 long
+        # Joists at 1200 and 1600 are inside the opening: 2 tails each. The joist at
+        # 2000 is 32.5 from the outer trimmer and gives way to it.
+        self.assertEqual(names["Tail joist"], 4)
+        xs = {round(p.start[0], 1) for p in pieces if p.name == "Joist"}
+        self.assertNotIn(2000, xs)
+        self.assertIn(800, xs)
+        tails = sorted((p.start[1], p.end[1]) for p in pieces if p.name == "Tail joist")
+        self.assertEqual(tails[0], (45, 800 - 90))  # rim face to the outer header
+        with self.assertRaises(ValueError):
+            Framing.Floor(openings=((10, 800, 900, 1200),)).pieces()  # no room for trimmers
+
+    def test_blocking_skips_openings(self):
+        floor = Framing.Floor(blocking_rows=1, openings=((1000, 800, 900, 1200),))
+        blocks = [p for p in floor.pieces() if p.name == "Blocking"]
+        mid = 1500  # the row at mid-span crosses the opening (800 .. 2000)
+        self.assertTrue(all(p.start[1] == mid for p in blocks))
+        for p in blocks:
+            self.assertFalse(p.start[0] < 1900 and p.end[0] > 1000, (p.start, p.end))
+        self.assertEqual(
+            Framing.parse_floor_openings("900x2400 @ 600, 300"), [(600, 300, 900, 2400)]
+        )
+
+
+class TestDeckOptions(unittest.TestCase):
+    def test_freestanding(self):
+        deck = Framing.Deck(attached=False, blocking_rows=1)
+        names = Counter(p.name for p in deck.pieces())
+        self.assertNotIn("Ledger", names)
+        self.assertEqual(len(deck.beam_lines()), 2)
+        self.assertEqual(names["Post"], 6)  # 3 posts (3600 at most 1800 apart) per beam
+        joists = len(deck.joist_centres())
+        self.assertEqual(names["Blocking"], joists - 1)  # one row between every pair
+        # 6 footings of 400 x 400 x 600 mm = 0.576 m³.
+        self.assertAlmostEqual(deck.concrete_m3(), 6 * 0.4 * 0.4 * 0.6)
+        lines = deck.beam_lines()
+        self.assertAlmostEqual(deck.joist_span(), lines[1] - lines[0])
+        found = {c for c, _, _ in Checks.deck(deck, {})}
+        self.assertNotIn("Ledger attachment", found)
+        self.assertIn("Footings", found)
+
+    def test_floor_concrete(self):
+        floor = Framing.Floor(width=6000, beams=(3000,), post_height=600)
+        self.assertAlmostEqual(floor.concrete_m3(), 3 * 0.4 * 0.4 * 0.6)
+        self.assertEqual(Framing.Floor().concrete_m3(), 0)
+
+
 class TestGableRoof(unittest.TestCase):
     def test_geometry(self):
         roof = Framing.GableRoof(length=3600, span=3000, pitch=26.565, overhang=300)

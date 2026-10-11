@@ -111,7 +111,9 @@ def surfaces(model, extend=(0.0, 0.0)):
     wrap a corner."""
     if isinstance(model, Framing.Floor):
         top = model.joist[1]
-        return [Surface("Subfloor", (0, 0, top), (1, 0, 0), (0, 1, 0), (model.length, model.width))]
+        holes = [(x, y, w, l) for x, y, w, l in model.openings]
+        size = (model.length, model.width)
+        return [Surface("Subfloor", (0, 0, top), (1, 0, 0), (0, 1, 0), size, openings=holes)]
     if isinstance(model, Framing.Wall):
         a, b = extend
         holes = [(o.x + a, o.sill, o.width, o.height) for o in model.openings]

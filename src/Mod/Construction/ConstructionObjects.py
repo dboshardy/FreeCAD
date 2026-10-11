@@ -693,8 +693,29 @@ class FloorFrameFeature(FramingFeature):
         _length("Width", "Along the joists (rim to rim)", _d.width),
         _length("JoistSpacing", "Joist centres", _d.spacing),
         ("App::PropertyFloat", "FloorLoad", "Floor load in kPa, " + LOAD_TIP, 0.0),
+        (
+            "App::PropertyString",
+            "Beams",
+            "Dropped beams under the joists: distances from the first rim, e.g. 1500, 3000",
+            "",
+        ),
+        ("App::PropertyInteger", "BeamPlies", "Plies in each beam", _d.beam_plies),
+        _length("PostHeight", "Posts under the beams, footing to beam; 0 = none", 0.0),
+        _length("FootingSize", "Side of a square post footing, for the concrete", 400.0),
+        _length("FootingDepth", "Depth of a post footing, for the concrete", 600.0),
+        ("App::PropertyInteger", "BlockingRows", "Rows of blocking in each span", 0),
+        (
+            "App::PropertyString",
+            "Openings",
+            "Stairwells etc.: width x length @ x, y (mm, x along the rims), e.g. 900x2400 @ 600, 300",
+            "",
+        ),
     ]
-    MATERIALS = [("JoistMaterial", "joist", "lumber.metric.45x195", "Joists and rims")]
+    MATERIALS = [
+        ("JoistMaterial", "joist", "lumber.metric.45x195", "Joists, rims, trimmers, headers"),
+        ("BeamMaterial", "beam", "lumber.metric.45x195", "Beam plies"),
+        ("PostMaterial", "post", "lumber.metric.95x95", "Posts under the beams"),
+    ]
 
     def model(self, obj):
         return Framing.Floor(
@@ -703,11 +724,24 @@ class FloorFrameFeature(FramingFeature):
             spacing=float(obj.JoistSpacing.Value),
             joist=lumber_section(obj.JoistMaterial),
             max_piece=self.max_piece(obj),
+            beams=tuple(Framing.parse_numbers(obj.Beams)),
+            beam=lumber_section(obj.BeamMaterial),
+            beam_plies=int(obj.BeamPlies),
+            post=lumber_section(obj.PostMaterial),
+            post_height=float(obj.PostHeight.Value),
+            blocking_rows=int(obj.BlockingRows),
+            openings=tuple(Framing.parse_floor_openings(obj.Openings)),
+            footing=(float(obj.FootingSize.Value), float(obj.FootingDepth.Value)),
         )
+
+    def concrete(self, obj):
+        """[(what, m³)] of concrete to buy."""
+        return [("Floor post footings", self.model(obj).concrete_m3())]
 
     def checks(self, obj, rules):
         values = self.design_values(obj, "JoistMaterial")
-        return Checks.floor(self.model(obj), rules, values, float(obj.FloorLoad))
+        beam_values = self.design_values(obj, "BeamMaterial")
+        return Checks.floor(self.model(obj), rules, values, float(obj.FloorLoad), beam_values)
 
 
 class GableRoofFeature(FramingFeature):
@@ -829,6 +863,15 @@ class DeckFeature(FramingFeature):
         _length("PostSpacing", "Largest distance between posts", _d.max_post_spacing),
         _length("DeckingGap", "Gap between decking boards", _d.decking_gap),
         ("App::PropertyFloat", "DeckLoad", "kPa on the deck, " + LOAD_TIP, 0.0),
+        (
+            "App::PropertyBool",
+            "Attached",
+            "Ledger on the house; off = freestanding on two beams",
+            _d.attached,
+        ),
+        (INTEGER, "BlockingRows", "Rows of blocking between the joists", _d.blocking_rows),
+        _length("FootingSize", "Side of a square post footing, for the concrete", _d.footing[0]),
+        _length("FootingDepth", "Depth of a post footing, for the concrete", _d.footing[1]),
     ]
     MATERIALS = [
         ("JoistMaterial", "joist", "lumber.metric.45x195", "Joists, ledger and rim"),
@@ -852,7 +895,14 @@ class DeckFeature(FramingFeature):
             decking=lumber_section(obj.DeckingMaterial),
             decking_gap=float(obj.DeckingGap.Value),
             max_piece=self.max_piece(obj),
+            attached=bool(obj.Attached),
+            blocking_rows=int(obj.BlockingRows),
+            footing=(float(obj.FootingSize.Value), float(obj.FootingDepth.Value)),
         )
+
+    def concrete(self, obj):
+        """[(what, m³)] of concrete to buy."""
+        return [("Deck post footings", self.model(obj).concrete_m3())]
 
     def checks(self, obj, rules):
         return Checks.deck(
@@ -1553,6 +1603,18 @@ def write_cut_list(doc):
     for obj in construction_objects(doc):
         for covering, area in getattr(obj.Proxy, "coverings", lambda o: [])(obj):
             coverings[covering] = coverings.get(covering, 0.0) + area
+    concrete = [
+        (f"{obj.Label}: {what}", m3)
+        for obj in construction_objects(doc)
+        for what, m3 in getattr(obj.Proxy, "concrete", lambda o: [])(obj)
+        if m3 > 0
+    ]
+    if concrete:
+        summary += 2
+        _write_row(cut, summary, ["Concrete"])
+        for what, m3 in concrete:
+            summary += 1
+            _write_row(cut, summary, [what, f"{m3:.2f} m³"])
     if coverings:
         summary += 2
         _write_row(cut, summary, ["Coverings (area with the item's waste allowance)"])

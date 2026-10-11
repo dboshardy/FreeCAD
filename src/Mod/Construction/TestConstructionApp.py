@@ -240,6 +240,27 @@ class TestConstructionApp(unittest.TestCase):
         total = rows["Total cost"]
         self.assertIn("without a price", cut.getContents(f"B{total}"))
 
+    def test_floor_and_deck_options(self):
+        floor = CO.make_floor_frame(self.doc)
+        floor.Width = 6000
+        floor.Beams = "3000"
+        floor.PostHeight = 600
+        floor.BlockingRows = 1
+        floor.Openings = "900x1200 @ 1000, 800"
+        deck = CO.make_deck(self.doc)
+        deck.Attached = False
+        self.doc.recompute()
+        self.assertBuilt(floor)
+        self.assertBuilt(deck)
+        sheathing = CO.make_sheathing(floor, self.doc)
+        self.assertBuilt(sheathing)
+        # The stairwell is cut out of the subfloor.
+        self.assertAlmostEqual(sheathing.Shape.Volume, (3600 * 6000 - 900 * 1200) * 18, delta=1)
+        cut = CO.write_cut_list(self.doc)
+        column_a = [cut.getContents(f"A{r}").lstrip("'") for r in range(1, 150)]
+        self.assertIn("Concrete", column_a)
+        self.assertTrue(any("Deck post footings" in c for c in column_a))
+
     def test_drawing(self):
         shed = CO.make_shed(self.doc)
         page = CO.make_drawing([shed], self.doc)
