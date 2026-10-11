@@ -203,6 +203,13 @@ class TestConstructionApp(unittest.TestCase):
         self.assertEqual(rows[anchor], "2")
         self.assertGreaterEqual(CO.write_checks(self.doc), 1)  # anchoring required
 
+    def test_templates_cut_and_check(self):
+        for make in (CO.make_end_table, CO.make_dining_table, CO.make_workbench, CO.make_bookcase):
+            self.assertBuilt(make(self.doc))
+        cut = CO.write_cut_list(self.doc)  # every part fits its stock and sheets
+        self.assertEqual(cut.get("A1"), "Material")
+        CO.write_checks(self.doc)
+
     def test_drawing(self):
         shed = CO.make_shed(self.doc)
         page = CO.make_drawing([shed], self.doc)

@@ -371,22 +371,26 @@ def build(parts, result, rules, items):
                 break
     limit = rules.get("wood_movement_width_mm")
     moving = set()
+    glued = _glue_ups(boxes, result.joints)
     for i, j, rule in result.joints if limit else ():
-        fixed = rule.kind == "fastened" and (rule.fastener or rule.operation == "glue")
-        if not fixed or rule.allows_movement:
-            continue
+        glue = rule.kind == "fastened" and rule.operation == "glue" and not rule.fastener
+        fixed = rule.kind == "fastened" and (rule.fastener or glue)
+        if not fixed or rule.allows_movement or (glue and boxes[i].grain == boxes[j].grain):
+            continue  # glued with the grain (an edge-to-edge glue-up) moves as one
         for index in (i, j):
             stock, part = parts[index]
             item = items.get(stock, {})
             solid = (
                 item.get("category") == "dimensional_lumber" or item.get("material") == "solid wood"
             )
-            _, width, _ = part.cut_size()
+            width = _across_grain(part, [boxes[n] for n in glued[index]])
             if solid and width > limit and index not in moving:
-                moving.add(index)  # once per part, however many joints fix it
+                moving |= glued[index]  # once per glue-up, however many joints fix it
+                n = len(glued[index])
+                name = part.name + (f" (glue-up of {n})" if n > 1 else "")
                 out.append(
                     (
-                        f"Wood movement, {part.name}",
+                        f"Wood movement, {name}",
                         WARNING,
                         f"solid wood {width:g} mm wide fixed rigidly across its grain can split "
                         f"(rule: over {limit:g} mm); use tabletop fasteners or slotted holes",
@@ -396,10 +400,43 @@ def build(parts, result, rules, items):
 
 
 def build_anchored(boxes, rules):
-    """True when a build (its Parts) is taller than the rule set's
-    anchor_furniture_height_mm and must be fixed to the wall."""
+    """True when a build (its Parts) must be fixed to the wall: taller than
+    the rule set's anchor_furniture_height_mm and more than
+    anchor_furniture_slenderness times its narrower footprint side (a
+    bookcase, not a table)."""
     limit = rules.get("anchor_furniture_height_mm")
-    return bool(limit and boxes and _height(boxes) > limit + 1e-6)
+    if not (limit and boxes):
+        return False
+    height = _height(boxes)
+    footprint = min(max(b.hi(n) for b in boxes) - min(b.lo(n) for b in boxes) for n in (0, 1))
+    slender = height / footprint > rules.get("anchor_furniture_slenderness", 0) + 1e-9
+    return height > limit + 1e-6 and slender
+
+
+def _glue_ups(boxes, joints):
+    """Part index -> indices of the parts glued edge to edge to it with the
+    grain (itself included): glue-ups that move as one board."""
+    group = {i: {i} for i in range(len(boxes))}
+    for i, j, rule in joints:
+        glue = rule.kind == "fastened" and rule.operation == "glue" and not rule.fastener
+        edge_to_edge = (
+            Joinery.meets(boxes[i], boxes[j])
+            == Joinery.meets(boxes[j], boxes[i])
+            == ("edge_to_face")
+        )
+        if glue and edge_to_edge and boxes[i].grain == boxes[j].grain and group[i] is not group[j]:
+            merged = group[i] | group[j]
+            for n in merged:
+                group[n] = merged
+    return group
+
+
+def _across_grain(part, glued):
+    """Width across the grain of a part and the parts glued up with it."""
+    thick = min(range(3), key=lambda n: part.size[n])
+    grain = "xyz".index(part.grain) if part.grain else max(range(3), key=lambda n: part.size[n])
+    w = next(n for n in range(3) if n not in (thick, grain))
+    return max(b.hi(w) for b in glued) - min(b.lo(w) for b in glued)
 
 
 def _height(boxes):

@@ -1185,9 +1185,17 @@ class BuildFeature:
         return row[0]
 
     def add_joint(self, obj, receiver, inserted, joint, opts=""):
-        _write_row(
-            obj.JointsTable, len(self.joint_rows(obj)) + 2, [receiver, inserted, joint, opts]
-        )
+        """Appends a joints-table row; returns its row number."""
+        row = len(self.joint_rows(obj)) + 2
+        self.set_joint(obj, row, receiver, inserted, joint, opts)
+        return row
+
+    def set_joint(self, obj, row, receiver, inserted, joint, opts=""):
+        """Writes joints-table row `row` (2 = the first joint)."""
+        sheet = obj.JointsTable
+        for col in "ABCD":
+            sheet.clear(f"{col}{row}")
+        _write_row(sheet, row, [receiver, inserted, joint, opts])
         obj.touch()
 
     def dumps(self):
@@ -1234,6 +1242,16 @@ def make_build(doc=None, name="Build"):
 def make_end_table(doc=None, name="EndTable", **sizes):
     """A build filled from the end table template (Build.end_table: sizes)."""
     return make_from_template(Build.end_table, doc, name, **sizes)
+
+
+def make_dining_table(doc=None, name="DiningTable", **sizes):
+    """A build filled from the dining table template (Build.dining_table: sizes)."""
+    return make_from_template(Build.dining_table, doc, name, **sizes)
+
+
+def make_workbench(doc=None, name="Workbench", **sizes):
+    """A build filled from the workbench template (Build.workbench: sizes)."""
+    return make_from_template(Build.workbench, doc, name, **sizes)
 
 
 def make_bookcase(doc=None, name="Bookcase", **sizes):
@@ -1299,6 +1317,16 @@ def add_on_face(build, part, axis, sign, panel=False, name=None, stock=None):
     t, w = lumber_section(stock)
     length, _, x, y, z, along, thick = Build.on_face(p, axis, sign, t, w)
     return add_board(build, name, stock, length, (x, y, z), along, thick)
+
+
+def move_part(build, part, axis, distance):
+    """Moves the part named `part` by distance along axis (0, 1, 2 = x, y, z)
+    in its parts-table row."""
+    rows = build.Proxy.part_rows(build)
+    r = next(n for n, row in enumerate(rows) if row[0] == part)
+    cell = f"{'FGH'[axis]}{r + 2}"
+    build.PartsTable.set(cell, f"{float(rows[r][5 + axis] or 0) + distance:g}")
+    build.touch()
 
 
 def add_board_between(build, a, b, name=None, stock=None):
