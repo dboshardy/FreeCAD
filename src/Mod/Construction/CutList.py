@@ -10,7 +10,7 @@ EPS = 1e-6
 
 def _key(material, part):
     length, width, thick = (round(v, 1) for v in part.cut_size())
-    return (material, length, width, thick, part.grain is not None)
+    return (material, length, width, thick, part.grain is not None, part.operations)
 
 
 def rows(parts_by_material):
@@ -27,6 +27,7 @@ def rows(parts_by_material):
         (key[0], names[key], key[1], key[2], key[3], "yes" if key[4] else "no", qty)
         for key, qty in counter.items()
     ]
+    # Same order as _row_keys: material, then largest first, then name.
     out.sort(key=lambda r: (r[0], -r[2] * r[3], r[1]))
     return out
 
@@ -34,11 +35,21 @@ def rows(parts_by_material):
 def row_numbers(parts_by_material):
     """1-based row of rows() each part falls in, in input order: the part's tag."""
     parts = list(parts_by_material)
-    order = {
-        (material, length, width, thick, grain == "yes"): i
-        for i, (material, _, length, width, thick, grain, _) in enumerate(rows(parts), start=1)
-    }
+    order = {key: i for i, key in enumerate(_row_keys(parts), start=1)}
     return [order[_key(material, part)] for material, part in parts]
+
+
+def operations(parts_by_material):
+    """Shop work of each row of rows(), "; "-joined, aligned with rows()."""
+    return ["; ".join(key[5]) for key in _row_keys(list(parts_by_material))]
+
+
+def _row_keys(parts):
+    """_key of each row of rows(parts), in row order."""
+    keys = {}
+    for material, part in parts:
+        keys.setdefault(_key(material, part), part.name)
+    return sorted(keys, key=lambda k: (k[0], -k[1] * k[2], keys[k]))
 
 
 @dataclass

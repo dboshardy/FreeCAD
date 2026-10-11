@@ -242,6 +242,143 @@ class CutListCommand:
         doc.commitTransaction()
 
 
+def selected_build_parts():
+    """(build, [part names]) from the selection: faces clicked on one build's
+    solids, in selection order. (None, []) when no build is selected."""
+    import ConstructionObjects
+
+    build, names = None, []
+    for sel in FreeCADGui.Selection.getSelectionEx():
+        obj = sel.Object
+        if not isinstance(getattr(obj, "Proxy", None), ConstructionObjects.BuildFeature):
+            continue
+        build = build or obj
+        if obj != build:
+            continue
+        rows = obj.Proxy.part_rows(obj)
+        for element in sel.SubElementNames:
+            index = obj.Proxy.part_at(obj, element)
+            if index is not None and rows[index][0] not in names:
+                names.append(rows[index][0])
+    return build, names
+
+
+class BuildCommand:
+    def GetResources(self):
+        return {
+            "MenuText": QT_TRANSLATE_NOOP("Construction_Build", "Build"),
+            "ToolTip": QT_TRANSLATE_NOOP(
+                "Construction_Build",
+                "Creates a woodworking build: one object with a parts table and a joints "
+                "table. Add parts with Board, Board Between and Panel; join them with Joint",
+            ),
+        }
+
+    def Activated(self):
+        doc = FreeCAD.ActiveDocument or FreeCAD.newDocument()
+        doc.openTransaction(translate("Construction", "Create build"))
+        FreeCADGui.addModule("ConstructionObjects")
+        FreeCADGui.doCommand("build = ConstructionObjects.make_build()")
+        doc.commitTransaction()
+        FreeCADGui.doCommand("Gui.Selection.clearSelection()")
+        FreeCADGui.doCommand("Gui.Selection.addSelection(build)")
+
+
+class AddPartCommand:
+    """Adds a part to the selected build with ConstructionObjects.<factory>."""
+
+    def __init__(self, factory, menu_text, tool_tip, needs=0):
+        self.factory, self.needs = factory, needs
+        self.resources = {"MenuText": menu_text, "ToolTip": tool_tip}
+
+    def GetResources(self):
+        return self.resources
+
+    def IsActive(self):
+        build, names = selected_build_parts()
+        return build is not None and len(names) >= self.needs
+
+    def Activated(self):
+        build, names = selected_build_parts()
+        args = "".join(f", {n!r}" for n in names[: self.needs])
+        build.Document.openTransaction(translate("Construction", "Add part"))
+        FreeCADGui.addModule("ConstructionObjects")
+        FreeCADGui.doCommand(
+            f"ConstructionObjects.{self.factory}(App.ActiveDocument.{build.Name}{args})"
+        )
+        FreeCADGui.doCommand("App.ActiveDocument.recompute()")
+        build.Document.commitTransaction()
+
+
+class JointCommand:
+    def GetResources(self):
+        return {
+            "MenuText": QT_TRANSLATE_NOOP("Construction_Joint", "Joint"),
+            "ToolTip": QT_TRANSLATE_NOOP(
+                "Construction_Joint",
+                "Joins two selected parts of a build: pick a joint from the library "
+                "(the list follows how the parts meet), once or for every similar pair",
+            ),
+            "Accel": "J",
+        }
+
+    def IsActive(self):
+        return len(selected_build_parts()[1]) == 2
+
+    def Activated(self):
+        from PySide import QtGui
+
+        import Build
+        import ConstructionObjects as CO
+        import Joinery
+        import Library
+
+        build, (receiver, inserted) = selected_build_parts()
+        parts = {p.name: p for _, p in build.Proxy.parts(build)}
+        how = Joinery.meets(parts[receiver], parts[inserted])
+        if how != "end_to_face" and Joinery.meets(parts[inserted], parts[receiver]) in (
+            "end_to_face",
+            "edge_to_face",
+        ):
+            receiver, inserted = inserted, receiver  # the part whose end goes in
+            how = Joinery.meets(parts[receiver], parts[inserted])
+        window = FreeCADGui.getMainWindow()
+        if how is None:
+            QtGui.QMessageBox.warning(
+                window,
+                translate("Construction", "Joint"),
+                translate("Construction", "{} and {} do not touch.").format(receiver, inserted),
+            )
+            return
+        joints = [j for j in Library.of_category(CO.items(), "joint") if how in j.get("meets", ())]
+        labels = [j["name"] for j in joints]
+        title = translate("Construction", "Joint: {} into {}").format(inserted, receiver)
+        label, ok = QtGui.QInputDialog.getItem(
+            window, title, how.replace("_", " "), labels, 0, False
+        )
+        if not ok:
+            return
+        joint = joints[labels.index(label)]["id"]
+        pattern = Build.similar(receiver), Build.similar(inserted)
+        if pattern != (receiver, inserted):
+            answer = QtGui.QMessageBox.question(
+                window,
+                title,
+                translate("Construction", "Apply to every similar pair ({} / {})?").format(
+                    *pattern
+                ),
+            )
+            if answer == QtGui.QMessageBox.Yes:
+                receiver, inserted = pattern
+        build.Document.openTransaction(translate("Construction", "Joint"))
+        FreeCADGui.doCommand(
+            f"App.ActiveDocument.{build.Name}.Proxy.add_joint("
+            f"App.ActiveDocument.{build.Name}, {receiver!r}, {inserted!r}, {joint!r})"
+        )
+        FreeCADGui.doCommand("App.ActiveDocument.recompute()")
+        build.Document.commitTransaction()
+
+
 EDIT_HINT = "; edit its sizes in the property view"
 CABINET_COMMANDS = {
     "Construction_BaseCabinet": MakeCommand(
@@ -374,3 +511,39 @@ FreeCADGui.addCommand("Construction_CutList", CutListCommand())
 FreeCADGui.addCommand("Construction_Check", CheckCommand())
 FreeCADGui.addCommand("Construction_Drawing", DrawingCommand())
 FreeCADGui.addCommand("Construction_Tutorials", TutorialsCommand())
+FreeCADGui.addCommand("Construction_Build", BuildCommand())
+FreeCADGui.addCommand(
+    "Construction_Board",
+    AddPartCommand(
+        "add_board",
+        QT_TRANSLATE_NOOP("Construction_Board", "Board"),
+        QT_TRANSLATE_NOOP(
+            "Construction_Board",
+            "Adds a board of the build's BoardStock; edit its row in the parts table",
+        ),
+    ),
+)
+FreeCADGui.addCommand(
+    "Construction_BoardBetween",
+    AddPartCommand(
+        "add_board_between",
+        QT_TRANSLATE_NOOP("Construction_BoardBetween", "Board Between"),
+        QT_TRANSLATE_NOOP(
+            "Construction_BoardBetween",
+            "Adds a board spanning the gap between two selected parts of a build",
+        ),
+        needs=2,
+    ),
+)
+FreeCADGui.addCommand(
+    "Construction_Panel",
+    AddPartCommand(
+        "add_panel",
+        QT_TRANSLATE_NOOP("Construction_Panel", "Panel"),
+        QT_TRANSLATE_NOOP(
+            "Construction_Panel",
+            "Adds a panel of the build's PanelStock; edit its row in the parts table",
+        ),
+    ),
+)
+FreeCADGui.addCommand("Construction_Joint", JointCommand())
