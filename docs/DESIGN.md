@@ -307,6 +307,22 @@ Every change to an upstream file carries a `// FORK:` (C++) or `# FORK:` (Python
 
 ---
 
+### Phase 5.2 — Construction Usability: Measure, Generate, Iterate
+**Upstream baseline (verify in audit)**: FreeCAD task panels (`Gui::TaskView`), Draft/Sketcher snapping, Gui::Selection, Gui draggers (`SoTransformManip`). Builds on Phases 5 and 5.1.
+
+**Known gaps** (review 2026-10-11): generators produce correct outputs, but going from a measured space to a design, and iterating on it, needs typed strings (openings, widths, beams), spreadsheet cells (build parts and joints) and library ids. Templates stop being parametric once created. There is no room or footprint input, and parts cannot be moved in the 3D view.
+
+**Target scope** (in priority order)
+1. **Parametric templates**: a template's sizes and choices (height, top size, overhang, stock, joint, top fastening, shelf; bookcase shelves, ...) are properties of the build; changing one regenerates its rows. Rows the user edited by hand are kept as overrides (marked in the table) and survive regeneration.
+2. **Task panels with dropdowns**: editing panels for builds (parts list, joints list with joint-type and hardware dropdowns from the library, stock dropdowns), walls (openings as a list: kind, width, height, position, sill), floors (beams, openings) and cabinet runs (per-cabinet width and style, appliance gaps). Selecting a joint (or the two parts it joins) and changing its type is one action.
+3. **Room / footprint object**: enter measured walls as a list (length, angle, height) or from a closed sketch, with openings (doors, windows) and obstacles (appliance gaps, pipes). Generates wall framing that meets at the corners, and cabinet runs along chosen walls that turn corners (blind or corner cabinets) and leave gaps for appliances and openings.
+4. **Shed template opened up**: doors and windows per wall as a list; roof type gable or mono-pitch; the walls' openings editable like any wall.
+5. **Direct manipulation**: drag parts of a build, openings in a wall and cabinets in a run in the 3D view with snapping (faces, edges, grid); the drag writes back to the table or property.
+
+**Exit criteria**: (a) A user measures an L-shaped kitchen (3600 and 2400 mm walls, a window, a 600 mm range gap), enters it in one panel, and gets two cabinet runs meeting at a blind corner with the gap and the cut list, without typing library ids or editing a spreadsheet. (b) The End Table is made 50 mm taller and switched from figure-8 to Z-clip fasteners with two property changes. (c) A window is added to a shed wall from a panel. (d) A board in a build is dragged to a new position and snaps to a face.
+
+---
+
 ### Phase 6 — Direct, Surface, Mesh & Freeform Modeling
 **Upstream baseline (verify in audit)**: Part and Surface workbenches (OCCT surfacing), Mesh/MeshPart (repair, mesh-to-shape), Part defeaturing.
 
