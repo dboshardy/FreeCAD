@@ -136,7 +136,8 @@ Parts are grouped when their sizes match:
 
 Hardware comes from the cabinet's joints, the same joints from the library
 that you use in a build (tutorial 5): the carcass joint (**CarcassJoint**,
-confirmat screws unless you pick another, such as dowels or a dado), hinges
+confirmat screws unless you pick another, such as dowels or a dado), the
+back nailed on at most 150 mm apart, hinges
 on the side each door hangs from (door height decides the count), a slide
 pair per drawer and two pins at each end of a shelf. For the 800 mm cabinet:
 
@@ -146,6 +147,7 @@ pair per drawer and two pins at each end of a shelf. For the 800 mm cabinet:
 >>> joined = cabinet.joined(items)
 >>> for name, qty in CutList.hardware(items, fasteners=joined.fasteners):
 ...     print(qty, name)
+24 Brad nail, 1.2 x 25 mm
 4 Concealed hinge, 35 mm cup, full overlay
 12 Confirmat screw, 7 x 50 mm
 1 Drawer slide pair, side mount, full extension, 550 mm

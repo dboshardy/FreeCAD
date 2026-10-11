@@ -111,10 +111,11 @@ def add_ifc_type(obj, feature):
     )
 
 
-def add_library_choice(obj, prop, category, default, group, tip):
-    """Enumeration of library item ids of one category. A value whose item is
-    gone (user library changed) stays selectable and fails in execute()."""
-    ids = [i["id"] for i in Library.of_category(items(), category)]
+def add_library_choice(obj, prop, category, default, group, tip, where=None):
+    """Enumeration of library item ids of one category (and passing `where`).
+    A value whose item is gone (user library changed) stays selectable and
+    fails in execute()."""
+    ids = [i["id"] for i in Library.of_category(items(), category) if not where or where(i)]
     if prop in obj.PropertiesList:
         current = getattr(obj, prop)
     else:
@@ -151,6 +152,11 @@ def member_box(start, end, roll, section):
     V = FreeCAD.Vector
     box.Placement = FreeCAD.Placement(V(*start), FreeCAD.Rotation(V(*x), V(*y), V(*z), "ZXY"))
     return box
+
+
+def fixes_end_to_face(joint):
+    """A joint preset that fixes an end to a face (not hinges, slides or pins)."""
+    return "end_to_face" in joint.get("meets", ()) and joint.get("fixes", True)
 
 
 def joined_solids(result):
@@ -198,6 +204,7 @@ class CabinetFeature:
             Cabinet.Cabinet.carcass_joint,
             "Joinery",
             "Joint between the sides and the bottom, top and stretchers",
+            where=fixes_end_to_face,
         )
 
     def onDocumentRestored(self, obj):

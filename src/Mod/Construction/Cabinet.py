@@ -227,12 +227,16 @@ class Cabinet:
 
     def joint_rows(self):
         """Joints table rows (see Build.py) for parts(): the carcass joint,
-        hinges on the side each door hangs from, shelf pins and one slide pair
-        per drawer (counted at the left side)."""
+        the back nailed on, hinges on the side each door hangs from, shelf
+        pins and one slide pair per drawer (counted at the left side)."""
         rows = [
             (side, part, self.carcass_joint, "")
             for side in ("Left side", "Right side")
             for part in ("Bottom", "Top", "Front stretcher", "Back stretcher")
+        ]
+        rows += [
+            (part, "Back", "joint.brad_nail", "")
+            for part in ("Left side", "Right side", "Bottom", "Top", "Back stretcher")
         ]
         n, hinge = self.door_count(), "joint.concealed_hinge"
         if n == 1:  # hung from the side away from a blind panel
