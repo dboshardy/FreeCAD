@@ -1251,6 +1251,14 @@ class TestBuild(unittest.TestCase):
             Build.bookcase(height=300, shelves=10)
 
 
+    def test_on_face(self):
+        leg = Parts.Part("Leg", "board", (45, 45, 600), (0, 0, 0), "z")
+        # A 20 x 95 board on the leg's +x face: vertical, 600 long, 20 thick along x.
+        self.assertEqual(Build.on_face(leg, 0, 1, 20, 95), (600, 95, 45, 0, 0, "z", "x"))
+        # A panel under the leg covers the 45 x 45 face, 18 thick, below z = 0.
+        self.assertEqual(Build.on_face(leg, 2, -1, 18), (45, 45, 0, 0, -18, "x", "z"))
+
+
 class TestFastening(unittest.TestCase):
     def schedule(self):
         item = Library.load()["fastening.generic-example"]

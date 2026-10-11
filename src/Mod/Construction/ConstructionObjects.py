@@ -1274,6 +1274,21 @@ def add_panel(
     return feature.add_part(build, row)
 
 
+def add_on_face(build, part, axis, sign, panel=False, name=None, stock=None):
+    """Adds a board (or a panel) lying on a face of the part named `part`:
+    the face's normal is +/- axis (0, 1, 2 = x, y, z) in the build's
+    coordinates. Returns its name."""
+    p = {q.name: q for _, q in build.Proxy.parts(build)}[part]
+    if panel:
+        stock = stock or build.PanelStock
+        length, width, x, y, z, along, thick = Build.on_face(p, axis, sign, sheet_thickness(stock))
+        return add_panel(build, name, stock, length, width, (x, y, z), along, thick)
+    stock = stock or build.BoardStock
+    t, w = lumber_section(stock)
+    length, _, x, y, z, along, thick = Build.on_face(p, axis, sign, t, w)
+    return add_board(build, name, stock, length, (x, y, z), along, thick)
+
+
 def add_board_between(build, a, b, name=None, stock=None):
     """Adds a board spanning the gap between parts named a and b."""
     parts = {p.name: p for _, p in build.Proxy.parts(build)}

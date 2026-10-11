@@ -129,6 +129,19 @@ def between(a, b, section):
     return gaps[k], *pos, AXES[k], AXES[t_axis]
 
 
+def on_face(part, axis, sign, thick, width=None):
+    """Parts-table geometry for a board or panel lying against a face of
+    `part` (the face normal is +/- `axis`, 0..2): (length, width, x, y, z,
+    along, thick). It runs along the part's longer face direction for the
+    part's full length; a panel (width None) covers the face."""
+    k = axis
+    along, across = sorted((n for n in range(3) if n != k), key=lambda n: -part.size[n])
+    pos = list(part.pos)
+    pos[k] = part.hi(k) if sign > 0 else part.lo(k) - thick
+    width = part.size[across] if width is None else width
+    return part.size[along], width, *pos, AXES[along], AXES[k]
+
+
 def end_table(
     width=500,
     depth=500,

@@ -50,7 +50,9 @@ gap, 430 − 70 = 360 mm long, flush with the tops of the legs. Rename it
 outer faces. Do the same for the other three sides ("Apron 2" to "Apron 4").
 
 Add the top with **Panel**: stock *Edge-glued hardwood panel 18 mm*, 500 ×
-500, at Z 582.
+500, at Z 582. (With a face selected, **Board** lays a board along it and
+**Panel** covers it: select the top of a leg and click **Panel** to start a
+panel there, then set its size and position in the table.)
 
 ## 3. Joints
 

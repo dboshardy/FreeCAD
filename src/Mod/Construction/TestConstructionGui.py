@@ -131,6 +131,25 @@ class TestConstructionGui(unittest.TestCase):
         self.assertNotIn("Invalid", build.State)
 
 
+    def test_board_on_selected_face(self):
+        import ConstructionObjects as CO
+
+        build = CO.make_build(self.doc)
+        CO.add_board(build, "Leg 1", "lumber.metric.hw.45x45", 600, (0, 0, 0), "z", "x")
+        self.doc.recompute()
+        top = next(
+            f"Face{i}"
+            for i, f in enumerate(build.Shape.Faces, start=1)
+            if abs(f.CenterOfMass.z - 600) < 1e-6
+        )
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.Selection.addSelection(build, top)
+        FreeCADGui.runCommand("Construction_Panel")
+        self.doc.recompute()
+        panel = build.Proxy.parts(build)[-1][1]
+        self.assertEqual((panel.size, panel.pos), ((45, 45, 18), (0, 0, 600)))
+
+
 class TestCoreUx(unittest.TestCase):
     def setUp(self):
         self.doc = FreeCAD.newDocument("CoreUxTest")
