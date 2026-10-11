@@ -11,6 +11,7 @@
     {"id": "hardware.deck_screw", "category": "hardware", "region": "generic", "name": "Deck screw, 5 x 60 mm"},
     {"id": "hardware.wall_anchor", "category": "hardware", "region": "generic", "name": "Wall anchor for cabinets and furniture (screw into wall framing; choose for your wall type and load)", "per_cabinet": 2},
     {"id": "hardware.brad_nail", "category": "hardware", "region": "generic", "name": "Brad nail, 1.2 x 25 mm"},
+    {"id": "hardware.loose_tenon", "category": "hardware", "region": "generic", "name": "Loose tenon stock, cut to the mortises (2 x depth long)"},
     {"id": "hardware.dowel_8x35", "category": "hardware", "region": "generic", "name": "Fluted dowel, 8 x 35 mm"},
     {"id": "hardware.pocket_screw", "category": "hardware", "region": "generic", "name": "Pocket-hole screw, coarse thread, length for the stock"},
     {"id": "hardware.wood_screw_4x40", "category": "hardware", "region": "generic", "name": "Wood screw, 4 x 40 mm"},

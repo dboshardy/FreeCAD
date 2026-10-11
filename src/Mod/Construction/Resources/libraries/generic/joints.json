@@ -5,6 +5,7 @@
   "defaults": {"category": "joint", "region": "generic"},
   "items": [
     {"id": "joint.mortise_tenon", "name": "Mortise and tenon", "kind": "tenon", "depth": 25, "thickness": 0, "shoulder": 10, "meets": ["end_to_face"]},
+    {"id": "joint.loose_tenon", "name": "Loose tenon (floating tenon)", "kind": "loose_tenon", "depth": 20, "thickness": 0, "shoulder": 10, "fastener": "hardware.loose_tenon", "per_joint": 1, "meets": ["end_to_face", "edge_to_face"]},
     {"id": "joint.dowel", "name": "Dowels, 8 mm", "kind": "fastened", "fastener": "hardware.dowel_8x35", "spacing": 96, "edge": 32, "operation": "{n} dowel hole{s}, 8 mm", "meets": ["end_to_face", "edge_to_face"]},
     {"id": "joint.pocket_screw", "name": "Pocket screws", "kind": "fastened", "fastener": "hardware.pocket_screw", "spacing": 150, "edge": 25, "operation": "{n} pocket hole{s}", "on": "inserted", "meets": ["end_to_face", "edge_to_face"]},
     {"id": "joint.screw", "name": "Screws through the face", "kind": "fastened", "fastener": "hardware.wood_screw_4x40", "spacing": 200, "edge": 50, "operation": "{n} countersunk pilot hole{s}", "on": "receiver", "meets": ["end_to_face", "edge_to_face", "face_to_face"]},
