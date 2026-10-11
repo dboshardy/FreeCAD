@@ -275,6 +275,54 @@ class TestConstructionApp(unittest.TestCase):
         self.assertBuilt(stair)
         self.assertGreater(stair.Shape.BoundBox.YLength, 13 * 271)  # 12 runs + landing
 
+    def test_parametric_template(self):
+        table = CO.make_end_table(self.doc)
+        self.assertEqual(table.Template, "table")
+        legs = lambda: [
+            r for r in table.Proxy.part_rows(table) if r[0].startswith("Leg")
+        ]  # noqa: E731
+        table.Height = 650  # Phase 5.2 exit (b): one property
+        self.doc.recompute()
+        self.assertBuilt(table)
+        self.assertEqual({r[2] for r in legs()}, {632.0})  # 650 - 18 top
+        table.TopJoint = "joint.z_clip"
+        self.doc.recompute()
+        self.assertIn("hardware.z_clip", table.Proxy.fasteners(table, None))
+        # A row edited by hand survives regeneration and is marked.
+        table.PartsTable.set("C2", "700")  # Leg 1 length
+        table.Width = 600
+        self.doc.recompute()
+        self.assertEqual(legs()[0][2], 700.0)
+        self.assertEqual(legs()[1][2], 632.0)
+        self.assertEqual(table.PartsTable.getContents("K2"), "'edited")
+        table.Overhang = 400  # too big for the top: reported, not crashed
+        self.doc.recompute()
+        self.assertIn("Invalid", table.State)
+        table.Overhang = 25
+        self.doc.recompute()
+        self.assertBuilt(table)
+        shelf = CO.make_bookcase(self.doc)
+        shelf.Shelves = 2
+        self.doc.recompute()
+        names = [r[0] for r in shelf.Proxy.part_rows(shelf)]
+        self.assertNotIn("Shelf 3", names)
+
+    def test_template_after_reopening(self):
+        import os
+        import tempfile
+
+        CO.make_end_table(self.doc)
+        path = os.path.join(tempfile.mkdtemp(), "table.FCStd")
+        self.doc.saveAs(path)
+        FreeCAD.closeDocument(self.doc.Name)
+        self.doc = FreeCAD.openDocument(path)
+        table = self.doc.getObject("EndTable")
+        table.Height = 700
+        self.doc.recompute()
+        self.assertBuilt(table)
+        legs = [r[2] for r in table.Proxy.part_rows(table) if r[0].startswith("Leg")]
+        self.assertEqual(set(legs), {682.0})
+
     def test_drawing(self):
         shed = CO.make_shed(self.doc)
         page = CO.make_drawing([shed], self.doc)
