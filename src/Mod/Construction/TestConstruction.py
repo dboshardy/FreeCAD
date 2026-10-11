@@ -1070,7 +1070,7 @@ class TestJoinery(unittest.TestCase):
         # Per end: the 20 x 100 x 25 lengthening minus the 6.7 x 80 x 25 tenon.
         self.assertAlmostEqual(volume, 2 * (20 * 100 * 25 - 20 / 3 * 80 * 25))
         texts = sorted(t for _, t in result.operations)
-        self.assertEqual(texts[0], "mortise 80 x 6.7 x 25 deep for Apron")
+        self.assertEqual(texts[0], "mortise 80 x 6.7 x 25 deep")
         self.assertEqual(texts[-1], "tenon 80 x 6.7 x 25 long")
         with self.assertRaises(ValueError):  # longer than the leg is thick
             Joinery.apply(self.table(), [Joinery.Rule("Leg", "Apron", "tenon", depth=50)])
@@ -1142,7 +1142,7 @@ class TestBuild(unittest.TestCase):
         self.assertEqual(apron.size[0], 410 + 2 * 20)
         self.assertIn("tenon 75 x 6.7 x 20 long", apron.operations)
         leg = dict((p.name, p) for _, p in parts)["Leg 1"]
-        self.assertEqual(leg.operations, ("mortise 75 x 6.7 x 20 deep for Apron 1",))
+        self.assertEqual(leg.operations, ("mortise 75 x 6.7 x 20 deep",))
         # Top on the apron's top edge, 410 long: 260 between the end fasteners -> 2.
         self.assertEqual(result.fasteners, {"hardware.figure8": 2})
         self.assertIn("2 figure-8 recesses", apron.operations)
@@ -1150,7 +1150,7 @@ class TestBuild(unittest.TestCase):
         ops = CutList.operations(parts)
         self.assertEqual(len(ops), len(rows))
         self.assertEqual(sum(r[6] for r in rows), 4)
-        self.assertIn("mortise 75 x 6.7 x 20 deep for Apron 1", ops)
+        self.assertIn("mortise 75 x 6.7 x 20 deep", ops)
         with self.assertRaises(ValueError):
             self.table([("Leg*", "Apron*", "joint.nope", "")])
 
@@ -1169,6 +1169,20 @@ class TestBuild(unittest.TestCase):
         self.assertEqual((length, x, y, z, along, thick), (410, 45, 12.5, 505, "x", "y"))
         with self.assertRaises(ValueError):
             Build.between(legs[0], legs[0], (20, 95))
+
+
+    def test_end_table_template(self):
+        parts, result = Build.build(*Build.end_table(), self.ITEMS)
+        self.assertEqual(len(parts), 9)
+        self.assertEqual(result.fasteners, {"hardware.figure8": 8})
+        # The two mortises in each leg (front and side aprons) must not meet.
+        for leg in range(4):
+            a, b = [p for i, p in result.pockets if i == leg]
+            self.assertIsNone(Joinery.overlap(a, b))
+        with self.assertRaises(ValueError):
+            Build.end_table(width=100)
+        with self.assertRaises(ValueError):
+            Build.end_table(setback=30)
 
 
 class TestFastening(unittest.TestCase):

@@ -1199,6 +1199,20 @@ def make_build(doc=None, name="Build"):
     return obj
 
 
+def make_end_table(doc=None, name="EndTable", **sizes):
+    """A build filled from the end table template (Build.end_table: sizes);
+    edit it afterwards in its tables like any build."""
+    build = make_build(doc, name)
+    parts, joints = Build.end_table(**sizes)
+    for r, row in enumerate(parts, start=2):
+        _write_row(build.PartsTable, r, list(row))
+    for r, row in enumerate(joints, start=2):
+        _write_row(build.JointsTable, r, list(row))
+    build.touch()
+    build.Document.recompute()
+    return build
+
+
 def add_board(
     build, name=None, stock=None, length=1000, pos=(0, 0, 0), along="x", thick="z", **sizes
 ):
@@ -1463,7 +1477,7 @@ def _page(doc, name, title):
         {
             "title": title,
             "part_material": "Timber and sheet goods: see the cut list",
-            "document_type": "Framing drawing",
+            "document_type": "Construction drawing",
         }
     )
     template.EditableTexts = texts

@@ -193,10 +193,12 @@ def _housing(out, i, j, k, sign, lo, hi, depth):
         plo[k] = hi[k] - depth
     else:
         phi[k] = lo[k] + depth
-    pocket = Part(f"{out.boxes[i].name} pocket", "pocket", tuple(h - l for l, h in zip(plo, phi)), tuple(plo))
+    pocket = Part(
+        f"{out.boxes[i].name} pocket", "pocket", tuple(h - l for l, h in zip(plo, phi)), tuple(plo)
+    )
     out.pockets.append((i, pocket))
     width = sorted(s for n, s in enumerate(pocket.size) if n != k)
-    out.operations.append((i, f"housing {width[0]:g} x {depth:g} deep for {b.name}"))
+    out.operations.append((i, f"housing {round(width[0], 1):g} x {depth:g} deep"))
 
 
 def _half_lap(out, i, j, crossing):
@@ -212,7 +214,9 @@ def _half_lap(out, i, j, crossing):
         plo, phi = list(lo), list(hi)
         plo[k], phi[k] = a, b
         size = tuple(h - l for l, h in zip(plo, phi))
-        out.pockets.append((index, Part(f"{out.boxes[index].name} lap", "pocket", size, tuple(plo))))
+        out.pockets.append(
+            (index, Part(f"{out.boxes[index].name} lap", "pocket", size, tuple(plo)))
+        )
         out.operations.append((index, "half lap"))
 
 
@@ -261,5 +265,5 @@ def _tenon(out, i, j, k, sign, rule):
     # ponytail: two tenons into one leg from adjacent sides can meet inside it;
     # not detected. Shorten or miter them by hand until a check reports it.
     w, t = round(w_hi - w_lo, 1), round(t_hi - t_lo, 1)
-    out.operations.append((i, f"mortise {w:g} x {t:g} x {depth:g} deep for {b.name}"))
+    out.operations.append((i, f"mortise {w:g} x {t:g} x {depth:g} deep"))
     out.operations.append((j, f"tenon {w:g} x {t:g} x {depth:g} long"))

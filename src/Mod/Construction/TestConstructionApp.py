@@ -135,6 +135,41 @@ class TestConstructionApp(unittest.TestCase):
         self.doc.recompute()
         self.assertAlmostEqual(build.Shape.BoundBox.ZMax, 700)
 
+    def test_end_table_by_hand_matches_template(self):
+        # Phase 5.1 exit criterion: a 500 x 500 x 600 end table built by hand, with the
+        # mortise and tenon applied once and repeated for similar pairs, equals the template.
+        import Build
+        import CutList
+
+        hand = CO.make_build(self.doc, "Hand")
+        leg, apron = "lumber.metric.hw.45x45", "lumber.metric.hw.20x95"
+        for n, (x, y) in enumerate(((25, 25), (430, 25), (430, 430), (25, 430)), start=1):
+            CO.add_board(hand, f"Leg {n}", leg, 582, (x, y, 0), "z", "x")
+        CO.add_board_between(hand, "Leg 1", "Leg 2", "Apron 1", apron)
+        hand.PartsTable.set("G6", "30")  # Y: 5 mm back from the legs' outer face
+        CO.add_board(hand, "Apron 2", apron, 360, (450, 70, 487), "y", "x")
+        CO.add_board(hand, "Apron 3", apron, 360, (70, 450, 487), "x", "y")
+        CO.add_board(hand, "Apron 4", apron, 360, (30, 70, 487), "y", "x")
+        CO.add_panel(hand, "Top", "sheet.metric.edge_glued.18", 500, 500, (0, 0, 582))
+        # The Joint command with "Apply to similar": Leg 1 / Apron 1 -> Leg* / Apron*.
+        hand.Proxy.add_joint(
+            hand, Build.similar("Leg 1"), Build.similar("Apron 1"), "joint.mortise_tenon"
+        )
+        hand.Proxy.add_joint(hand, Build.similar("Apron 1"), "Top", "joint.figure8")
+        template = CO.make_end_table(self.doc)
+        self.doc.recompute()
+        for build in (hand, template):
+            self.assertBuilt(build)
+        self.assertEqual(hand.Proxy.parts(hand), template.Proxy.parts(template))
+        parts = hand.Proxy.parts(hand)
+        rows = {r[1]: r for r in CutList.rows(parts)}
+        ops = dict(zip((r[1] for r in CutList.rows(parts)), CutList.operations(parts)))
+        self.assertEqual(rows["Apron 1"][2:], (410, 95, 20, "yes", 4))  # 360 + two 25 tenons
+        self.assertEqual(rows["Leg 1"][2:], (582, 45, 45, "yes", 4))
+        self.assertEqual(ops["Leg 1"], "2 x mortise 75 x 6.7 x 25 deep")
+        self.assertEqual(hand.Proxy.fasteners(hand, None), {"hardware.figure8": 8})
+        self.assertAlmostEqual(hand.Shape.Volume, template.Shape.Volume)
+
     def test_drawing(self):
         shed = CO.make_shed(self.doc)
         page = CO.make_drawing([shed], self.doc)

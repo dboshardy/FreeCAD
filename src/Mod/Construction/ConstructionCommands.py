@@ -547,3 +547,15 @@ FreeCADGui.addCommand(
     ),
 )
 FreeCADGui.addCommand("Construction_Joint", JointCommand())
+FreeCADGui.addCommand(
+    "Construction_EndTable",
+    FramingCommand(
+        "make_end_table",
+        QT_TRANSLATE_NOOP("Construction_EndTable", "End Table"),
+        QT_TRANSLATE_NOOP(
+            "Construction_EndTable",
+            "Creates an end table build: legs, mortise-and-tenon aprons, a top on "
+            "figure-8 fasteners; edit it in its parts and joints tables",
+        ),
+    ),
+)

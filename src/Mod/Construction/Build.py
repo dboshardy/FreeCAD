@@ -126,3 +126,45 @@ def between(a, b, section):
     pos[t_axis] = sum(shared[t_axis]) / 2 - thick / 2
     pos[w_axis] = shared[w_axis][1] - width
     return gaps[k], *pos, AXES[k], AXES[t_axis]
+
+
+def end_table(
+    width=500,
+    depth=500,
+    height=600,
+    overhang=25,
+    setback=5,
+    leg=("lumber.metric.hw.45x45", 45),
+    apron=("lumber.metric.hw.20x95", 20, 95),
+    top=("sheet.metric.edge_glued.18", 18),
+    joint="joint.mortise_tenon",
+    top_joint="joint.figure8",
+):
+    """(parts rows, joints rows) of an end table: four legs, four aprons
+    between them (set back from the legs' outer faces, flush with their tops),
+    and a top overhanging the leg frame. leg: (stock, size), apron: (stock,
+    thickness, width), top: (stock, thickness). Sizes in mm."""
+    leg_stock, s = leg
+    apron_stock, t, w = apron
+    top_stock, top_t = top
+    leg_h = height - top_t
+    x0, x1 = overhang, width - overhang - s
+    y0, y1 = overhang, depth - overhang - s
+    if x1 - x0 <= s or y1 - y0 <= s:
+        raise ValueError("the top is too small for the legs and overhang")
+    if setback + t > s:
+        raise ValueError("the aprons are thicker than the legs allow with this setback")
+    z = leg_h - w
+    parts = [
+        (f"Leg {n}", leg_stock, leg_h, s, s, x, y, 0, "z", "x")
+        for n, (x, y) in enumerate(((x0, y0), (x1, y0), (x1, y1), (x0, y1)), start=1)
+    ]
+    parts += [
+        ("Apron 1", apron_stock, x1 - x0 - s, w, t, x0 + s, y0 + setback, z, "x", "y"),
+        ("Apron 2", apron_stock, y1 - y0 - s, w, t, x1 + s - setback - t, y0 + s, z, "y", "x"),
+        ("Apron 3", apron_stock, x1 - x0 - s, w, t, x0 + s, y1 + s - setback - t, z, "x", "y"),
+        ("Apron 4", apron_stock, y1 - y0 - s, w, t, x0 + setback, y0 + s, z, "y", "x"),
+        ("Top", top_stock, width, depth, top_t, 0, 0, leg_h, "x", "z"),
+    ]
+    joints = [("Leg*", "Apron*", joint, ""), ("Apron*", "Top", top_joint, "")]
+    return parts, joints
