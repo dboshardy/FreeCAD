@@ -25,6 +25,7 @@
       "guard_min_rise_mm": 750,
       "guard_height_min_mm": 900,
       "guard_opening_max_mm": 100,
+      "landing_min_depth_mm": 900,
       "anchor_cabinet_kinds": ["wall", "tall"],
       "mortise_wall_min_mm": 6,
       "hole_wall_min_mm": 3,

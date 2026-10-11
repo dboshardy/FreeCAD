@@ -288,6 +288,38 @@ def stair(stair, rules):
     return out
 
 
+def landing_stair(model, rules):
+    """Checks a Framing.LandingStair: the stair checks for its equal risers,
+    then the landing's depth (at least the stair width and the rule set's
+    landing_min_depth_mm) and its guards."""
+    out = stair(model.stair, rules)
+    need = max(model.stair.width, rules.get("landing_min_depth_mm", 0))
+    depth = model.depth()
+    out.append(
+        (
+            "Landing depth",
+            OK if depth >= need - 1e-6 else WARNING,
+            f"{depth:.0f} mm, at least the stair width {model.stair.width:g} mm"
+            + (
+                f" and the rule's {rules['landing_min_depth_mm']:g} mm"
+                if "landing_min_depth_mm" in rules
+                else ""
+            ),
+        )
+    )
+    rise = rules.get("guard_min_rise_mm")
+    if rise is not None and model.landing_top() > rise:
+        sides = model.stair.open_sides
+        status = REQUIRED if sides != "none" else OK
+        detail = (
+            f"landing {model.landing_top():.0f} mm up: guards generated on the open sides ({sides})"
+            if sides != "none"
+            else "landing between walls"
+        )
+        out.append(("Landing guards", status, detail))
+    return out
+
+
 def deck(deck, rules, joist_values=None, beam_values=None, load_kpa=0.0):
     """Checks a Framing.Deck. load_kpa: live + dead load on the deck surface."""
     joist_span = deck.joist_span()

@@ -733,6 +733,29 @@ class TestShedRoof(unittest.TestCase):
             Framing.ShedRoof(span=150).boards()
 
 
+class TestLandingStair(unittest.TestCase):
+    def test_landing(self):
+        model = Framing.LandingStair(Framing.Stair(), landing_after=7)
+        stair = model.stair
+        self.assertEqual(stair.risers(), 14)  # 2600 / 190 -> 14 equal risers
+        # The landing's front edge is the first flight's top riser face (6 runs).
+        self.assertAlmostEqual(model.landing_y(), 6 * stair.run())
+        self.assertAlmostEqual(model.landing_top(), 7 * stair.riser())
+        names = Counter(p.name for p in model.pieces())
+        # 6 treads of 2 boards in each flight, and 6 boards across the 900 landing:
+        # 6 x 145 + 5 x 6 = 900.
+        self.assertEqual(names["Tread"], 30)
+        self.assertEqual(names["Landing post"], 4)
+        self.assertEqual(names["Landing rail"], 2)  # both sides open
+        self.assertEqual(len(model.boards()), 2 * len(stair.stringer_centres()))
+        rules = Library.load()["rules.generic-example"]
+        found = {c: st for c, st, _ in Checks.landing_stair(model, rules)}
+        self.assertEqual(found["Landing depth"], Checks.OK)
+        self.assertEqual(found["Landing guards"], Checks.REQUIRED)
+        with self.assertRaises(ValueError):
+            Framing.LandingStair(Framing.Stair(), landing_after=1).pieces()
+
+
 class TestGableRoof(unittest.TestCase):
     def test_geometry(self):
         roof = Framing.GableRoof(length=3600, span=3000, pitch=26.565, overhang=300)

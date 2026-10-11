@@ -857,6 +857,8 @@ class StairFeature(FramingFeature):
         (ENUM, "OpenSides", "Sides without a wall: they get a guard", _d.open_sides),
         _length("HandrailHeight", "Top of the handrail above the nosings", _d.handrail_height),
         _length("BalusterGap", "Largest clear gap between balusters", _d.max_baluster_gap),
+        (INTEGER, "LandingAfter", "Risers up to a landing; 0 = straight stair, no landing", 0),
+        _length("LandingDepth", "Landing depth along the run; 0 = the stair width", 0.0),
     ]
     MATERIALS = [
         ("StringerMaterial", "stringer", "lumber.metric.45x220", "Stringers (cut)"),
@@ -864,9 +866,21 @@ class StairFeature(FramingFeature):
         ("RailMaterial", "rail", "lumber.metric.45x70", "Handrails"),
         ("PostMaterial", "post", "lumber.metric.70x70", "Newel posts"),
         ("BalusterMaterial", "baluster", "lumber.metric.45x45", "Balusters"),
+        ("LandingJoistMaterial", "landing_joist", "lumber.metric.45x145", "Landing frame"),
     ]
 
     def model(self, obj):
+        stair = self.stair(obj)
+        if int(obj.LandingAfter) <= 0:
+            return stair
+        return Framing.LandingStair(
+            stair,
+            int(obj.LandingAfter),
+            float(obj.LandingDepth.Value),
+            lumber_section(obj.LandingJoistMaterial),
+        )
+
+    def stair(self, obj):
         max_riser = rule_set().get("stair_riser_max_mm")
         if not max_riser:
             raise ValueError("the rule set has no stair_riser_max_mm")
@@ -890,7 +904,10 @@ class StairFeature(FramingFeature):
         )
 
     def checks(self, obj, rules):
-        return Checks.stair(self.model(obj), rules)
+        model = self.model(obj)
+        if isinstance(model, Framing.LandingStair):
+            return Checks.landing_stair(model, rules)
+        return Checks.stair(model, rules)
 
 
 class DeckFeature(FramingFeature):
