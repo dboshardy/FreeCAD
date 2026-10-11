@@ -2,6 +2,7 @@
 # FORK: parametric construction objects (design doc §5.4, §5.6).
 
 import json
+import math
 import os
 from dataclasses import replace
 
@@ -17,6 +18,7 @@ import Joinery
 import Library
 import Member
 import Parts
+import Room
 import Sheathing
 import Shed
 
@@ -429,8 +431,8 @@ def make_cabinet(preset="base", doc=None):
     return _make(CabinetFeature, preset, preset.capitalize() + "Cabinet", doc)
 
 
-def make_cabinet_run(preset="base", doc=None):
-    return _make(CabinetRunFeature, preset, preset.capitalize() + "Run", doc)
+def make_cabinet_run(preset="base", doc=None, name=None):
+    return _make(CabinetRunFeature, preset, name or preset.capitalize() + "Run", doc)
 
 
 class MemberFeature:
@@ -1619,6 +1621,141 @@ def add_board_between(build, a, b, name=None, stock=None):
     section = lumber_section(stock)
     length, x, y, z, along, thick = Build.between(parts[a], parts[b], section)
     return add_board(build, name, stock, length, (x, y, z), along, thick)
+
+
+class RoomFeature:
+    """A measured room (Room.py): walls, openings and appliance gaps, edited in
+    its panel (double-click). Generate makes and updates wall framing and
+    cabinet runs from it; they stay ordinary objects to edit further."""
+
+    IFC_TYPE = "Space"
+    GROUP = "Room"
+
+    def __init__(self, obj):
+        obj.Proxy = self
+        self.setProperties(obj)
+
+    def setProperties(self, obj):
+        add_ifc_type(obj, self)
+        props = [
+            (LENGTH, "Height", "Floor to ceiling framing height", 2440.0),
+            ("App::PropertyString", "WallsData", "Walls (JSON: [[length, turn], ...])", ""),
+            ("App::PropertyString", "OpeningsData", "Openings (JSON)", "[]"),
+            ("App::PropertyString", "GapsData", "Appliance gaps (JSON)", "[]"),
+            ("App::PropertyString", "BaseCabinetWalls", "Walls with base cabinets, e.g. 1, 2", ""),
+            ("App::PropertyString", "WallCabinetWalls", "Walls with wall cabinets, e.g. 1, 2", ""),
+            ("App::PropertyBool", "FrameWalls", "Generate wall framing for every wall", False),
+            (
+                "App::PropertyLink",
+                "Base",
+                "Closed or open sketch of the walls (square corners)",
+                None,
+            ),
+            ("App::PropertyLinkList", "Generated", "Objects made from this room", []),
+        ]
+        for ptype, prop, tip, value in props:
+            add_property(obj, ptype, prop, self.GROUP, tip, value)
+        if not obj.WallsData:
+            obj.WallsData = json.dumps([[3600.0, "left"], [2400.0, "left"]])
+        for prop in ("WallsData", "OpeningsData", "GapsData", "Generated"):
+            obj.setEditorMode(prop, 2)  # edited in the panel
+
+    def onDocumentRestored(self, obj):
+        self.setProperties(obj)
+
+    def model(self, obj):
+        walls = json.loads(obj.WallsData)
+        if obj.Base is not None:
+            wire = Part.Wire(Part.__sortEdges__(obj.Base.Shape.Edges))
+            points = [(v.Point.x, v.Point.y) for v in wire.OrderedVertexes]
+            if wire.isClosed():
+                points.append(points[0])
+            walls = Room.plan(points)
+        return Room.Room(
+            walls=[tuple(w) for w in walls],
+            height=float(obj.Height.Value),
+            openings=[tuple(o) for o in json.loads(obj.OpeningsData)],
+            gaps=[tuple(g) for g in json.loads(obj.GapsData)],
+        )
+
+    def execute(self, obj):
+        room = self.model(obj)
+        room.validate()
+        points = [FreeCAD.Vector(x, y, 0) for x, y in room.corners()]
+        obj.Shape = Part.makePolygon(points)
+
+    def generate(self, obj):
+        """Makes or updates the room's wall framing and cabinet runs."""
+        doc = obj.Document
+        room = self.model(obj)
+        keep = []
+
+        def child(name, make):
+            existing = doc.getObject(f"{obj.Name}_{name}")
+            if existing is None:
+                existing = make()
+                existing.Label = f"{obj.Label} {name}"
+            keep.append(existing)
+            return existing
+
+        def place(target, origin, local_x, z=0.0):
+            angle = math.degrees(math.atan2(local_x[1], local_x[0]))
+            target.Placement = FreeCAD.Placement(
+                FreeCAD.Vector(origin[0], origin[1], z),
+                FreeCAD.Rotation(FreeCAD.Vector(0, 0, 1), angle),
+            )
+
+        if obj.FrameWalls:
+            depth = lumber_section(DEFAULT_LUMBER)[1]
+            for i, (name, wall, origin, local_x, _) in enumerate(room.framing(depth)):
+                frame = child(
+                    f"Wall{i + 1}", lambda: make_wall_frame(doc, f"{obj.Name}_Wall{i + 1}")
+                )
+                frame.Length = wall.length
+                frame.Height = wall.height
+                frame.CornerStart, frame.CornerEnd = wall.corners
+                frame.Openings = Framing.format_openings(wall.openings)
+                place(frame, origin, local_x)
+        for kind, prop in (("base", "BaseCabinetWalls"), ("wall", "WallCabinetWalls")):
+            walls = [int(w) for w in Framing.parse_numbers(getattr(obj, prop))]
+            spec = Cabinet.defaults(kind)
+            depth = spec.depth + spec.thickness  # with the fronts
+            for w, entries, origin, local_x in room.runs(walls, depth, upper=kind == "wall"):
+                label = "Base" if kind == "base" else "Upper"
+                run = child(
+                    f"{label}{w}",
+                    lambda: make_cabinet_run(kind, doc, f"{obj.Name}_{label}{w}"),
+                )
+                run.Length = room.walls[w - 1][0]
+                run.Widths = Cabinet.format_entries(
+                    [e[0] for e in entries], [e[1] for e in entries]
+                )
+                ny, nx = local_x[0], -local_x[1]  # outward = local y
+                back = (origin[0] - nx * spec.depth, origin[1] - ny * spec.depth)
+                place(run, back, local_x, Cabinet.WALL_ELEVATION if kind == "wall" else 0.0)
+        for old in obj.Generated:
+            if old not in keep:
+                doc.removeObject(old.Name)
+        obj.Generated = keep
+        doc.recompute()
+        return keep
+
+    def dumps(self):
+        return None
+
+    def loads(self, state):
+        return None
+
+
+def make_room(doc=None, name="Room"):
+    """A measured room (an open L of two walls to start with)."""
+    doc = doc or FreeCAD.ActiveDocument or FreeCAD.newDocument()
+    obj = doc.addObject("Part::FeaturePython", name)
+    RoomFeature(obj)
+    if FreeCAD.GuiUp:
+        ViewProvider(obj.ViewObject)
+    doc.recompute()
+    return obj
 
 
 def construction_objects(doc):

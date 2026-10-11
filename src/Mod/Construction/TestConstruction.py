@@ -20,6 +20,7 @@ import Joinery  # noqa: E402
 import Library  # noqa: E402
 import Member  # noqa: E402
 import Parts  # noqa: E402
+import Room  # noqa: E402
 import Sheathing  # noqa: E402
 import Shed  # noqa: E402
 
@@ -754,6 +755,64 @@ class TestLandingStair(unittest.TestCase):
         self.assertEqual(found["Landing guards"], Checks.REQUIRED)
         with self.assertRaises(ValueError):
             Framing.LandingStair(Framing.Stair(), landing_after=1).pieces()
+
+
+class TestRoom(unittest.TestCase):
+    def kitchen(self):
+        # An L: 3600 along x, then 2400 along y; a window on wall 1, a range on wall 2.
+        return Room.Room(
+            walls=[(3600, "left"), (2400, "left")],
+            openings=[(1, "window", 1200, 1000, 1200, 900)],
+            gaps=[(2, "range", 900, 600)],
+        )
+
+    def test_geometry(self):
+        room = self.kitchen()
+        self.assertEqual(room.corners(), [(0, 0), (3600, 0), (3600, 2400)])
+        self.assertFalse(room.closed())
+        self.assertEqual([room.corner_kind(i) for i in range(2)], ["outside", None])
+        box = Room.Room(walls=[(4000, "left"), (3000, "left"), (4000, "left"), (3000, "left")])
+        self.assertTrue(box.closed())
+        self.assertEqual({box.corner_kind(i) for i in range(4)}, {"outside"})
+        self.assertEqual(
+            Room.plan([(0, 0), (4000, 0), (4000, 3000), (0, 3000), (0, 0)]),
+            [(4000, "left"), (3000, "left"), (4000, "left"), (3000, "left")],
+        )
+        with self.assertRaises(ValueError):
+            Room.plan([(0, 0), (1000, 0), (2000, 500)])  # not square
+        with self.assertRaises(ValueError):
+            Room.Room(walls=[(1000, "left")], gaps=[(1, "range", 800, 600)]).validate()
+
+    def test_framing_corners(self):
+        frames = Room.Room(walls=[(4000, "left"), (3000, "left"), (4000, "left"), (3000, "left")])
+        walls = frames.framing(95)
+        # Every wall runs 95 through the outside corner at its end and has a
+        # corner stud where the previous wall butts against it.
+        self.assertEqual([w.length for _, w, _, _, _ in walls], [4095, 3095, 4095, 3095])
+        self.assertEqual({w.corners for _, w, _, _, _ in walls}, {(95, 0)})
+        _, _, origin, local_x, local_y = walls[1]
+        self.assertEqual((origin, local_x, local_y), ((4095, 0), (0, 1), (-1, 0)))
+
+    def test_kitchen_runs(self):
+        room = self.kitchen()
+        base = {w: (entries, origin, x) for w, entries, origin, x in room.runs([1, 2], 598)}
+        entries, origin, x = base[1]
+        # Wall 1 runs from its end (the corner) back: a 1000 blind corner cabinet first.
+        self.assertEqual((origin, x), ((3600, 0), (-1, 0)))
+        self.assertEqual(entries[0], (1000, "blind_left"))
+        self.assertEqual(sum(w for w, _ in entries), 3600)
+        entries, origin, x = base[2]
+        # Wall 2: from its far end back to the corner, the range gap at 900..1500
+        # and the corner's 598 left free for wall 1's blind cabinet.
+        self.assertEqual(entries[1], (600, "gap"))
+        self.assertEqual(entries[-1], (598, "gap"))
+        self.assertEqual(sum(w for w, _ in entries), 2400)
+        upper = {w: entries for w, entries, _, _ in room.runs([1], 338, upper=True)}
+        self.assertIn((1200, "gap"), upper[1])  # wall cabinets stop at the window
+        run = Cabinet.Run(
+            Cabinet.Cabinet(), length=1000, widths=(600, 400), styles=(None, "filler")
+        )
+        self.assertEqual([p.name for p in run.parts()].count("Filler"), 1)
 
 
 class TestGableRoof(unittest.TestCase):

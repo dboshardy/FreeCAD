@@ -381,7 +381,8 @@ def fill_widths(length, standard=STANDARD_WIDTHS):
 
 # Per-cabinet styles in a run: a front style, a sink, a blind corner (blind
 # panel on that side; the run's corner end), or a gap left for an appliance.
-RUN_STYLES = FRONTS + ("sink", "blind_left", "blind_right", "gap")
+RUN_STYLES = FRONTS + ("sink", "blind_left", "blind_right", "gap", "filler")
+FILLER = "filler"  # a filler panel in the plane of the fronts
 GAP = "gap"  # an empty space in a run: a range, fridge or dishwasher
 
 
@@ -475,6 +476,11 @@ class Run:
     def parts(self):
         return self.joined(None).boxes
 
+    def _filler(self, x, width):
+        c = self.cabinet
+        size = (width, c.thickness, c.carcass_height())
+        return Part("Filler", "filler", size, (x, -c.thickness, c.plinth_height), "z")
+
     def joined(self, items):
         """Joinery.Result of every cabinet (each joined on its own, then moved
         into place) and the fillers. items None: no joinery."""
@@ -488,6 +494,10 @@ class Run:
             if style == GAP:
                 x += width
                 continue
+            if style == FILLER:
+                out.append(self._filler(x, width))
+                x += width
+                continue
             cabinet = styled(replace(c, width=width), style)
             part = cabinet.joined(items) if items is not None else Joinery.Result(cabinet.parts())
             base = len(out)
@@ -498,16 +508,7 @@ class Run:
                 result.fasteners[key] = result.fasteners.get(key, 0) + count
             x += width
         # Fillers in the plane of the fronts, between the end cabinets and the walls.
-        size_z = c.carcass_height()
         for fx, fw in ((0.0, left), (x, right)):
             if fw >= 1.0:
-                out.append(
-                    Part(
-                        "Filler",
-                        "filler",
-                        (fw, c.thickness, size_z),
-                        (fx, -c.thickness, c.plinth_height),
-                        "z",
-                    )
-                )
+                out.append(self._filler(fx, fw))
         return result

@@ -56,6 +56,7 @@ class TestConstructionGui(unittest.TestCase):
             "Construction_BoardBetween",
             "Construction_Panel",
             "Construction_Edit",
+            "Construction_Room",
             "Construction_Joint",
             "Construction_Align",
             "Construction_Region",
@@ -262,6 +263,35 @@ class TestPanels(unittest.TestCase):
         wall = CO.make_wall_frame(self.doc)
         self.assertTrue(wall.ViewObject.Proxy.doubleClicked(wall.ViewObject))
         self.assertIsNotNone(FreeCADGui.Control.activeDialog())
+
+
+class TestRoomPanel(unittest.TestCase):
+    def setUp(self):
+        self.doc = FreeCAD.newDocument("RoomTest")
+        FreeCADGui.activateWorkbench("ConstructionWorkbench")
+
+    def tearDown(self):
+        FreeCADGui.Control.closeDialog()
+        FreeCAD.closeDocument(self.doc.Name)
+
+    def test_l_kitchen_from_one_panel(self):
+        # Phase 5.2 exit (a): an L-shaped kitchen from one panel, no ids, no spreadsheet.
+        import ConstructionObjects as CO
+        import ConstructionPanels
+
+        room = CO.make_room(self.doc)
+        panel = ConstructionPanels.edit_panel(room)
+        walls, openings, gaps, use = panel.editors
+        walls.set_rows([(3600, "left"), (2400, "left")])
+        openings.set_rows([(1, "window", 1200, 1000, 1200, 900)])
+        gaps.set_rows([(2, "range", 900, 600)])
+        use.set_rows([(1, "yes", "no"), (2, "yes", "no")])
+        self.assertTrue(panel.accept())
+        run1, run2 = self.doc.getObject("Room_Base1"), self.doc.getObject("Room_Base2")
+        self.assertTrue(run1.Widths.startswith("1000 blind_left"))
+        self.assertIn("600 gap", run2.Widths)
+        CO.write_cut_list(self.doc)
+        self.assertIsNotNone(self.doc.getObject("CutList"))
 
 
 class TestCoreUx(unittest.TestCase):

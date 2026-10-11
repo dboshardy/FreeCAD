@@ -26,6 +26,7 @@ class ConstructionWorkbench(Workbench):
             "Construction_Deck",
             "Construction_Sheathing",
             "Construction_Shed",
+            "Construction_Room",
             "Construction_Build",
             "Construction_Board",
             "Construction_BoardBetween",

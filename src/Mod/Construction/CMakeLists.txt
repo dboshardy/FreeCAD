@@ -16,6 +16,7 @@ set(Construction_SRCS
     Library.py
     Member.py
     Parts.py
+    Room.py
     Sheathing.py
     Shed.py
     TestConstruction.py
