@@ -624,9 +624,11 @@ class ShedRoof:
     rafter: tuple = (45.0, 145.0)
     seat: float = 95.0  # birdsmouth seat: the top plate width
     max_piece: float = 6000.0
+    gable_studs: bool = False  # studs over the end walls, up to the rafters
+    gable_stud: tuple = (45.0, 95.0)  # (thickness, depth): depth across the end wall
 
     def sections(self):
-        return {"rafter": self.rafter}
+        return {"rafter": self.rafter, "gable_stud": self.gable_stud}
 
     def slope(self):
         return math.tan(math.radians(self.pitch))
@@ -680,9 +682,28 @@ class ShedRoof:
             (span + oh, b(span + oh) + dp),
             (-oh, b(-oh) + dp),
         ]
-        return [
+        out = [
             ProfilePiece("Rafter", x, outline, self.pitch, "rafter") for x in self.rafter_centres()
         ]
+        if self.gable_studs:
+            for x in (self.seat / 2, self.length - self.seat / 2):
+                for stud in self._gable_stud_outlines():
+                    out.append(ProfilePiece("Gable stud", x, stud, 90.0, "gable_stud", self.seat))
+        return out
+
+    def _gable_stud_outlines(self):
+        """Studs on the end walls' plates between the low and high walls, on
+        the rafter layout, tops cut to the rafters' underside."""
+        t = self.gable_stud[0]
+        out = []
+        for c in layout_centres(self.span, self.spacing, t):
+            y0, y1 = c - t / 2, c + t / 2
+            if y0 < self.seat - 1e-6 or y1 > self.span - self.seat + 1e-6:
+                continue  # over the low or high wall
+            if self.bottom(y0) < 30.0:
+                continue  # too short to be worth a stud
+            out.append([(y0, 0.0), (y1, 0.0), (y1, self.bottom(y1)), (y0, self.bottom(y0))])
+        return out
 
     def boards(self):
         self.validate()

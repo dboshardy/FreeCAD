@@ -369,6 +369,19 @@ class TestConstructionApp(unittest.TestCase):
         self.doc.recompute()
         self.assertEqual(len(other.Proxy.model(other).walls), 4)
 
+    def test_shed_options(self):
+        shed = CO.make_shed(self.doc)
+        shed.RoofType = "shed"
+        shed.Pitch = 14.04
+        shed.Openings = "front: door 900x2100 @ 1350; right: window 600x600 @ 1000 sill 1200"
+        self.doc.recompute()
+        self.assertBuilt(shed)
+        checks = {c: s for c, s, _ in shed.Proxy.checks(shed, CO.rule_set())}
+        self.assertEqual(checks["Roof: High wall"], "ok")
+        shed.Openings = "none"
+        self.doc.recompute()
+        self.assertBuilt(shed)
+
     def test_drawing(self):
         shed = CO.make_shed(self.doc)
         page = CO.make_drawing([shed], self.doc)

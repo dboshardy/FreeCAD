@@ -294,6 +294,30 @@ class TestRoomPanel(unittest.TestCase):
         self.assertIsNotNone(self.doc.getObject("CutList"))
 
 
+class TestShedPanel(unittest.TestCase):
+    def setUp(self):
+        self.doc = FreeCAD.newDocument("ShedPanelTest")
+
+    def tearDown(self):
+        FreeCADGui.Control.closeDialog()
+        FreeCAD.closeDocument(self.doc.Name)
+
+    def test_window_from_panel(self):
+        # Phase 5.2 exit (c): a window added to a shed wall from a panel.
+        import ConstructionObjects as CO
+        import ConstructionPanels
+
+        shed = CO.make_shed(self.doc)
+        panel = ConstructionPanels.edit_panel(shed)
+        editor = panel.editors[0]
+        self.assertEqual(editor.rows()[0][:2], ("front", "door"))  # the default door shows
+        editor.add_row(["right", "window", 600, 600, 1000, 1200])
+        self.assertTrue(panel.accept())
+        model = shed.Proxy.model(shed)
+        self.assertEqual([o.kind for o in model.wall_openings("right")], ["window"])
+        self.assertEqual([o.kind for o in model.wall_openings("front")], ["door"])
+
+
 class TestCoreUx(unittest.TestCase):
     def setUp(self):
         self.doc = FreeCAD.newDocument("CoreUxTest")
