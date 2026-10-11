@@ -170,6 +170,20 @@ class TestConstructionApp(unittest.TestCase):
         self.assertEqual(hand.Proxy.fasteners(hand, None), {"hardware.figure8": 8})
         self.assertAlmostEqual(hand.Shape.Volume, template.Shape.Volume)
 
+    def test_cabinet_joints(self):
+        cabinet = CO.make_cabinet("base", self.doc)
+        self.assertEqual(cabinet.CarcassJoint, "joint.confirmat")
+        volume = cabinet.Shape.Volume
+        cabinet.CarcassJoint = "joint.dado"  # housings: the bottom grows into the sides
+        self.doc.recompute()
+        self.assertBuilt(cabinet)
+        self.assertAlmostEqual(cabinet.Shape.Volume, volume, delta=1)  # moved, not added
+        bottom = dict((p.name, p) for _, p in cabinet.Proxy.parts(cabinet))["Bottom"]
+        self.assertEqual(bottom.size[0], 564 + 12)
+        cut = CO.write_cut_list(self.doc)
+        column_a = [cut.getContents(f"A{r}") for r in range(1, 80)]
+        self.assertTrue(any("Concealed hinge" in c for c in column_a))
+
     def test_drawing(self):
         shed = CO.make_shed(self.doc)
         page = CO.make_drawing([shed], self.doc)

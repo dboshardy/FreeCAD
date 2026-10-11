@@ -327,24 +327,42 @@ class TestSheetLayout(unittest.TestCase):
 
 class TestHardware(unittest.TestCase):
     def test_hinges_by_height(self):
-        item = Library.load()["hardware.hinge"]
-        self.assertEqual(CutList.hinges(700, item), 2)
-        self.assertEqual(CutList.hinges(900, item), 2)
-        self.assertEqual(CutList.hinges(901, item), 3)
-        self.assertEqual(CutList.hinges(2400, item), 5)
-        self.assertEqual(CutList.hinges(2401, item), 6)  # one per started 400 mm beyond
-        self.assertEqual(CutList.hinges(2900, item), 7)
+        hinge = Joinery.rule(Library.load()["joint.concealed_hinge"], "Side", "Door")
+        for height, count in ((700, 2), (900, 2), (901, 3), (2400, 5), (2401, 6), (2900, 7)):
+            # One more per started 400 mm beyond the table.
+            self.assertEqual(Joinery.fastener_count(hinge, height), count, height)
 
     def test_cabinet_hardware(self):
         items = Library.load()
         c = Cabinet.Cabinet(width=800, fronts="drawer_over_doors", shelves=1)
-        hw = dict(CutList.hardware(c.parts(), items))
+        hw = dict(CutList.hardware(items, fasteners=c.joined(items).fasteners))
         self.assertEqual(hw[items["hardware.hinge"]["name"]], 4)  # 2 doors x 2 hinges
         self.assertEqual(hw[items["hardware.shelf_pin"]["name"]], 4)
         self.assertEqual(hw[items["hardware.drawer_slide"]["name"] + ", 550 mm"], 1)
-        tall = Cabinet.defaults("tall")  # 2000 mm doors: 4 hinges each
-        tall_hw = dict(CutList.hardware(tall.parts(), items))
+        # Confirmat, 50 from the ends, at most 200 apart: bottom 574 deep -> 474 between
+        # the end screws -> 4; a 100 mm stretcher leaves none between -> 1. Both sides:
+        # 2 x (4 + 1 + 1) = 12.
+        self.assertEqual(hw[items["hardware.confirmat_7x50"]["name"]], 12)
+        tall = Cabinet.defaults("tall")  # one 2000 mm door: 4 hinges
+        tall_hw = dict(CutList.hardware(items, fasteners=tall.joined(items).fasteners))
         self.assertEqual(tall_hw[items["hardware.hinge"]["name"]], 4)
+        # A blind corner's single door hangs from the side away from the blind panel.
+        corner = Cabinet.defaults("corner")
+        joined = corner.joined(items)
+        door = next(i for i, p in enumerate(joined.boxes) if p.name == "Door")
+        self.assertIn((door, "2 hinge cups, 35 mm"), joined.operations)
+
+    def test_carcass_joint_choice(self):
+        items = Library.load()
+        dado = Cabinet.Cabinet(carcass_joint="joint.dado")
+        bottom = next(p for p in dado.joined(items).boxes if p.name == "Bottom")
+        self.assertEqual(bottom.size[0], dado.inner_width() + 2 * 6)  # 6 mm into each side
+
+    def test_run_joins_each_cabinet(self):
+        items = Library.load()
+        run = Cabinet.Run(Cabinet.Cabinet(), length=1200, widths=[600, 600])
+        hw = dict(CutList.hardware(items, fasteners=run.joined(items).fasteners))
+        self.assertEqual(hw[items["hardware.hinge"]["name"]], 4)  # 1 door each, 2 hinges
 
 
 class TestMember(unittest.TestCase):
@@ -1360,7 +1378,7 @@ class TestChecks(unittest.TestCase):
             results = Checks.cabinet(Cabinet.defaults(kind), self.RULES)
             self.assertEqual(len(results), expected, kind)
         items = Library.load()
-        hw = dict(CutList.hardware([], items, anchored_cabinets=3))
+        hw = dict(CutList.hardware(items, anchored_cabinets=3))
         self.assertEqual(hw[items["hardware.wall_anchor"]["name"]], 6)
 
 

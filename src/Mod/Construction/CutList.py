@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # FORK: cut list and panel-saw sheet layout (design doc §5.6). No FreeCAD imports.
 
-import math
 from collections import Counter
 from dataclasses import dataclass
 
@@ -196,40 +195,18 @@ def pieces(cut_rows, material):
     ]
 
 
-def hinges(door_height, item):
-    """Hinges for one door from the item's [[max height mm, count], ...] table;
-    taller doors get hinges_per_extra_400mm per started 400 mm above the table."""
-    table = sorted(item["hinges_by_door_height"])
-    for max_height, count in table:
-        if door_height <= max_height:
-            return count
-    last_height, last_count = table[-1]
-    extra = math.ceil((door_height - last_height) / 400) * item.get("hinges_per_extra_400mm", 1)
-    return last_count + extra
-
-
-def hardware(parts, items, anchored_cabinets=0, fasteners=None):
-    """[(name, qty)] of hinges, drawer slides, shelf pins and wall anchors for a
-    list of Part. items: library id -> item; uses hardware.hinge,
-    hardware.drawer_slide, hardware.shelf_pin, hardware.wall_anchor.
-    anchored_cabinets: cabinets that must be fixed to the wall. Slides are
-    listed per length. fasteners: hardware id -> count from joinery, added in."""
-    hinge = items["hardware.hinge"]
-    slide = items["hardware.drawer_slide"]
-    pin = items["hardware.shelf_pin"]
+def hardware(items, anchored_cabinets=0, fasteners=None):
+    """[(name, qty)] of joinery fasteners (hardware id -> count; "id@length"
+    for hardware sized by length, e.g. drawer slides) and wall anchors.
+    anchored_cabinets: cabinets that must be fixed to the wall."""
     counter = Counter()
-    for part in parts:
-        if part.role == "door":
-            counter[hinge["name"]] += hinges(part.size[2], hinge)
-        elif part.role == "drawer_bottom":
-            counter[f"{slide['name']}, {part.size[1]:g} mm"] += 1
-        elif part.role == "shelf":
-            counter[pin["name"]] += pin.get("per_shelf", 4)
     if anchored_cabinets:
         anchor = items["hardware.wall_anchor"]
         counter[anchor["name"]] += anchored_cabinets * anchor.get("per_cabinet", 2)
-    for hardware_id, count in (fasteners or {}).items():
-        counter[items.get(hardware_id, {}).get("name", hardware_id)] += count
+    for key, count in (fasteners or {}).items():
+        hardware_id, _, length = key.partition("@")
+        name = items.get(hardware_id, {}).get("name", hardware_id)
+        counter[f"{name}, {length} mm" if length else name] += count
     return sorted(counter.items())
 
 

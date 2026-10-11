@@ -153,6 +153,16 @@ def member_box(start, end, roll, section):
     return box
 
 
+def joined_solids(result):
+    """One solid per part of a Joinery.Result, its pockets cut out."""
+    out = []
+    for i, p in enumerate(result.boxes):
+        solid = Part.makeBox(*p.size, FreeCAD.Vector(*p.pos))
+        cuts = [Part.makeBox(*c.size, FreeCAD.Vector(*c.pos)) for j, c in result.pockets if j == i]
+        out.append(solid.cut(cuts) if cuts else solid)
+    return out
+
+
 def set_shape(obj, shapes):
     """Sets the object's shape without disturbing its Placement. The compound
     keeps each child's own placement."""
@@ -181,6 +191,14 @@ class CabinetFeature:
             add_library_choice(
                 obj, prop, Library.SHEET_GOODS, default, "Materials", MATERIAL_TIPS[prop]
             )
+        add_library_choice(
+            obj,
+            "CarcassJoint",
+            "joint",
+            Cabinet.Cabinet.carcass_joint,
+            "Joinery",
+            "Joint between the sides and the bottom, top and stretchers",
+        )
 
     def onDocumentRestored(self, obj):
         self.setProperties(obj, obj.Kind)
@@ -199,10 +217,12 @@ class CabinetFeature:
         kwargs["thickness"] = sheet_thickness(obj.CarcassMaterial)
         kwargs["back_thickness"] = sheet_thickness(obj.BackMaterial)
         kwargs["drawer_thickness"] = sheet_thickness(obj.DrawerMaterial)
+        kwargs["carcass_joint"] = obj.CarcassJoint
         return Cabinet.Cabinet(**kwargs)
 
-    def model_parts(self, obj):
-        return self.spec(obj).parts()
+    def joined(self, obj):
+        """Joinery.Result: parts after joinery, cuts, operations, hardware."""
+        return self.spec(obj).joined(items())
 
     def cabinets(self, obj):
         return [self.spec(obj)]
@@ -211,7 +231,7 @@ class CabinetFeature:
         return [r for c in self.cabinets(obj) for r in Checks.cabinet(c, rules)]
 
     def fasteners(self, obj, schedule):
-        return {}
+        return self.joined(obj).fasteners
 
     def anchored(self, obj, rules):
         """Cabinets to fix to the wall."""
@@ -222,12 +242,12 @@ class CabinetFeature:
         """[(material id, Part)] for the cut list."""
         return [
             (getattr(obj, ROLE_MATERIAL.get(p.role, "CarcassMaterial")), p)
-            for p in self.model_parts(obj)
+            for p in self.joined(obj).boxes
         ]
 
     def solids(self, obj):
         """Solids in the order of parts(), in the object's coordinates."""
-        return [Part.makeBox(*p.size, FreeCAD.Vector(*p.pos)) for p in self.model_parts(obj)]
+        return joined_solids(self.joined(obj))
 
     def execute(self, obj):
         # ValueError from validate() marks the object as failed with its message.
@@ -291,8 +311,8 @@ class CabinetRunFeature(CabinetFeature):
             styles=styles,
         )
 
-    def model_parts(self, obj):
-        return self.run(obj).parts()
+    def joined(self, obj):
+        return self.run(obj).joined(items())
 
     def cabinets(self, obj):
         run = self.run(obj)
@@ -1115,15 +1135,7 @@ class BuildFeature:
         return self._build(obj)[0]
 
     def solids(self, obj):
-        parts, result = self._build(obj)
-        out = []
-        for i, (_, p) in enumerate(parts):
-            solid = Part.makeBox(*p.size, FreeCAD.Vector(*p.pos))
-            cuts = [
-                Part.makeBox(*c.size, FreeCAD.Vector(*c.pos)) for j, c in result.pockets if j == i
-            ]
-            out.append(solid.cut(cuts) if cuts else solid)
-        return out
+        return joined_solids(self._build(obj)[1])
 
     def execute(self, obj):
         set_shape(obj, self.solids(obj))
@@ -1396,7 +1408,7 @@ def write_cut_list(doc):
     for obj in construction_objects(doc):
         for hardware_id, count in obj.Proxy.fasteners(obj, schedule).items():
             fasteners[hardware_id] = fasteners.get(hardware_id, 0) + count
-    hardware = CutList.hardware([part for _, part in parts], lib, anchored, fasteners)
+    hardware = CutList.hardware(lib, anchored, fasteners)
     for name, qty in hardware:
         summary += 1
         _write_row(cut, summary, [name, "", "", "", "", "", qty])

@@ -22,8 +22,11 @@ largest distance between fasteners along the contact, `edge` the distance of
 the first and last from the contact's ends, `per_joint` a fixed count
 instead (e.g. 2 nails per stud end, 1 joist hanger). `operation` is the
 shop work the fasteners need, written to the cut list of the parts named by
-`on` ("receiver", "inserted" or "both"); "{n}" in it becomes the count, e.g.
-"{n} pocket holes".
+`on` ("receiver", "inserted" or "both"); "{n}" in it becomes the count and
+"{s}" / "{es}" a plural ending, e.g. "{n} pocket hole{s}". `count_table`
+counts by contact length instead (hinges by door height); `sized` lists the
+fastener per contact length (drawer slides by depth); `gap` lets fastened
+parts meet across a clearance (a drawer box beside the carcass side).
 
 Joint presets in the library (category "joint") are rules without the part
 names: `rule(item, receiver, inserted)` makes one.
@@ -52,6 +55,10 @@ class Rule:
     per_joint: int = 0  # fixed fastener count per joint
     operation: str = ""  # shop work per joint, "{n}" = fastener count
     on: str = "both"  # parts the operation applies to: "receiver", "inserted", "both"
+    gap: float = 0.0  # fastened: parts this far apart still meet (slides, shelf pins)
+    count_table: list = field(default_factory=list)  # [[max length, count], ...]
+    extra_every: float = 400.0  # count_table: one more per started length beyond it
+    sized: bool = False  # fasteners listed per contact length (hardware id@length)
     allows_movement: bool = False  # lets solid wood move across its grain (tabletop fasteners)
 
 
@@ -71,13 +78,14 @@ class Result:
     joints: list = field(default_factory=list)  # [(receiver index, inserted index, Rule)]
 
 
-def contact(a, b):
+def contact(a, b, gap=0.0):
     """(axis, sign, overlap box of the two faces) when a face of b lies on a
-    face of a, else None. sign is +1 when b sits on a's high side."""
+    face of a, or faces it across at most `gap`, else None. sign is +1 when b
+    sits on a's high side."""
     for k in range(3):
         for sign, touching in (
-            (1, abs(b.lo(k) - a.hi(k)) < EPS),
-            (-1, abs(b.hi(k) - a.lo(k)) < EPS),
+            (1, -EPS < b.lo(k) - a.hi(k) < gap + EPS),
+            (-1, -EPS < a.lo(k) - b.hi(k) < gap + EPS),
         ):
             if not touching:
                 continue
@@ -103,6 +111,13 @@ def overlap(a, b):
 
 
 def fastener_count(rule, length):
+    if rule.count_table:
+        table = sorted(rule.count_table)
+        for max_length, count in table:
+            if length <= max_length + EPS:
+                return count
+        last_length, last_count = table[-1]
+        return last_count + math.ceil((length - last_length) / rule.extra_every)
     if rule.per_joint:
         return rule.per_joint
     if not rule.spacing:
@@ -144,7 +159,7 @@ def apply(boxes, rules):
                 _half_lap(out, i, j, crossing)
                 length = max(h - l for l, h in zip(*crossing))
             else:
-                touch = contact(a, b)
+                touch = contact(a, b, rule.gap)
                 if touch is None:
                     continue
                 k, sign, (lo, hi) = touch
@@ -156,9 +171,11 @@ def apply(boxes, rules):
             out.joints.append((i, j, rule))
             count = fastener_count(rule, length)
             if count and rule.fastener:
-                out.fasteners[rule.fastener] = out.fasteners.get(rule.fastener, 0) + count
+                key = f"{rule.fastener}@{length:g}" if rule.sized else rule.fastener
+                out.fasteners[key] = out.fasteners.get(key, 0) + count
             if rule.operation:
-                text = rule.operation.format(n=count)
+                plural = count != 1
+                text = rule.operation.format(n=count, s="s" * plural, es="es" * plural)
                 for index, side in ((i, "receiver"), (j, "inserted")):
                     if rule.on in (side, "both"):
                         out.operations.append((index, text))
