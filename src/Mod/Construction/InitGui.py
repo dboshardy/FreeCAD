@@ -30,6 +30,7 @@ class ConstructionWorkbench(Workbench):
             "Construction_BoardBetween",
             "Construction_Panel",
             "Construction_Joint",
+            "Construction_EndTable",
             "Construction_CutList",
             "Construction_Check",
             "Construction_Drawing",

@@ -10,7 +10,7 @@ EPS = 1e-6
 
 def _key(material, part):
     length, width, thick = (round(v, 1) for v in part.cut_size())
-    return (material, length, width, thick, part.grain is not None, part.operations)
+    return (material, length, width, thick, part.grain is not None, tuple(sorted(part.operations)))
 
 
 def rows(parts_by_material):
@@ -40,8 +40,13 @@ def row_numbers(parts_by_material):
 
 
 def operations(parts_by_material):
-    """Shop work of each row of rows(), "; "-joined, aligned with rows()."""
-    return ["; ".join(key[5]) for key in _row_keys(list(parts_by_material))]
+    """Shop work per part of each row of rows(), aligned with rows():
+    "2 x mortise 75 x 6.7 x 25 deep; ..."."""
+    out = []
+    for key in _row_keys(list(parts_by_material)):
+        counts = Counter(key[5])
+        out.append("; ".join(f"{n} x {op}" if n > 1 else op for op, n in counts.items()))
+    return out
 
 
 def _row_keys(parts):

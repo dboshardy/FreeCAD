@@ -5,8 +5,8 @@ FORK: added by the CADApp fork (design doc §5 Phase 5, §6 help content).
 
 # Construction Workbench Tutorials
 
-The Construction workbench plans cabinets and light timber framing: you set
-sizes, it generates every part, and it writes cut lists, sheet layouts, lumber
+The Construction workbench plans cabinets, furniture and light timber
+framing: you set sizes or place boards and joints, it generates every part, and it writes cut lists, sheet layouts, lumber
 buying plans, hardware lists and advisory safety checks.
 
 | Tutorial | You will |
@@ -15,6 +15,7 @@ buying plans, hardware lists and advisory safety checks.
 | [2. Framing](02-framing.md) | Place lumber members, frame a wall with a door and a window, frame a floor and a gable roof, add sheathing |
 | [3. Build a shed](03-shed.md) | Create a complete gable shed from the template, change it, and get everything needed to buy and cut it |
 | [4. Libraries, settings and checks](04-libraries-and-checks.md) | Add your own lumber and sheet sizes, set the saw kerf, enter loads and design values, read the checks |
+| [5. Build an end table](05-end-table.md) | Make a build from boards and panels, join them with mortise and tenon and tabletop fasteners, and compare with the End Table template |
 
 ## Before you start
 
@@ -40,8 +41,8 @@ reviewed by your building official or a qualified professional. See
 
 Two kinds of code blocks appear in these tutorials:
 
-- ```` ```pycon ```` blocks use the workbench's standalone modules (`Cabinet`,
-  `Framing`, `CutList`, `Library`, `Sheathing`, `Shed`, `Checks`). They run
+- ```` ```pycon ```` blocks use the workbench's standalone modules (`Build`,
+  `Cabinet`, `Framing`, `CutList`, `Library`, `Sheathing`, `Shed`, `Checks`). They run
   without the application, and `TestConstruction.py` runs every one with
   `doctest`: the printed output must match exactly.
 - ```` ```py ```` blocks are for the Python console inside the application
