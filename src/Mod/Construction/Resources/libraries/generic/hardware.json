@@ -1,11 +1,11 @@
 {
   "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp construction library (design doc §9). Generic hardware used by the cut list and joint presets. Override an item by id in the user library to match your supplier.",
-  "source": "Common cabinet-making and woodworking practice; original compilation, no maker's table copied. Check hinge counts against your hinge maker's guidance for heavy or wide doors.",
+  "source": "Common cabinet-making and woodworking practice; original compilation, no maker's table copied. ",
   "data_license": "CC0-1.0",
   "items": [
-    {"id": "hardware.hinge", "category": "hardware", "region": "generic", "name": "Concealed hinge, 35 mm cup, full overlay", "hinges_by_door_height": [[900, 2], [1600, 3], [2000, 4], [2400, 5]], "hinges_per_extra_400mm": 1},
+    {"id": "hardware.hinge", "category": "hardware", "region": "generic", "name": "Concealed hinge, 35 mm cup, full overlay"},
     {"id": "hardware.drawer_slide", "category": "hardware", "region": "generic", "name": "Drawer slide pair, side mount, full extension"},
-    {"id": "hardware.shelf_pin", "category": "hardware", "region": "generic", "name": "Shelf pin, 5 mm", "per_shelf": 4},
+    {"id": "hardware.shelf_pin", "category": "hardware", "region": "generic", "name": "Shelf pin, 5 mm"},
     {"id": "hardware.nail_framing", "category": "hardware", "region": "generic", "name": "Framing nail, 3.1 x 90 mm"},
     {"id": "hardware.joist_hanger", "category": "hardware", "region": "generic", "name": "Joist hanger, sized for the joist (with its nails)"},
     {"id": "hardware.deck_screw", "category": "hardware", "region": "generic", "name": "Deck screw, 5 x 60 mm"},

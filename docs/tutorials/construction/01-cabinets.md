@@ -134,16 +134,30 @@ Parts are grouped when their sizes match:
 [('Left side', 770.0, 574.0, 2), ('Bottom', 764.0, 574.0, 1), ('Front stretcher', 764.0, 100.0, 2)]
 ```
 
-Hardware for the 800 mm cabinet: two hinges per door (door height decides the
-count), a slide pair per drawer, four pins per shelf:
+Hardware comes from the cabinet's joints, the same joints from the library
+that you use in a build (tutorial 5): the carcass joint (**CarcassJoint**,
+confirmat screws unless you pick another, such as dowels or a dado), hinges
+on the side each door hangs from (door height decides the count), a slide
+pair per drawer and two pins at each end of a shelf. For the 800 mm cabinet:
 
 ```pycon
 >>> import Library
->>> for name, qty in CutList.hardware(cabinet.parts(), Library.load()):
+>>> items = Library.load()
+>>> joined = cabinet.joined(items)
+>>> for name, qty in CutList.hardware(items, fasteners=joined.fasteners):
 ...     print(qty, name)
 4 Concealed hinge, 35 mm cup, full overlay
+12 Confirmat screw, 7 x 50 mm
 1 Drawer slide pair, side mount, full extension, 550 mm
 4 Shelf pin, 5 mm
+```
+
+The joints also add shop work to the cut list's **Operations** column, such
+as the hinge cups in each door:
+
+```pycon
+>>> sorted({text for _, text in joined.operations})
+['1 confirmat hole', '2 hinge cups, 35 mm', '2 shelf pin holes, 5 mm', '4 confirmat holes']
 ```
 
 ## 5. Materials

@@ -13,6 +13,8 @@ Fronts (doors, drawer fronts) are full overlay and sit in front of the carcass
 import math
 from dataclasses import dataclass, replace
 
+import Build
+import Joinery
 from Parts import Part
 
 KINDS = ("base", "wall", "tall", "sink")
@@ -52,6 +54,8 @@ class Cabinet:
     # cabinet and gets a fixed blind panel; doors cover the rest. 0 = none.
     blind_width: float = 0.0
     blind_side: str = "left"
+    # Library joint preset joining the sides to the bottom, top and stretchers.
+    carcass_joint: str = "joint.confirmat"
 
     # ------------------------------------------------------------- derived
 
@@ -220,6 +224,39 @@ class Cabinet:
             label = "Drawer" if len(drawer_slots) == 1 else f"Drawer {i + 1}"
             out += self._drawer_parts(label, low, high)
         return out
+
+    def joint_rows(self):
+        """Joints table rows (see Build.py) for parts(): the carcass joint,
+        hinges on the side each door hangs from, shelf pins and one slide pair
+        per drawer (counted at the left side)."""
+        rows = [
+            (side, part, self.carcass_joint, "")
+            for side in ("Left side", "Right side")
+            for part in ("Bottom", "Top", "Front stretcher", "Back stretcher")
+        ]
+        n, hinge = self.door_count(), "joint.concealed_hinge"
+        if n == 1:  # hung from the side away from a blind panel
+            rows.append(
+                (
+                    "Right side" if self.blind_width and self.blind_side == "left" else "Left side",
+                    "Door",
+                    hinge,
+                    "",
+                )
+            )
+        else:
+            rows += [("Left side", "Door 1", hinge, ""), ("Right side", f"Door {n}", hinge, "")]
+        pins = f"gap={self.shelf_clearance:g}"
+        rows += [
+            (side, "Shelf *", "joint.shelf_pins", pins) for side in ("Left side", "Right side")
+        ]
+        slides = f"gap={self.drawer_side_clearance:g}"
+        rows.append(("Left side", "Drawer*side", "joint.drawer_slide", slides))
+        return rows
+
+    def joined(self, items):
+        """Joinery.Result of parts() with joint_rows(); items: the library."""
+        return Joinery.apply(self.parts(), Build.rules(self.joint_rows(), items))
 
     def _door_parts(self, low, high):
         t, gap, k = self.thickness, self.door_gap, self.plinth_height
@@ -425,13 +462,26 @@ class Run:
         return widths, left, filler - left
 
     def parts(self):
+        return self.joined(None).boxes
+
+    def joined(self, items):
+        """Joinery.Result of every cabinet (each joined on its own, then moved
+        into place) and the fillers. items None: no joinery."""
         widths, left, right = self.layout()
         c = self.cabinet
         styles = list(self.styles) + [None] * (len(widths) - len(self.styles))
-        out = []
+        result = Joinery.Result([])
+        out = result.boxes
         x = left
         for width, style in zip(widths, styles):
-            out += [p.moved(x) for p in styled(replace(c, width=width), style).parts()]
+            cabinet = styled(replace(c, width=width), style)
+            part = cabinet.joined(items) if items is not None else Joinery.Result(cabinet.parts())
+            base = len(out)
+            out += [p.moved(x) for p in part.boxes]
+            result.pockets += [(base + i, p.moved(x)) for i, p in part.pockets]
+            result.operations += [(base + i, text) for i, text in part.operations]
+            for key, count in part.fasteners.items():
+                result.fasteners[key] = result.fasteners.get(key, 0) + count
             x += width
         # Fillers in the plane of the fronts, between the end cabinets and the walls.
         size_z = c.carcass_height()
@@ -446,4 +496,4 @@ class Run:
                         "z",
                     )
                 )
-        return out
+        return result
