@@ -173,6 +173,10 @@ class TestConstructionApp(unittest.TestCase):
     def test_cabinet_joints(self):
         cabinet = CO.make_cabinet("base", self.doc)
         self.assertEqual(cabinet.CarcassJoint, "joint.confirmat")
+        choices = cabinet.getEnumerationsOfProperty("CarcassJoint")
+        self.assertIn("joint.dado", choices)
+        for other in ("joint.concealed_hinge", "joint.shelf_pins", "joint.figure8"):
+            self.assertNotIn(other, choices)
         volume = cabinet.Shape.Volume
         cabinet.CarcassJoint = "joint.dado"  # housings: the bottom grows into the sides
         self.doc.recompute()

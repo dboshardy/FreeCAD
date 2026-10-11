@@ -343,6 +343,9 @@ class TestHardware(unittest.TestCase):
         # the end screws -> 4; a 100 mm stretcher leaves none between -> 1. Both sides:
         # 2 x (4 + 1 + 1) = 12.
         self.assertEqual(hw[items["hardware.confirmat_7x50"]["name"]], 12)
+        # Back nailed at most 150 apart, 25 from the ends: sides 770 -> 6 each; bottom and
+        # back stretcher 764 -> 6 each.
+        self.assertEqual(hw[items["hardware.brad_nail"]["name"]], 24)
         tall = Cabinet.defaults("tall")  # one 2000 mm door: 4 hinges
         tall_hw = dict(CutList.hardware(items, fasteners=tall.joined(items).fasteners))
         self.assertEqual(tall_hw[items["hardware.hinge"]["name"]], 4)
