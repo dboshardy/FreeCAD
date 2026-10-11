@@ -190,6 +190,14 @@ the hardware list gets the anchors.
 
 ```
 
+## Editing in a panel
+
+Double-click the build (or select it and click **Edit**) for a panel with
+two lists: the parts (stock and axes as dropdowns) and the joints (the joint
+as a dropdown of the library's presets). Change the top fastening there, or
+select an apron and the top and press **J**: on parts that are already
+joined, **J** changes the joint instead of adding another.
+
 ## From the Python console
 
 ```py

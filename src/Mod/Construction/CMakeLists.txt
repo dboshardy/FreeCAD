@@ -9,6 +9,7 @@ set(Construction_SRCS
     Checks.py
     ConstructionCommands.py
     ConstructionObjects.py
+    ConstructionPanels.py
     CutList.py
     Framing.py
     Joinery.py

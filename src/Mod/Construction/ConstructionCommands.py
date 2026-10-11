@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # FORK: Construction workbench commands (design doc §5).
 
+import fnmatch
+
 import FreeCAD
 import FreeCADGui
 
@@ -365,7 +367,7 @@ class JointCommand:
         import Library
 
         build, (receiver, inserted) = selected_build_parts()
-        parts = {p.name: p for _, p in build.Proxy.parts(build)}
+        parts = build.Proxy.drawn_parts(build)
         how = Joinery.meets(parts[receiver], parts[inserted])
         if how != "end_to_face" and Joinery.meets(parts[inserted], parts[receiver]) in (
             "end_to_face",
@@ -384,9 +386,26 @@ class JointCommand:
         joints = [j for j in Library.of_category(CO.items(), "joint") if how in j.get("meets", ())]
         labels = [j["name"] for j in joints]
         title = translate("Construction", "Joint: {} into {}").format(inserted, receiver)
-        label, ok = QtGui.QInputDialog.getItem(
-            window, title, how.replace("_", " "), labels, 0, False
+        # A joint already joining these parts is changed, not doubled.
+        existing = next(
+            (
+                (r, row)
+                for r, row in enumerate(build.Proxy.joint_rows(build), start=2)
+                if fnmatch.fnmatchcase(receiver, row[0])
+                and fnmatch.fnmatchcase(inserted, row[1])
+                or fnmatch.fnmatchcase(inserted, row[0])
+                and fnmatch.fnmatchcase(receiver, row[1])
+            ),
+            None,
         )
+        current = 0
+        prompt = how.replace("_", " ")
+        if existing:
+            title = translate("Construction", "Change joint: {} / {}").format(*existing[1][:2])
+            ids = [j["id"] for j in joints]
+            current = ids.index(existing[1][2]) if existing[1][2] in ids else 0
+            prompt = translate("Construction", "Now: {}").format(existing[1][2])
+        label, ok = QtGui.QInputDialog.getItem(window, title, prompt, labels, current, False)
         if not ok:
             return
         preset = joints[labels.index(label)]
@@ -408,6 +427,22 @@ class JointCommand:
         doc = build.Document
         name = f"App.ActiveDocument.{build.Name}"
         doc.openTransaction(translate("Construction", "Joint"))
+        if existing:
+            r, row = existing
+            FreeCADGui.doCommand(
+                f"{name}.Proxy.set_joint({name}, {r}, {row[0]!r}, {row[1]!r}, "
+                f"{preset['id']!r}, {opts!r})"
+            )
+            FreeCADGui.doCommand("App.ActiveDocument.recompute()")
+            if "Invalid" in build.State:
+                doc.abortTransaction()
+                doc.recompute()
+                QtGui.QMessageBox.warning(
+                    window, title, translate("Construction", "This joint does not fit these parts.")
+                )
+                return
+            doc.commitTransaction()  # undo with Edit > Undo
+            return
         FreeCADGui.doCommand(
             f"row = {name}.Proxy.add_joint({name}, {receiver!r}, {inserted!r}, "
             f"{preset['id']!r}, {opts!r})"
@@ -509,6 +544,29 @@ class RegionCommand:
             FreeCADGui.doCommand(
                 f"ConstructionObjects.set_document_region(App.ActiveDocument, {region!r})"
             )
+
+
+class EditCommand:
+    def GetResources(self):
+        return {
+            "MenuText": QT_TRANSLATE_NOOP("Construction_Edit", "Edit"),
+            "ToolTip": QT_TRANSLATE_NOOP(
+                "Construction_Edit",
+                "Edits the selected build, wall, floor or cabinet run in a panel: parts, "
+                "joints, openings, beams or cabinets as lists with dropdowns (or double-click it)",
+            ),
+        }
+
+    def IsActive(self):
+        import ConstructionPanels
+
+        sel = FreeCADGui.Selection.getSelection()
+        return len(sel) == 1 and ConstructionPanels.edit_panel(sel[0]) is not None
+
+    def Activated(self):
+        import ConstructionPanels
+
+        ConstructionPanels.show(FreeCADGui.Selection.getSelection()[0])
 
 
 EDIT_HINT = "; edit its sizes in the property view"
@@ -695,6 +753,7 @@ FreeCADGui.addCommand(
     ),
 )
 FreeCADGui.addCommand("Construction_Joint", JointCommand())
+FreeCADGui.addCommand("Construction_Edit", EditCommand())
 FreeCADGui.addCommand("Construction_Region", RegionCommand())
 FreeCADGui.addCommand("Construction_Align", AlignCommand())
 FreeCADGui.addCommand(

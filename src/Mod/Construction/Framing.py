@@ -1155,6 +1155,20 @@ class Deck:
         return out
 
 
+def format_openings(openings):
+    """Inverse of parse_openings."""
+    out = []
+    for o in openings:
+        text = f"{o.kind} {o.width:g}x{o.height:g} @ {o.x:g}"
+        out.append(text + (f" sill {o.sill:g}" if o.kind == "window" else ""))
+    return ", ".join(out)
+
+
+def format_floor_openings(openings):
+    """Inverse of parse_floor_openings."""
+    return "; ".join(f"{w:g}x{l:g} @ {x:g}, {y:g}" for x, y, w, l in openings)
+
+
 def parse_openings(text):
     """'door 900x2100 @ 600, window 1200x1000 @ 2400 sill 900' -> [Opening].
     Raises ValueError with a usage hint."""

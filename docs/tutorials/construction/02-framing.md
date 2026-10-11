@@ -50,10 +50,13 @@ flat (its thickness `x` points up).
 
 1. Click **Wall Framing**. A 3600 mm wall appears along X, 2440 mm high.
 2. Set **Length** to `4800`.
-3. Set **Openings** to
-   `door 900x2100 @ 700, window 1200x1000 @ 2600 sill 900`.
-   Each entry is `kind width x height @ left edge`, rough opening sizes in mm;
-   windows add `sill` (rough opening bottom above the bottom of the wall).
+3. Double-click the wall (or click **Edit**) and add two openings to the
+   list: a door 900 × 2100 at 700, and a window 1200 × 1000 at 2600 with its
+   sill at 900. Sizes are rough openings in mm; the position is the opening's
+   left edge from the wall start; the sill is the window's rough opening
+   bottom above the bottom of the wall. (The panel writes the **Openings**
+   property, which you can also type:
+   `door 900x2100 @ 700, window 1200x1000 @ 2600 sill 900`.)
 
 You get, from conventional practice:
 

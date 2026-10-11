@@ -215,6 +215,28 @@ def _cut_shape(pocket):
     return Part.makeCylinder(radius, pocket.size[k], FreeCAD.Vector(*centre), axis)
 
 
+class ViewProvider:
+    """View of a construction object: double-click opens its editing panel
+    (ConstructionPanels) when it has one."""
+
+    def __init__(self, vobj):
+        vobj.Proxy = self
+
+    def attach(self, vobj):
+        self.Object = vobj.Object
+
+    def doubleClicked(self, vobj):
+        import ConstructionPanels
+
+        return ConstructionPanels.show(vobj.Object)
+
+    def dumps(self):
+        return None
+
+    def loads(self, state):
+        return None
+
+
 def set_shape(obj, shapes):
     """Sets the object's shape without disturbing its Placement. The compound
     keeps each child's own placement."""
@@ -371,7 +393,11 @@ class CabinetRunFeature(CabinetFeature):
         run = self.run(obj)
         widths, _, _ = run.layout()
         styles = list(run.styles) + [None] * (len(widths) - len(run.styles))
-        return [Cabinet.styled(replace(run.cabinet, width=w), s) for w, s in zip(widths, styles)]
+        return [
+            Cabinet.styled(replace(run.cabinet, width=w), s)
+            for w, s in zip(widths, styles)
+            if s != Cabinet.GAP
+        ]
 
     def execute(self, obj):
         widths, left, right = self.run(obj).layout()
@@ -393,7 +419,7 @@ def _make(feature, preset, name, doc):
         placement.Base.z = Cabinet.WALL_ELEVATION
         obj.Placement = placement
     if FreeCAD.GuiUp:
-        obj.ViewObject.Proxy = 0
+        ViewProvider(obj.ViewObject)
     doc.recompute()
     return obj
 
@@ -481,7 +507,7 @@ def make_member(base=None, doc=None, name="Member"):
     if base:
         obj.Base = base
     if FreeCAD.GuiUp:
-        obj.ViewObject.Proxy = 0
+        ViewProvider(obj.ViewObject)
     doc.recompute()
     return obj
 
@@ -991,7 +1017,7 @@ def _make_framing(feature, name, doc):
     obj = doc.addObject("Part::FeaturePython", name)
     feature(obj)
     if FreeCAD.GuiUp:
-        obj.ViewObject.Proxy = 0
+        ViewProvider(obj.ViewObject)
     doc.recompute()
     return obj
 
@@ -1092,7 +1118,7 @@ def make_sheathing(base, doc=None, name="Sheathing"):
     obj.Host = base
     obj.setExpression("Placement", f"{base.Name}.Placement")
     if FreeCAD.GuiUp:
-        obj.ViewObject.Proxy = 0
+        ViewProvider(obj.ViewObject)
     doc.recompute()
     return obj
 
@@ -1273,7 +1299,7 @@ def make_shed(doc=None, name="Shed"):
     obj = doc.addObject("Part::FeaturePython", name)
     ShedFeature(obj)
     if FreeCAD.GuiUp:
-        obj.ViewObject.Proxy = 0
+        ViewProvider(obj.ViewObject)
     doc.recompute()
     return obj
 
@@ -1389,6 +1415,11 @@ class BuildFeature:
     def parts(self, obj):
         return self._build(obj)[0]
 
+    def drawn_parts(self, obj):
+        """{name: Part} as the table places them, before joinery lengthens or
+        cuts them: how parts meet, and where new parts go, are read from these."""
+        return {row[0]: Build.part(row, items()) for row in self.part_rows(obj)}
+
     def solids(self, obj):
         return joined_solids(self._build(obj)[1])
 
@@ -1472,7 +1503,7 @@ def make_build(doc=None, name="Build"):
         _write_row(sheet, 1, list(header))
         setattr(obj, prop, sheet)
     if FreeCAD.GuiUp:
-        obj.ViewObject.Proxy = 0
+        ViewProvider(obj.ViewObject)
     doc.recompute()
     return obj
 
@@ -1560,7 +1591,7 @@ def add_on_face(build, part, axis, sign, panel=False, name=None, stock=None):
     """Adds a board (or a panel) lying on a face of the part named `part`:
     the face's normal is +/- axis (0, 1, 2 = x, y, z) in the build's
     coordinates. Returns its name."""
-    p = {q.name: q for _, q in build.Proxy.parts(build)}[part]
+    p = build.Proxy.drawn_parts(build)[part]
     if panel:
         stock = stock or build.PanelStock
         length, width, x, y, z, along, thick = Build.on_face(p, axis, sign, sheet_thickness(stock))
@@ -1583,7 +1614,7 @@ def move_part(build, part, axis, distance):
 
 def add_board_between(build, a, b, name=None, stock=None):
     """Adds a board spanning the gap between parts named a and b."""
-    parts = {p.name: p for _, p in build.Proxy.parts(build)}
+    parts = build.Proxy.drawn_parts(build)
     stock = stock or build.BoardStock
     section = lumber_section(stock)
     length, x, y, z, along, thick = Build.between(parts[a], parts[b], section)
