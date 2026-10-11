@@ -188,6 +188,15 @@ class TestConstructionApp(unittest.TestCase):
         column_a = [cut.getContents(f"A{r}") for r in range(1, 80)]
         self.assertTrue(any("Concealed hinge" in c for c in column_a))
 
+    def test_bookcase_is_anchored(self):
+        bookcase = CO.make_bookcase(self.doc)
+        self.assertBuilt(bookcase)
+        cut = CO.write_cut_list(self.doc)
+        rows = {cut.getContents(f"A{r}").lstrip("'"): cut.getContents(f"G{r}") for r in range(1, 80)}
+        anchor = next(k for k in rows if k.startswith("Wall anchor"))
+        self.assertEqual(rows[anchor], "2")
+        self.assertGreaterEqual(CO.write_checks(self.doc), 1)  # anchoring required
+
     def test_drawing(self):
         shed = CO.make_shed(self.doc)
         page = CO.make_drawing([shed], self.doc)

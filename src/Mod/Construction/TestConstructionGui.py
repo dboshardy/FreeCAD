@@ -56,6 +56,7 @@ class TestConstructionGui(unittest.TestCase):
             "Construction_Panel",
             "Construction_Joint",
             "Construction_EndTable",
+            "Construction_Bookcase",
             "Std_CommandPalette",
             "Std_RadialMenu",
             "Std_HotkeysReload",

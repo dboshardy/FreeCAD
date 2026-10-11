@@ -35,6 +35,7 @@ PARTS_HEADER = (
     "Thick",
 )
 JOINTS_HEADER = ("Receiver", "Inserted", "Joint", "Options")
+MIN_SHELF_OPENING = 50.0  # mm clear between bookcase shelves
 
 
 def _number(value):
@@ -167,4 +168,45 @@ def end_table(
         ("Top", top_stock, width, depth, top_t, 0, 0, leg_h, "x", "z"),
     ]
     joints = [("Leg*", "Apron*", joint, ""), ("Apron*", "Top", top_joint, "")]
+    return parts, joints
+
+
+def bookcase(
+    width=800,
+    height=1800,
+    depth=300,
+    shelves=4,
+    kick=60,
+    panel=("sheet.metric.plywood.18", 18),
+    back=("sheet.metric.plywood.6", 6),
+    joint="joint.dado",
+):
+    """(parts rows, joints rows) of a bookcase: two sides, top, bottom raised
+    on a kick board, `shelves` fixed shelves evenly spaced between bottom and
+    top, and a back nailed on behind. panel / back: (stock, thickness). The
+    shelves, top and bottom go into the sides with `joint`."""
+    stock, t = panel
+    back_stock, _ = back
+    inner = width - 2 * t
+    if inner <= 0 or depth <= t:
+        raise ValueError("the bookcase is too narrow or shallow for the panels")
+    bottom_z, top_z = kick, height - t
+    spacing = (top_z - bottom_z - t) / (shelves + 1)
+    if spacing - t < MIN_SHELF_OPENING:
+        raise ValueError("too many shelves for the height")
+    parts = [
+        ("Left side", stock, height, depth, "", 0, 0, 0, "z", "x"),
+        ("Right side", stock, height, depth, "", width - t, 0, 0, "z", "x"),
+        ("Top", stock, inner, depth, "", t, 0, top_z, "x", "z"),
+        ("Bottom", stock, inner, depth, "", t, 0, bottom_z, "x", "z"),
+        ("Kick board", stock, inner, kick, "", t, 0, 0, "x", "y"),
+    ]
+    parts += [
+        (f"Shelf {n}", stock, inner, depth, "", t, 0, bottom_z + t + n * spacing - t / 2, "x", "z")
+        for n in range(1, shelves + 1)
+    ]
+    parts.append(("Back", back_stock, height, width, "", 0, depth, 0, "z", "y"))  # grain up
+    joints = [("*side", name, joint, "") for name in ("Top", "Bottom", "Shelf*")]
+    joints.append(("*side", "Kick board", "joint.pocket_screw", ""))
+    joints += [(name, "Back", "joint.brad_nail", "") for name in ("*side", "Top", "Bottom")]
     return parts, joints
