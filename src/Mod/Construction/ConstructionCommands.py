@@ -569,6 +569,28 @@ class EditCommand:
         ConstructionPanels.show(FreeCADGui.Selection.getSelection()[0])
 
 
+class RoomCommand:
+    def GetResources(self):
+        return {
+            "MenuText": QT_TRANSLATE_NOOP("Construction_Room", "Room"),
+            "ToolTip": QT_TRANSLATE_NOOP(
+                "Construction_Room",
+                "Enters a measured room: walls, doors, windows and appliance gaps. Chooses the "
+                "walls for base and wall cabinets; makes the cabinet runs and wall framing",
+            ),
+        }
+
+    def Activated(self):
+        import ConstructionPanels
+
+        doc = FreeCAD.ActiveDocument or FreeCAD.newDocument()
+        doc.openTransaction(translate("Construction", "Room"))
+        FreeCADGui.addModule("ConstructionObjects")
+        FreeCADGui.doCommand("room = ConstructionObjects.make_room()")
+        doc.commitTransaction()
+        ConstructionPanels.show(doc.Objects[-1])
+
+
 EDIT_HINT = "; edit its sizes in the property view"
 CABINET_COMMANDS = {
     "Construction_BaseCabinet": MakeCommand(
@@ -753,6 +775,7 @@ FreeCADGui.addCommand(
     ),
 )
 FreeCADGui.addCommand("Construction_Joint", JointCommand())
+FreeCADGui.addCommand("Construction_Room", RoomCommand())
 FreeCADGui.addCommand("Construction_Edit", EditCommand())
 FreeCADGui.addCommand("Construction_Region", RegionCommand())
 FreeCADGui.addCommand("Construction_Align", AlignCommand())

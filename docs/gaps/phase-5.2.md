@@ -12,7 +12,7 @@ Audit of Phase 5.2 target scope (`docs/DESIGN.md`, Phase 5.2). Status:
 |---|---|---|
 | 1. Parametric templates | Present | Template presets (`Build.PRESETS`: end table, dining table, workbench, bookcase) put their sizes and choices on the build as properties (group Template: lengths, counts, stock and joint dropdowns). Changing one regenerates the tables (`BuildFeature.regenerate`); rows edited or added by hand are kept (`Build.merge`) and edited ones marked `edited`. A size the template cannot build marks the build invalid with the reason. Survives save and reopen |
 | 2. Task panels with dropdowns | Partial | `ConstructionPanels.py`: one list editor (text, number and dropdown columns) used for a build's parts (stock and axes as dropdowns) and joints (joint presets as a dropdown), a wall's openings (kind, width, height, position, sill), a floor's beams and openings and a cabinet run's cabinets (width and style, including `gap` for appliances). Opened by double-click or **Edit**; changes are one undo step and are refused with the reason when the object cannot be built. **Joint** (`J`) on two parts that are already joined changes that joint. Shed and stair still use the Property view (they have no lists) |
-| 3. Room / footprint object | Missing | |
+| 3. Room / footprint object | Present | **Room** (`Room.py`, `RoomFeature`): walls measured on the inside (length and turn, square corners) entered in its panel or taken from a sketch (`Base`); doors and windows and appliance gaps (range, dishwasher, fridge, other) per wall; the walls for base and wall cabinets chosen in the panel. Generate makes and updates: wall framing per wall (outside the measured line; through-wall and corner stud at outside corners, shortened at inside corners) and cabinet runs backed onto the walls: a run turning a corner ends in a blind corner cabinet and the next starts past its depth; base runs stop at doors and appliance gaps, wall runs also at windows and fridges; leftover space becomes fillers. Generated objects stay ordinary (edit their panels); objects no longer needed are removed. Not modelled: walls at other angles, pipes and other obstacles except as an `other` gap |
 | 4. Shed template opened up | Missing | |
 | 5. Direct manipulation | Missing | |
 
@@ -20,7 +20,7 @@ Audit of Phase 5.2 target scope (`docs/DESIGN.md`, Phase 5.2). Status:
 
 | Criterion | Status |
 |---|---|
-| (a) L-shaped kitchen from one panel | Not yet |
+| (a) L-shaped kitchen from one panel | Met: `TestConstructionGui.TestRoomPanel.test_l_kitchen_from_one_panel` (3600 and 2400 mm walls, a window, a 600 mm range gap; blind corner; cut list); checked visually |
 | (b) End Table 50 mm taller and Z-clips with two property changes | Met: `TestConstructionApp.test_parametric_template` |
 | (c) Window added to a shed wall from a panel | Not yet |
 | (d) Build part dragged, snapping to a face | Not yet |

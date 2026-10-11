@@ -114,6 +114,31 @@ For an L-shaped kitchen, make two runs and put the blind corner at the end of
 one where the other meets it. Do the same along the upper wall with **Wall
 Cabinet Run** (wall runs cannot take `sink`).
 
+## 3b. From a measured room
+
+For a whole kitchen, start from the room instead of single runs. Click
+**Room**; its panel has four lists:
+
+1. **Walls**, measured along the inside faces, in order: the length and which
+   way the next wall turns. An L kitchen: `3600, left` then `2400, left`.
+   (Or draw the walls as a sketch with square corners and set the room's
+   **Base** to it.)
+2. **Doors and windows**: the wall number, kind, size, position from the
+   wall's start, and a window's sill height.
+3. **Appliance gaps**: the wall, the appliance (range, dishwasher, fridge,
+   other), its position and width. A fridge also keeps the wall cabinets
+   away.
+4. **Cabinets on each wall**: base and/or wall cabinets.
+
+Click **OK** and the room makes a base cabinet run (and wall cabinet run) for
+each chosen wall, backed onto the wall: where two runs meet at a corner, the
+first ends in a blind corner cabinet and the second starts past it; runs stop
+at doors and appliance gaps, wall cabinets also at windows; leftover space
+becomes fillers. Set **FrameWalls** to also get wall framing with the doors
+and windows. The runs are ordinary cabinet runs: double-click one to change a
+cabinet's width or style. Double-click the room to change the measurements and
+everything is laid out again.
+
 ## 4. Cut list, sheet layout and hardware
 
 Click **Cut List**. It collects every construction object in the document and

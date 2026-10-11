@@ -323,6 +323,52 @@ class TestConstructionApp(unittest.TestCase):
         legs = [r[2] for r in table.Proxy.part_rows(table) if r[0].startswith("Leg")]
         self.assertEqual(set(legs), {682.0})
 
+    def test_room_generates_runs_and_walls(self):
+        import json
+
+        import Part
+
+        room = CO.make_room(self.doc)
+        room.OpeningsData = json.dumps([[1, "window", 1200, 1000, 1200, 900]])
+        room.GapsData = json.dumps([[2, "range", 900, 600]])
+        room.BaseCabinetWalls = "1, 2"
+        room.WallCabinetWalls = "1, 2"
+        room.FrameWalls = True
+        made = room.Proxy.generate(room)
+        names = sorted(o.Name.split("_", 1)[1] for o in made)
+        self.assertEqual(names, ["Base1", "Base2", "Upper1", "Upper2", "Wall1", "Wall2"])
+        for obj in made:
+            self.assertBuilt(obj)
+        base1, base2 = self.doc.getObject("Room_Base1"), self.doc.getObject("Room_Base2")
+        # The runs meet at the corner without colliding: wall 2's run starts past
+        # wall 1's cabinets.
+        common = base1.Shape.common(base2.Shape)
+        self.assertLess(common.Volume, 1)
+        # Both runs stand inside the room, against the walls.
+        box = base1.Shape.BoundBox
+        self.assertAlmostEqual(box.YMin, 0, delta=1e-6)  # backs on wall 1 (y = 0)
+        self.assertAlmostEqual(box.YMax, 598, delta=1e-6)  # 580 deep + 18 mm doors
+        self.assertAlmostEqual(box.XMax, 3600, delta=1e-6)
+        self.assertGreater(self.doc.getObject("Room_Upper1").Shape.BoundBox.ZMin, 1000)
+        self.assertIn("window", self.doc.getObject("Room_Wall1").Openings)
+        # Fewer walls: what is no longer needed goes.
+        room.WallCabinetWalls = ""
+        room.Proxy.generate(room)
+        self.assertIsNone(self.doc.getObject("Room_Upper1"))
+        CO.write_cut_list(self.doc)
+        # A room from a sketch of its walls.
+        sketch = self.doc.addObject("Part::Feature", "Outline")
+        sketch.Shape = Part.makePolygon(
+            [
+                FreeCAD.Vector(*p)
+                for p in ((0, 0, 0), (4000, 0, 0), (4000, 3000, 0), (0, 3000, 0), (0, 0, 0))
+            ]
+        )
+        other = CO.make_room(self.doc, "Box")
+        other.Base = sketch
+        self.doc.recompute()
+        self.assertEqual(len(other.Proxy.model(other).walls), 4)
+
     def test_drawing(self):
         shed = CO.make_shed(self.doc)
         page = CO.make_drawing([shed], self.doc)

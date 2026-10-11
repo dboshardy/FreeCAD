@@ -9,6 +9,8 @@ a cabinet run's cabinets. edit_panel(obj) returns the panel for an object, or
 None when it has none.
 """
 
+import json
+
 import FreeCAD
 import FreeCADGui
 from PySide import QtGui
@@ -18,6 +20,7 @@ import Cabinet
 import ConstructionObjects as CO
 import Framing
 import Library
+import Room
 
 translate = FreeCAD.Qt.translate
 TEXT, NUMBER, CHOICE = "text", "number", "choice"
@@ -273,6 +276,90 @@ def run_panel(obj):
     return EditPanel(obj, [editor], apply)
 
 
+def room_panel(obj):
+    yes_no = [(translate("Construction", "no"), "no"), (translate("Construction", "yes"), "yes")]
+    walls = TableEditor(
+        translate("Construction", "Walls, measured on the inside, in order"),
+        [("Length", NUMBER, None), ("Then turn", CHOICE, [(t, t) for t in Room.TURNS])],
+        [tuple(w) for w in json.loads(obj.WallsData)],
+    )
+    openings = TableEditor(
+        translate("Construction", "Doors and windows"),
+        [
+            ("Wall", NUMBER, None),
+            ("Kind", CHOICE, [("door", "door"), ("window", "window")]),
+            ("Width", NUMBER, None),
+            ("Height", NUMBER, None),
+            ("From wall start", NUMBER, None),
+            ("Sill", NUMBER, None),
+        ],
+        [tuple(o) for o in json.loads(obj.OpeningsData)],
+    )
+    gaps = TableEditor(
+        translate("Construction", "Appliance gaps"),
+        [
+            ("Wall", NUMBER, None),
+            ("Appliance", CHOICE, [(k, k) for k in Room.GAP_KINDS]),
+            ("From wall start", NUMBER, None),
+            ("Width", NUMBER, None),
+        ],
+        [tuple(g) for g in json.loads(obj.GapsData)],
+    )
+    base = set(Framing.parse_numbers(obj.BaseCabinetWalls))
+    upper = set(Framing.parse_numbers(obj.WallCabinetWalls))
+    count = len(json.loads(obj.WallsData))
+    use = TableEditor(
+        translate("Construction", "Cabinets on each wall"),
+        [
+            ("Wall", NUMBER, None),
+            ("Base cabinets", CHOICE, yes_no),
+            ("Wall cabinets", CHOICE, yes_no),
+        ],
+        [
+            (w, "yes" if w in base else "no", "yes" if w in upper else "no")
+            for w in range(1, count + 1)
+        ],
+    )
+
+    def apply(wall_rows, opening_rows, gap_rows, use_rows):
+        def number(v, what):
+            if v == "":
+                raise ValueError(translate("Construction", "{} is missing").format(what))
+            return float(v)
+
+        obj.WallsData = json.dumps([[number(l, "a wall length"), t] for l, t in wall_rows])
+        obj.OpeningsData = json.dumps(
+            [
+                [
+                    int(number(w, "a wall number")),
+                    k,
+                    number(wd, "a width"),
+                    number(h, "a height"),
+                    number(at, "a position"),
+                    float(s or 0),
+                ]
+                for w, k, wd, h, at, s in opening_rows
+            ]
+        )
+        obj.GapsData = json.dumps(
+            [
+                [
+                    int(number(w, "a wall number")),
+                    k,
+                    number(at, "a position"),
+                    number(wd, "a width"),
+                ]
+                for w, k, at, wd in gap_rows
+            ]
+        )
+        obj.BaseCabinetWalls = ", ".join(f"{w:g}" for w, b, _ in use_rows if b == "yes")
+        obj.WallCabinetWalls = ", ".join(f"{w:g}" for w, _, u in use_rows if u == "yes")
+        obj.Proxy.model(obj).validate()
+        obj.Proxy.generate(obj)
+
+    return EditPanel(obj, [walls, openings, gaps, use], apply)
+
+
 def edit_panel(obj):
     """The editing panel for a construction object, or None."""
     proxy = getattr(obj, "Proxy", None)
@@ -281,6 +368,7 @@ def edit_panel(obj):
         (CO.WallFrameFeature, wall_panel),
         (CO.FloorFrameFeature, floor_panel),
         (CO.CabinetRunFeature, run_panel),
+        (CO.RoomFeature, room_panel),
     ):
         if isinstance(proxy, kind):
             return make(obj)
