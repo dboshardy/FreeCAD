@@ -17,6 +17,8 @@ receiving part, then the inserted part) and how they are joined:
 - "loose_tenon": the same mortise in both parts, `depth` deep each, for a
   separate (loose) tenon; set `fastener` to count the tenons.
 - "half_lap": crossing parts each lose half their depth where they overlap.
+- "bridle": crossing (or corner-overlapping) parts: the receiver gets a slot
+  of the middle third, the inserted part keeps it as a tenon.
 - "fastened": no change to the parts; fasteners only.
 
 Any rule may add fasteners: `fastener` is a hardware id, `spacing` the
@@ -47,7 +49,7 @@ EPS = 1e-6
 class Rule:
     receiver: str  # fnmatch pattern of the receiving part's name
     inserted: str  # fnmatch pattern of the other part's name
-    kind: str = "fastened"  # "housing", "tenon", "loose_tenon", "half_lap", "fastened"
+    kind: str = "fastened"  # housing, tenon, loose_tenon, half_lap, bridle, fastened
     depth: float = 0.0  # housing depth or tenon length into the receiver
     thickness: float = 0.0  # tenon thickness; 0 = a third of the inserted part
     shoulder: float = 0.0  # tenon: cut off each edge of the inserted part's width
@@ -61,6 +63,9 @@ class Rule:
     count_table: list = field(default_factory=list)  # [[max length, count], ...]
     extra_every: float = 400.0  # count_table: one more per started length beyond it
     sized: bool = False  # fasteners listed per contact length (hardware id@length)
+    hole: list = field(
+        default_factory=list
+    )  # [diameter, into receiver (-1 through), into inserted]
     allows_movement: bool = False  # lets solid wood move across its grain (tabletop fasteners)
 
 
@@ -152,13 +157,14 @@ def apply(boxes, rules):
             symmetric = fnmatch.fnmatchcase(b.name, rule.receiver) and fnmatch.fnmatchcase(
                 a.name, rule.inserted
             )
-            if (symmetric or rule.kind == "half_lap") and i > j:
+            if (symmetric or rule.kind in CROSSING) and i > j:
                 continue  # one joint per pair
-            if rule.kind == "half_lap":
+            touch = None
+            if rule.kind in CROSSING:
                 crossing = overlap(a, b)
                 if crossing is None:
                     continue
-                _half_lap(out, i, j, crossing)
+                _cross(out, i, j, crossing, rule.kind)
                 length = max(h - l for l, h in zip(*crossing))
             else:
                 touch = contact(a, b, rule.gap)
@@ -172,6 +178,8 @@ def apply(boxes, rules):
                 length = max(h - l for n, (l, h) in enumerate(zip(lo, hi)) if n != k)
             out.joints.append((i, j, rule))
             count = fastener_count(rule, length)
+            if count and rule.hole and touch:
+                _holes(out, i, j, touch, rule, count)
             if count and rule.fastener:
                 key = f"{rule.fastener}@{length:g}" if rule.sized else rule.fastener
                 out.fasteners[key] = out.fasteners.get(key, 0) + count
@@ -223,23 +231,72 @@ def _housing(out, i, j, k, sign, lo, hi, depth):
     out.operations.append((i, f"housing {round(width[0], 1):g} x {depth:g} deep"))
 
 
-def _half_lap(out, i, j, crossing):
-    """Each crossing part loses half the overlap's depth from opposite faces,
-    along the axis neither part runs along (parallel parts: the axis of least
-    overlap)."""
+CROSSING = ("half_lap", "bridle")
+
+
+def _cross(out, i, j, crossing, kind):
+    """Joint where two parts cross (or overlap at a corner), cut along the
+    axis neither part runs along (parallel parts: the axis of least overlap).
+    half_lap: each loses half the overlap's depth from opposite faces.
+    bridle: the receiver loses the middle third (an open mortise or slot), the
+    inserted part the outer thirds (its tenon)."""
     lo, hi = crossing
     lengths = {max(range(3), key=lambda n: out.boxes[x].size[n]) for x in (i, j)}
     across = [n for n in range(3) if n not in lengths]
     k = across[0] if len(across) == 1 else min(range(3), key=lambda n: hi[n] - lo[n])
-    mid = (lo[k] + hi[k]) / 2
-    for index, (a, b) in ((i, (lo[k], mid)), (j, (mid, hi[k]))):
+    if kind == "half_lap":
+        mid = (lo[k] + hi[k]) / 2
+        cuts = [(i, (lo[k], mid), "lap", "half lap"), (j, (mid, hi[k]), "lap", "half lap")]
+    else:
+        third = (hi[k] - lo[k]) / 3
+        a, b = lo[k] + third, hi[k] - third
+        cuts = [
+            (i, (a, b), "slot", f"bridle slot {third:.3g} wide"),
+            (j, (lo[k], a), "cheek", f"bridle tenon {third:.3g} thick"),
+            (j, (b, hi[k]), "cheek", None),
+        ]
+    for index, (start, end), what, text in cuts:
         plo, phi = list(lo), list(hi)
-        plo[k], phi[k] = a, b
+        plo[k], phi[k] = start, end
         size = tuple(h - l for l, h in zip(plo, phi))
-        out.pockets.append(
-            (index, Part(f"{out.boxes[index].name} lap", "pocket", size, tuple(plo)))
-        )
-        out.operations.append((index, "half lap"))
+        name = f"{out.boxes[index].name} {what}"
+        out.pockets.append((index, Part(name, "pocket", size, tuple(plo))))
+        if text:
+            out.operations.append((index, text))
+
+
+def _holes(out, i, j, touch, rule, count):
+    """Fastener holes across the contact: `count` evenly along its longer
+    direction (`edge` from the ends, else evenly spread), centred across it.
+    rule.hole = [diameter, depth into the receiver (-1: through), depth into
+    the inserted part]. Holes are pockets with role "hole" whose grain is the
+    hole's axis."""
+    k, sign, (lo, hi) = touch
+    d, into_a, into_b = rule.hole
+    a, b = out.boxes[i], out.boxes[j]
+    along = max((n for n in range(3) if n != k), key=lambda n: hi[n] - lo[n])
+    across = next(n for n in range(3) if n not in (k, along))
+    span = hi[along] - lo[along]
+    edge = rule.edge if rule.edge and 2 * rule.edge < span else span / (2 * count)
+    step = (span - 2 * edge) / (count - 1) if count > 1 else 0
+    face_a = a.hi(k) if sign == 1 else a.lo(k)
+    face_b = b.lo(k) if sign == 1 else b.hi(k)
+    depth_a = a.size[k] if into_a < 0 else into_a
+    spans_k = [
+        (i, (face_a - depth_a, face_a) if sign == 1 else (face_a, face_a + depth_a)),
+        (j, (face_b, face_b + into_b) if sign == 1 else (face_b - into_b, face_b)),
+    ]
+    for n in range(count):
+        centre = {along: lo[along] + edge + n * step, across: (lo[across] + hi[across]) / 2}
+        for index, (k_lo, k_hi) in spans_k:
+            if k_hi - k_lo < EPS:
+                continue
+            pos, size = [0.0] * 3, [d] * 3
+            for m, c in centre.items():
+                pos[m] = c - d / 2
+            pos[k], size[k] = k_lo, k_hi - k_lo
+            name = f"{out.boxes[index].name} hole"
+            out.pockets.append((index, Part(name, "hole", tuple(size), tuple(pos), "xyz"[k])))
 
 
 def _tenon(out, i, j, k, sign, rule, loose=False):

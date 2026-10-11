@@ -1107,6 +1107,46 @@ class TestJoinery(unittest.TestCase):
         self.assertEqual(len([p for i, p in result.pockets if i in (0, 1)]), 2)
         self.assertEqual(result.fasteners, {"t": 2})
 
+    def test_holes(self):
+        side, _, bottom = self.carcass()
+        rule = Joinery.Rule("*side", "Bottom", fastener="d", spacing=200, edge=50, hole=[8, 15, 20])
+        result = Joinery.apply([side, bottom], [rule])
+        holes = [(i, p) for i, p in result.pockets if p.role == "hole"]
+        self.assertEqual(len(holes), 8)  # 4 dowels, a hole in each part
+        side_holes = sorted(p.pos for i, p in holes if i == 0)
+        # Along y: 50 from the ends of the 560 contact, 460 / 3 apart; centred on the
+        # bottom's 18 thickness (z 9); 15 into the side from its inner face at x = 18.
+        self.assertEqual([round(p[1] + 4, 1) for p in side_holes], [50, 203.3, 356.7, 510])
+        self.assertEqual({(p[0], p[2] + 4) for p in side_holes}, {(3, 9)})
+        bottom_hole = next(p for i, p in holes if i == 1)
+        self.assertEqual(
+            (bottom_hole.pos[0], bottom_hole.size[0], bottom_hole.grain), (18, 20, "x")
+        )
+        rules = {"hole_wall_min_mm": 3}
+        parts = [("ply", p) for p in result.boxes]
+        self.assertEqual(Checks.build(parts, result, rules, {}), [])
+        thin = Parts.Part("Bottom", "", (564, 560, 12), (18, 0, 0))  # 8 mm hole in 12 mm
+        result = Joinery.apply([side, thin], [rule])
+        found = Checks.build([("ply", p) for p in result.boxes], result, rules, {})
+        # Centred on 12 mm, the 8 mm holes leave 2 mm in the bottom and 2 mm to the side's
+        # lower edge (flush with the bottom).
+        self.assertEqual([c for c, _, _ in found], ["Hole wall, Left side", "Hole wall, Bottom"])
+
+    def test_bridle(self):
+        # Two 45 x 95 rails overlapping at a frame corner.
+        a = Parts.Part("Stile", "", (45, 95, 1000), (0, 0, 0))
+        b = Parts.Part("Rail", "", (600, 95, 45), (0, 0, 955))
+        result = Joinery.apply([a, b], [Joinery.Rule("Stile", "Rail", "bridle")])
+        slot = [p for i, p in result.pockets if i == 0]
+        cheeks = [p for i, p in result.pockets if i == 1]
+        ((pos, size),) = [(p.pos[1], p.size[1]) for p in slot]
+        self.assertAlmostEqual(pos, 95 / 3)
+        self.assertAlmostEqual(size, 95 / 3)
+        low, high = sorted(p.pos[1] for p in cheeks)
+        self.assertEqual(low, 0)
+        self.assertAlmostEqual(high, 2 * 95 / 3)
+        self.assertIn((0, "bridle slot 31.7 wide"), result.operations)
+
     def test_presets_from_library(self):
         items = Library.load()
         joints = Library.of_category(items, "joint")
@@ -1114,7 +1154,9 @@ class TestJoinery(unittest.TestCase):
         for joint in joints:
             rule = Joinery.rule(joint, "Leg", "Apron")
             self.assertIn(
-                rule.kind, ("housing", "tenon", "loose_tenon", "half_lap", "fastened"), joint["id"]
+                rule.kind,
+                ("housing", "tenon", "loose_tenon", "half_lap", "bridle", "fastened"),
+                joint["id"],
             )
             if rule.fastener:
                 self.assertEqual(items[rule.fastener]["category"], "hardware", joint["id"])
@@ -1231,7 +1273,8 @@ class TestBuild(unittest.TestCase):
         # (the face side is 5 + (20 - 6.7) / 2 = 11.7 mm, the back 45 - 25 = 20 mm).
         self.assertIn("10.0 mm", good[0][2])
         names = [c for c, s, _ in checks(top_joint="joint.screw") if s == Checks.WARNING]
-        self.assertEqual(names, ["Wood movement, Top"])
+        # Rigid screws on a solid top, and 30 mm screw holes in an 18 mm top.
+        self.assertEqual(names, ["Hole wall, Top", "Wood movement, Top"])
 
         def warnings(options):
             parts = Build.end_table()[0]

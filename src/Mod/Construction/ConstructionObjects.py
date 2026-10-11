@@ -164,9 +164,21 @@ def joined_solids(result):
     out = []
     for i, p in enumerate(result.boxes):
         solid = Part.makeBox(*p.size, FreeCAD.Vector(*p.pos))
-        cuts = [Part.makeBox(*c.size, FreeCAD.Vector(*c.pos)) for j, c in result.pockets if j == i]
+        cuts = [_cut_shape(c) for j, c in result.pockets if j == i]
         out.append(solid.cut(cuts) if cuts else solid)
     return out
+
+
+def _cut_shape(pocket):
+    """Box of a pocket, or the cylinder of a hole (its grain is the axis)."""
+    if pocket.role != "hole":
+        return Part.makeBox(*pocket.size, FreeCAD.Vector(*pocket.pos))
+    k = "xyz".index(pocket.grain)
+    centre = [p + s / 2 for p, s in zip(pocket.pos, pocket.size)]
+    centre[k] = pocket.pos[k]
+    axis = FreeCAD.Vector(*(1 if n == k else 0 for n in range(3)))
+    radius = pocket.size[(k + 1) % 3] / 2
+    return Part.makeCylinder(radius, pocket.size[k], FreeCAD.Vector(*centre), axis)
 
 
 def set_shape(obj, shapes):
