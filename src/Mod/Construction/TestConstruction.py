@@ -1286,6 +1286,33 @@ class TestBuild(unittest.TestCase):
         self.assertIn("Mortise wall, Leg 1", warnings("shoulder=3"))  # 3 mm above
         self.assertIn("Joints meet inside Leg 1", warnings("depth=40"))
 
+    def test_dining_table_and_workbench(self):
+        rules = self.ITEMS["rules.generic-example"]
+        parts, result = Build.build(*Build.dining_table(), self.ITEMS)
+        rows = {r[1]: r for r in CutList.rows(parts)}
+        # Legs 70 at 50 from the edges: front aprons 1600 - 2 x 50 - 2 x 70 = 1360 + 2 x 25.
+        self.assertEqual(rows["Apron 1"][2], 1410)
+        # Top: 900 / 145 -> 7 boards, all ripped to 900 / 7.
+        boards = [p for _, p in parts if p.name.startswith("Top board")]
+        self.assertEqual(len(boards), 7)
+        self.assertAlmostEqual(boards[0].size[1], 900 / 7)
+        # Figure-8s: front and back aprons 1360 -> 5 each; the side aprons cross all
+        # 7 boards, 1 per board.
+        self.assertEqual(result.fasteners, {"hardware.figure8": 24})
+        statuses = {s for _, s, _ in Checks.build(parts, result, rules, self.ITEMS)}
+        self.assertEqual(statuses, {Checks.OK})  # no anchoring for a table
+        # Screwing the glued-up top on flags the whole 900 mm glue-up once.
+        parts, result = Build.build(*Build.dining_table(top_joint="joint.glue"), self.ITEMS)
+        found = [c for c, s, _ in Checks.build(parts, result, rules, self.ITEMS) if s != Checks.OK]
+        self.assertEqual(found, ["Wood movement, Top board 1 (glue-up of 7)"])
+        parts, result = Build.build(*Build.workbench(), self.ITEMS)
+        names = {p.name for _, p in parts}
+        self.assertTrue({"Shelf", "Stretcher 1", "Top board 5"} <= names)
+        # The shelf rests on the front and back stretchers: 10 pocket screws each.
+        self.assertEqual(result.fasteners["hardware.pocket_screw"], 20)
+        # 900 tall on a 600 deep footprint: not slender enough to need anchoring.
+        self.assertFalse(Checks.build_anchored([p for _, p in parts], rules))
+
     def test_bookcase_template(self):
         parts, result = Build.build(*Build.bookcase(), self.ITEMS)
         rows = {r[1]: r for r in CutList.rows(parts)}

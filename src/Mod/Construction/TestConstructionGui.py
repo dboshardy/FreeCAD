@@ -55,7 +55,10 @@ class TestConstructionGui(unittest.TestCase):
             "Construction_BoardBetween",
             "Construction_Panel",
             "Construction_Joint",
+            "Construction_Align",
             "Construction_EndTable",
+            "Construction_DiningTable",
+            "Construction_Workbench",
             "Construction_Bookcase",
             "Std_CommandPalette",
             "Std_RadialMenu",
@@ -109,27 +112,31 @@ class TestConstructionGui(unittest.TestCase):
         FreeCADGui.Selection.addSelection(build, face(250, 600))
         FreeCADGui.Selection.addSelection(build, face(22.5, 0))
         self.assertTrue(FreeCADGui.isCommandActive("Construction_Joint"))
-        offered = []
-        saved = QtGui.QInputDialog.getItem, QtGui.QMessageBox.question
+        offered, previewed = [], []
+        saved = QtGui.QInputDialog.getItem, QtGui.QInputDialog.getText
 
         def get_item(parent, title, label, labels, *args):
-            offered.extend(labels)
-            return "Mortise and tenon", True
+            if not offered:  # the joint list
+                offered.extend(labels)
+                return "Mortise and tenon", True
+            # Keep / apply to similar / undo, asked with the joint already in the model.
+            previewed.append(len(build.Proxy.joint_rows(build)))
+            return next(c for c in labels if c.startswith("Apply")), True
 
         QtGui.QInputDialog.getItem = get_item
-        QtGui.QMessageBox.question = lambda *a: QtGui.QMessageBox.Yes
+        QtGui.QInputDialog.getText = lambda parent, title, label, mode, text: ("depth=20", True)
         try:
             FreeCADGui.runCommand("Construction_Joint")
         finally:
-            QtGui.QInputDialog.getItem, QtGui.QMessageBox.question = saved
+            QtGui.QInputDialog.getItem, QtGui.QInputDialog.getText = saved
+        self.assertEqual(previewed, [1])
         self.assertIn("Pocket screws", offered)
         self.assertNotIn("Half lap", offered)  # only joints for an end on a face
         self.assertEqual(
-            build.Proxy.joint_rows(build), [("Leg*", "Apron*", "joint.mortise_tenon", "")]
+            build.Proxy.joint_rows(build), [("Leg*", "Apron*", "joint.mortise_tenon", "depth=20")]
         )
         self.doc.recompute()
         self.assertNotIn("Invalid", build.State)
-
 
     def test_board_on_selected_face(self):
         import ConstructionObjects as CO
@@ -148,6 +155,28 @@ class TestConstructionGui(unittest.TestCase):
         self.doc.recompute()
         panel = build.Proxy.parts(build)[-1][1]
         self.assertEqual((panel.size, panel.pos), ((45, 45, 18), (0, 0, 600)))
+
+    def test_align_snaps_a_face(self):
+        import ConstructionObjects as CO
+
+        build = CO.make_build(self.doc)
+        CO.add_board(build, "Leg 1", "lumber.metric.hw.45x45", 600, (0, 0, 0), "z", "x")
+        CO.add_board(build, "Rail", "lumber.metric.hw.20x95", 400, (100, 200, 300), "x", "y")
+        self.doc.recompute()
+
+        def face(x=None, y=None):
+            for i, f in enumerate(build.Shape.Faces, start=1):
+                c = f.CenterOfMass
+                if (x is None or abs(c.x - x) < 1e-6) and (y is None or abs(c.y - y) < 1e-6):
+                    return f"Face{i}"
+
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.Selection.addSelection(build, face(x=45))  # the leg's +x face
+        FreeCADGui.Selection.addSelection(build, face(x=100))  # the rail's -x end
+        self.assertTrue(FreeCADGui.isCommandActive("Construction_Align"))
+        FreeCADGui.runCommand("Construction_Align")
+        rail = build.Proxy.parts(build)[1][1]
+        self.assertEqual(rail.pos, (45, 200, 300))  # its end now against the leg
 
 
 class TestCoreUx(unittest.TestCase):

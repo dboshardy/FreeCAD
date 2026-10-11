@@ -142,7 +142,7 @@ def on_face(part, axis, sign, thick, width=None):
     return part.size[along], width, *pos, AXES[along], AXES[k]
 
 
-def end_table(
+def table(
     width=500,
     depth=500,
     height=600,
@@ -151,16 +151,23 @@ def end_table(
     leg=("lumber.metric.hw.45x45", 45),
     apron=("lumber.metric.hw.20x95", 20, 95),
     top=("sheet.metric.edge_glued.18", 18),
+    top_boards=None,
     joint="joint.mortise_tenon",
     top_joint="joint.figure8",
+    shelf=None,
+    shelf_height=150,
 ):
-    """(parts rows, joints rows) of an end table: four legs, four aprons
-    between them (set back from the legs' outer faces, flush with their tops),
-    and a top overhanging the leg frame. leg: (stock, size), apron: (stock,
-    thickness, width), top: (stock, thickness). Sizes in mm."""
+    """(parts rows, joints rows) of a table: four legs, four aprons between
+    them (set back from the legs' outer faces, flush with their tops), and a
+    top overhanging the leg frame. leg: (stock, size), apron: (stock,
+    thickness, width), top: (stock, thickness) of a panel, or top_boards:
+    (stock, thickness, width) to glue the top up from boards running along
+    the width (all ripped to the same width). shelf: (stock, thickness) adds four
+    stretchers like the aprons with their tops at shelf_height and a shelf
+    resting on the front and back ones. Sizes in mm."""
     leg_stock, s = leg
     apron_stock, t, w = apron
-    top_stock, top_t = top
+    top_t = top_boards[1] if top_boards else top[1]
     leg_h = height - top_t
     x0, x1 = overhang, width - overhang - s
     y0, y1 = overhang, depth - overhang - s
@@ -168,20 +175,122 @@ def end_table(
         raise ValueError("the top is too small for the legs and overhang")
     if setback + t > s:
         raise ValueError("the aprons are thicker than the legs allow with this setback")
-    z = leg_h - w
+    if shelf and not w < shelf_height < leg_h - w:
+        raise ValueError("the shelf stretchers must fit between the floor and the aprons")
     parts = [
         (f"Leg {n}", leg_stock, leg_h, s, s, x, y, 0, "z", "x")
         for n, (x, y) in enumerate(((x0, y0), (x1, y0), (x1, y1), (x0, y1)), start=1)
     ]
-    parts += [
-        ("Apron 1", apron_stock, x1 - x0 - s, w, t, x0 + s, y0 + setback, z, "x", "y"),
-        ("Apron 2", apron_stock, y1 - y0 - s, w, t, x1 + s - setback - t, y0 + s, z, "y", "x"),
-        ("Apron 3", apron_stock, x1 - x0 - s, w, t, x0 + s, y1 + s - setback - t, z, "x", "y"),
-        ("Apron 4", apron_stock, y1 - y0 - s, w, t, x0 + setback, y0 + s, z, "y", "x"),
-        ("Top", top_stock, width, depth, top_t, 0, 0, leg_h, "x", "z"),
-    ]
-    joints = [("Leg*", "Apron*", joint, ""), ("Apron*", "Top", top_joint, "")]
+
+    def rails(name, z):
+        return [
+            (f"{name} 1", apron_stock, x1 - x0 - s, w, t, x0 + s, y0 + setback, z, "x", "y"),
+            (
+                f"{name} 2",
+                apron_stock,
+                y1 - y0 - s,
+                w,
+                t,
+                x1 + s - setback - t,
+                y0 + s,
+                z,
+                "y",
+                "x",
+            ),
+            (
+                f"{name} 3",
+                apron_stock,
+                x1 - x0 - s,
+                w,
+                t,
+                x0 + s,
+                y1 + s - setback - t,
+                z,
+                "x",
+                "y",
+            ),
+            (f"{name} 4", apron_stock, y1 - y0 - s, w, t, x0 + setback, y0 + s, z, "y", "x"),
+        ]
+
+    parts += rails("Apron", leg_h - w)
+    joints = [("Leg*", "Apron*", joint, "")]
+    if top_boards:
+        board_stock, _, board_w = top_boards
+        n = int(-(-depth // board_w))  # boards needed, all ripped to the same width
+        rip = depth / n
+        for b in range(n):
+            row = (f"Top board {b + 1}", board_stock, width, rip, top_t, 0, b * rip, leg_h)
+            parts.append(row + ("x", "z"))
+        joints += [
+            ("Top board*", "Top board*", "joint.glue", ""),
+            ("Apron*", "Top board*", top_joint, ""),
+        ]
+    else:
+        parts.append(("Top", top[0], width, depth, top_t, 0, 0, leg_h, "x", "z"))
+        joints.append(("Apron*", "Top", top_joint, ""))
+    if shelf:
+        shelf_stock, shelf_t = shelf
+        parts += rails("Stretcher", shelf_height - w)
+        y_lo, y_hi = y0 + setback, y1 + s - setback
+        parts.append(
+            (
+                "Shelf",
+                shelf_stock,
+                x1 - x0 - s,
+                y_hi - y_lo,
+                shelf_t,
+                x0 + s,
+                y_lo,
+                shelf_height,
+                "x",
+                "z",
+            )
+        )
+        joints += [
+            ("Leg*", "Stretcher*", joint, ""),
+            ("Shelf", "Stretcher*", "joint.pocket_screw", ""),
+        ]
     return parts, joints
+
+
+def end_table(**sizes):
+    """An end table: table() as it comes (500 x 500 x 600 mm)."""
+    return table(**sizes)
+
+
+def dining_table(**sizes):
+    """A 1600 x 900 x 750 mm dining table: 70 mm legs, 20 x 120 aprons and a
+    top glued up from 20 x 145 boards (table() arguments override)."""
+    defaults = dict(
+        width=1600,
+        depth=900,
+        height=750,
+        overhang=50,
+        leg=("lumber.metric.hw.70x70", 70),
+        apron=("lumber.metric.hw.20x120", 20, 120),
+        top_boards=("lumber.metric.hw.20x145", 20, 145),
+    )
+    return table(**{**defaults, **sizes})
+
+
+def workbench(**sizes):
+    """A 1500 x 600 x 900 mm workbench in softwood: 70 mm legs, 45 x 95 aprons
+    and stretchers, a top of 45 x 145 boards and a plywood shelf at 150 mm
+    (table() arguments override)."""
+    defaults = dict(
+        width=1500,
+        depth=600,
+        height=900,
+        overhang=30,
+        setback=10,
+        leg=("lumber.metric.70x70", 70),
+        apron=("lumber.metric.45x95", 45, 95),
+        top_boards=("lumber.metric.45x145", 45, 145),
+        shelf=("sheet.metric.plywood.18", 18),
+        shelf_height=250,
+        joint="joint.mortise_tenon",
+    )
+    return table(**{**defaults, **sizes})
 
 
 def bookcase(

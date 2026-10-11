@@ -263,18 +263,31 @@ def selected_build_parts():
     return build, names
 
 
+def selected_faces(build):
+    """[(part name, axis, sign, plane coordinate)] of the faces selected on the
+    build, in selection order, in the build's coordinates."""
+    out = []
+    rows = build.Proxy.part_rows(build)
+    inverse = build.Placement.inverse()
+    for sel in FreeCADGui.Selection.getSelectionEx():
+        if sel.Object != build:
+            continue
+        for element in sel.SubElementNames:
+            if not element.startswith("Face"):
+                continue
+            face = build.Shape.getElement(element)
+            normal = inverse.Rotation.multVec(face.normalAt(0, 0))
+            axis = max(range(3), key=lambda n: abs(normal[n]))
+            plane = inverse.multVec(face.CenterOfMass)[axis]
+            name = rows[build.Proxy.part_at(build, element)][0]
+            out.append((name, axis, 1 if normal[axis] > 0 else -1, plane))
+    return out
+
+
 def selected_face(build):
     """(part name, axis, sign) of the one face selected on the build, or None."""
-    sel = [s for s in FreeCADGui.Selection.getSelectionEx() if s.Object == build]
-    elements = [e for s in sel for e in s.SubElementNames if e.startswith("Face")]
-    if len(elements) != 1:
-        return None
-    face = build.Shape.getElement(elements[0])
-    normal = build.Placement.Rotation.inverted().multVec(face.normalAt(0, 0))
-    axis = max(range(3), key=lambda n: abs(normal[n]))
-    index = build.Proxy.part_at(build, elements[0])
-    rows = build.Proxy.part_rows(build)
-    return rows[index][0], axis, 1 if normal[axis] > 0 else -1
+    faces = selected_faces(build)
+    return faces[0][:3] if len(faces) == 1 else None
 
 
 class BuildCommand:
@@ -376,22 +389,87 @@ class JointCommand:
         )
         if not ok:
             return
-        joint = joints[labels.index(label)]["id"]
-        pattern = Build.similar(receiver), Build.similar(inserted)
-        if pattern != (receiver, inserted):
-            answer = QtGui.QMessageBox.question(
-                window,
-                title,
-                translate("Construction", "Apply to every similar pair ({} / {})?").format(
-                    *pattern
-                ),
-            )
-            if answer == QtGui.QMessageBox.Yes:
-                receiver, inserted = pattern
-        build.Document.openTransaction(translate("Construction", "Joint"))
+        preset = joints[labels.index(label)]
+        sizes = ", ".join(
+            f"{key}={preset[key]:g}"
+            for key in ("depth", "thickness", "shoulder", "spacing", "edge", "gap")
+            if isinstance(preset.get(key), (int, float)) and not isinstance(preset[key], bool)
+        )
+        opts, ok = QtGui.QInputDialog.getText(
+            window,
+            title,
+            translate("Construction", "Options (sizes in mm; empty = the preset's):"),
+            QtGui.QLineEdit.Normal,
+            sizes,
+        )
+        if not ok:
+            return
+        opts = "" if opts.strip() == sizes else opts.strip()
+        doc = build.Document
+        name = f"App.ActiveDocument.{build.Name}"
+        doc.openTransaction(translate("Construction", "Joint"))
         FreeCADGui.doCommand(
-            f"App.ActiveDocument.{build.Name}.Proxy.add_joint("
-            f"App.ActiveDocument.{build.Name}, {receiver!r}, {inserted!r}, {joint!r})"
+            f"row = {name}.Proxy.add_joint({name}, {receiver!r}, {inserted!r}, "
+            f"{preset['id']!r}, {opts!r})"
+        )
+        FreeCADGui.doCommand("App.ActiveDocument.recompute()")
+        if "Invalid" in build.State:  # e.g. a mortise breaking out of the part
+            doc.abortTransaction()
+            doc.recompute()
+            QtGui.QMessageBox.warning(
+                window, title, translate("Construction", "This joint does not fit these parts.")
+            )
+            return
+        # The joint is in the model now: the user sees it before keeping it.
+        pattern = Build.similar(receiver), Build.similar(inserted)
+        keep = translate("Construction", "Keep for this pair")
+        similar = translate("Construction", "Apply to every similar pair ({} / {})").format(
+            *pattern
+        )
+        undo = translate("Construction", "Undo")
+        choices = [keep] + ([similar] if pattern != (receiver, inserted) else []) + [undo]
+        choice, ok = QtGui.QInputDialog.getItem(
+            window, title, translate("Construction", "Joint added:"), choices, 0, False
+        )
+        if not ok or choice == undo:
+            doc.abortTransaction()
+            doc.recompute()
+            return
+        if choice == similar:
+            FreeCADGui.doCommand(
+                f"{name}.Proxy.set_joint({name}, row, {pattern[0]!r}, {pattern[1]!r}, "
+                f"{preset['id']!r}, {opts!r})"
+            )
+            FreeCADGui.doCommand("App.ActiveDocument.recompute()")
+        doc.commitTransaction()
+
+
+class AlignCommand:
+    def GetResources(self):
+        return {
+            "MenuText": QT_TRANSLATE_NOOP("Construction_Align", "Align"),
+            "ToolTip": QT_TRANSLATE_NOOP(
+                "Construction_Align",
+                "Moves a part of a build so that the second selected face lies in the plane "
+                "of the first: against it, or flush with it",
+            ),
+        }
+
+    def IsActive(self):
+        build, _ = selected_build_parts()
+        if build is None:
+            return False
+        faces = selected_faces(build)
+        return len(faces) == 2 and faces[0][1] == faces[1][1] and faces[0][0] != faces[1][0]
+
+    def Activated(self):
+        build, _ = selected_build_parts()
+        (_, axis, _, target), (part, _, _, plane) = selected_faces(build)
+        build.Document.openTransaction(translate("Construction", "Align"))
+        FreeCADGui.addModule("ConstructionObjects")
+        FreeCADGui.doCommand(
+            f"ConstructionObjects.move_part(App.ActiveDocument.{build.Name}, {part!r}, "
+            f"{axis}, {target - plane:.6g})"
         )
         FreeCADGui.doCommand("App.ActiveDocument.recompute()")
         build.Document.commitTransaction()
@@ -569,6 +647,31 @@ FreeCADGui.addCommand(
     ),
 )
 FreeCADGui.addCommand("Construction_Joint", JointCommand())
+FreeCADGui.addCommand("Construction_Align", AlignCommand())
+FreeCADGui.addCommand(
+    "Construction_DiningTable",
+    FramingCommand(
+        "make_dining_table",
+        QT_TRANSLATE_NOOP("Construction_DiningTable", "Dining Table"),
+        QT_TRANSLATE_NOOP(
+            "Construction_DiningTable",
+            "Creates a dining table build: legs, mortise-and-tenon aprons and a top glued "
+            "up from boards on figure-8 fasteners; edit it in its tables",
+        ),
+    ),
+)
+FreeCADGui.addCommand(
+    "Construction_Workbench",
+    FramingCommand(
+        "make_workbench",
+        QT_TRANSLATE_NOOP("Construction_Workbench", "Workbench"),
+        QT_TRANSLATE_NOOP(
+            "Construction_Workbench",
+            "Creates a softwood workbench build: legs, aprons, a lower shelf on stretchers "
+            "and a top glued up from boards; edit it in its tables",
+        ),
+    ),
+)
 FreeCADGui.addCommand(
     "Construction_Bookcase",
     FramingCommand(
