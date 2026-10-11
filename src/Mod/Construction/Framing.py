@@ -15,7 +15,7 @@ Rafters are profiles (plumb cuts, birdsmouth) extruded by their thickness.
 
 import math
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import Joinery
 import Member
@@ -885,6 +885,122 @@ class Stair:
             bottom = tread * self.riser()
             top = self._rail_centre(y - bt / 2) - half_rail  # under the rail's lowest point
             out.append(Piece("Baluster", (x, y, bottom), (x, y, top), 0.0, "baluster"))
+        return out
+
+
+def shifted(piece, dy, dz):
+    """A Piece or ProfilePiece moved along y and z."""
+    if isinstance(piece, ProfilePiece):
+        return replace(piece, profile=[(y + dy, z + dz) for y, z in piece.profile])
+    return replace(
+        piece,
+        start=(piece.start[0], piece.start[1] + dy, piece.start[2] + dz),
+        end=(piece.end[0], piece.end[1] + dy, piece.end[2] + dz),
+    )
+
+
+@dataclass
+class LandingStair:
+    """A straight stair with a landing: `landing_after` risers up to the
+    landing, then the rest, all equal (from `stair`). The landing is
+    `landing_depth` deep (0: the stair width), decked with the tread boards on
+    a frame of rim joists and joists, on four posts, with guards on the
+    stair's open sides."""
+
+    stair: Stair = field(default_factory=Stair)
+    landing_after: int = 6
+    landing_depth: float = 0.0
+    joist: tuple = (45.0, 145.0)
+
+    def sections(self):
+        return {**self.stair.sections(), "landing_joist": self.joist}
+
+    def depth(self):
+        return self.landing_depth or self.stair.width
+
+    def landing_top(self):
+        return self.landing_after * self.stair.riser()
+
+    def landing_y(self):
+        """Front edge of the landing: the first flight's top riser face."""
+        return (self.landing_after - 1) * self.stair.run()
+
+    def flights(self):
+        """(first flight, second flight) as Stairs; the second starts at
+        y = landing_y() + depth(), z = landing_top()."""
+        s, r, n, k = self.stair, self.stair.riser(), self.stair.risers(), self.landing_after
+        return replace(s, total_rise=k * r), replace(s, total_rise=(n - k) * r)
+
+    def validate(self):
+        self.stair.validate()
+        n, k = self.stair.risers(), self.landing_after
+        if not 2 <= k <= n - 2:
+            raise ValueError(f"landing after 2 to {n - 2} risers ({n} in all; flights need 2 each)")
+        if self.depth() <= 2 * self.stair.post[1] or min(self.joist) <= 0:
+            raise ValueError("landing too shallow for its posts, or joist size not positive")
+        for flight in self.flights():
+            flight.validate()
+
+    def boards(self):
+        self.validate()
+        first, second = self.flights()
+        dy, dz = self.landing_y() + self.depth(), self.landing_top()
+        return first.boards() + [shifted(b, dy, dz) for b in second.boards()]
+
+    def pieces(self):
+        self.validate()
+        s = self.stair
+        first, second = self.flights()
+        y1, d, top = self.landing_y(), self.depth(), self.landing_top()
+        out = first.pieces() + [shifted(p, y1 + d, top) for p in second.pieces()]
+        # Decking: tread boards across the stair, the front one flush with the
+        # first flight's top riser face.
+        tt, bd = s.tread
+        y = y1
+        while y + bd <= y1 + d + 1e-6:
+            out.append(
+                Piece(
+                    "Tread",
+                    (0.0, y + bd / 2, top - tt / 2),
+                    (s.width, y + bd / 2, top - tt / 2),
+                    90.0,
+                    "tread",
+                )
+            )
+            y += bd + s.tread_gap
+        # Frame under the boards: rims along x, joists along y on the stringer lines.
+        jt, jd = self.joist
+        zj = top - tt - jd / 2
+        for yr in (y1 + jt / 2, y1 + d - jt / 2):
+            out.append(Piece("Landing rim", (0.0, yr, zj), (s.width, yr, zj), 0.0, "landing_joist"))
+        for x in s.stringer_centres():
+            out.append(
+                Piece("Landing joist", (x, y1 + jt, zj), (x, y1 + d - jt, zj), 0.0, "landing_joist")
+            )
+        p = s.post[0]
+        under = top - tt - jd
+        for x in (p / 2, s.width - p / 2):
+            for yp in (y1 + jt + p / 2, y1 + d - jt - p / 2):
+                out.append(Piece("Landing post", (x, yp, 0.0), (x, yp, under), 0.0, "post"))
+        # Guards along the open sides, the handrail height above the landing.
+        bt = s.baluster[1]
+        rail_z = top + s.handrail_height - s.rail[1] / 2
+        per = math.ceil(d / (bt + s.max_baluster_gap) - 1e-9)
+        for x, guarded in s.rail_lines():
+            if not guarded:
+                continue
+            out.append(Piece("Landing rail", (x, y1, rail_z), (x, y1 + d, rail_z), 0.0, "rail"))
+            for m in range(per):
+                yb = y1 + (m + 0.5) * d / per
+                out.append(
+                    Piece(
+                        "Landing baluster",
+                        (x, yb, top),
+                        (x, yb, rail_z - s.rail[1] / 2),
+                        0.0,
+                        "baluster",
+                    )
+                )
         return out
 
 

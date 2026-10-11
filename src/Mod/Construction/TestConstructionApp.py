@@ -268,6 +268,13 @@ class TestConstructionApp(unittest.TestCase):
         self.assertAlmostEqual(roof.HighWallRise.Value, roof.Proxy.model(roof).rise())
         self.assertBuilt(CO.make_sheathing(roof, self.doc))
 
+    def test_stair_landing(self):
+        stair = CO.make_stair(self.doc)
+        stair.LandingAfter = 7
+        self.doc.recompute()
+        self.assertBuilt(stair)
+        self.assertGreater(stair.Shape.BoundBox.YLength, 13 * 271)  # 12 runs + landing
+
     def test_drawing(self):
         shed = CO.make_shed(self.doc)
         page = CO.make_drawing([shed], self.doc)
