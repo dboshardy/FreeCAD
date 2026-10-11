@@ -210,6 +210,36 @@ class TestConstructionApp(unittest.TestCase):
         self.assertEqual(cut.get("A1"), "Material")
         CO.write_checks(self.doc)
 
+    def test_region_costs_and_coverings(self):
+        CO.set_document_region(self.doc, "US")
+        cabinet = CO.make_cabinet("base", self.doc)
+        choices = cabinet.getEnumerationsOfProperty("CarcassMaterial")
+        self.assertIn("sheet.us.plywood.3-4", choices)
+        self.assertNotIn("sheet.metric.plywood.12", choices)
+        self.assertIn("sheet.metric.plywood.18", choices)  # the current value stays
+        self.doc.removeObject(cabinet.Name)
+        CO.set_document_region(self.doc, "all")
+        shed = CO.make_shed(self.doc)
+        shed.RoofCovering = "area.roofing.asphalt_shingles"
+        saved = CO._items
+        try:
+            CO._items = {**saved}
+            for key, price in (
+                ("sheet.metric.plywood.12", 30),
+                ("area.roofing.asphalt_shingles", 25),
+            ):
+                CO._items[key] = {**saved[key], "price": price}
+            cut = CO.write_cut_list(self.doc)
+        finally:
+            CO._items = saved
+        rows = {cut.getContents(f"A{r}").lstrip("'"): r for r in range(1, 120)}
+        shingles = rows["Asphalt shingles, bundle"]
+        # Two roof slopes of 3600 x 2012: 14.5 m² + 15 % at 3.1 m² -> 6 bundles, 25 each.
+        self.assertEqual(cut.getContents(f"G{shingles}"), "6")
+        self.assertEqual(cut.get(f"J{shingles}"), 150)
+        total = rows["Total cost"]
+        self.assertIn("without a price", cut.getContents(f"B{total}"))
+
     def test_drawing(self):
         shed = CO.make_shed(self.doc)
         page = CO.make_drawing([shed], self.doc)

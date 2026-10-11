@@ -368,6 +368,37 @@ class TestHardware(unittest.TestCase):
         self.assertEqual(hw[items["hardware.hinge"]["name"]], 4)  # 1 door each, 2 hinges
 
 
+class TestQuantities(unittest.TestCase):
+    ITEMS = Library.load()
+
+    def test_board_feet_and_volume(self):
+        two_by_four = self.ITEMS["lumber.us.2x4"]
+        # Sold by nominal size: 2 x 4 x 96 in / 144 = 5.33 board feet.
+        self.assertAlmostEqual(CutList.board_feet(two_by_four, 8 * 304.8), 16 / 3)
+        stud = self.ITEMS["lumber.metric.45x95"]
+        self.assertAlmostEqual(CutList.volume_m3(stud, 3000), 0.045 * 0.095 * 3)
+
+    def test_price(self):
+        board = {**self.ITEMS["lumber.metric.45x95"], "price": 2.5, "price_per": "m"}
+        self.assertAlmostEqual(CutList.price(board, 4, 3000), 30)  # 4 x 3 m x 2.5
+        sheet = {**self.ITEMS["sheet.metric.plywood.18"], "price": 40}
+        self.assertEqual(CutList.price(sheet, 3), 120)
+        self.assertIsNone(CutList.price(self.ITEMS["sheet.metric.plywood.18"], 3))
+        oak = {**self.ITEMS["lumber.us.2x4"], "price": 3, "price_per": "board_foot"}
+        self.assertAlmostEqual(CutList.price(oak, 3, 8 * 304.8), 48)
+        nails = {**self.ITEMS["hardware.nail_framing"], "price": 0.02}
+        items = {**self.ITEMS, "hardware.nail_framing": nails}
+        costs = CutList.hardware_costs(items, 1, {"hardware.nail_framing": 100})
+        self.assertAlmostEqual(costs[nails["name"]], 2)
+        self.assertIsNone(costs[items["hardware.wall_anchor"]["name"]])  # no price
+
+    def test_covering_units(self):
+        shingles = self.ITEMS["area.roofing.asphalt_shingles"]
+        # 30 m² + 15 % waste = 34.5 m² at 3.1 m² a bundle -> 11.1 -> 12 bundles.
+        self.assertEqual(CutList.covering_units(shingles, 30), 12)
+        self.assertEqual(CutList.covering_units({"coverage_m2": 10, "waste": 0}, 20), 2)
+
+
 class TestMember(unittest.TestCase):
     def assertVec(self, a, b):
         for x, y in zip(a, b):

@@ -111,11 +111,44 @@ def add_ifc_type(obj, feature):
     )
 
 
+AREA = "area_material"
+REGION_KEY = "CADApp.Construction.Region"
+REGIONS = ("all", "metric", "US")
+
+
+def document_region(doc):
+    """The document's library region ("all", "metric", "US"), set with
+    Construction_Region; new documents follow preference Mod/Construction/Region."""
+    region = doc.Meta.get(REGION_KEY) if doc else None
+    return region or FreeCAD.ParamGet(PARAMS).GetString("Region", "all")
+
+
+def set_document_region(doc, region):
+    """Stores the region in the document and narrows every construction
+    object's library choices to it (generic items stay)."""
+    meta = doc.Meta
+    meta[REGION_KEY] = region
+    doc.Meta = meta
+    for obj in construction_objects(doc):
+        obj.Proxy.onDocumentRestored(obj)
+
+
+def sheathing_area(parts):
+    """m² of sheathing parts (their cut rectangles)."""
+    return sum(p.cut_size()[0] * p.cut_size()[1] for p in parts) / 1e6
+
+
 def add_library_choice(obj, prop, category, default, group, tip, where=None):
-    """Enumeration of library item ids of one category (and passing `where`).
-    A value whose item is gone (user library changed) stays selectable and
-    fails in execute()."""
-    ids = [i["id"] for i in Library.of_category(items(), category) if not where or where(i)]
+    """Enumeration of library item ids of one category (and passing `where`)
+    in the document's region (generic items always). A value whose item is
+    gone (user library changed) or is of another region stays selectable;
+    a missing item fails in execute()."""
+    region = document_region(obj.Document)
+    ids = [
+        i["id"]
+        for i in Library.of_category(items(), category)
+        if (not where or where(i)) and (region == "all" or i.get("region") in (region, "generic"))
+    ]
     if prop in obj.PropertiesList:
         current = getattr(obj, prop)
     else:
@@ -885,9 +918,18 @@ class SheathingFeature:
             obj, "App::PropertyBool", "Stagger", "Sheathing", "Offset every other row", True
         )
         add_library_choice(obj, "Material", Library.SHEET_GOODS, material, "Sheathing", "Sheets")
+        add_library_choice(
+            obj, "Covering", AREA, "none", "Sheathing", "Roofing, wrap or cladding over it"
+        )
 
     def onDocumentRestored(self, obj):
         self.setProperties(obj)
+
+    def coverings(self, obj):
+        """[(area material id, m²)]."""
+        if obj.Covering == "none":
+            return []
+        return [(obj.Covering, sheathing_area(p for _, p in self.parts(obj)))]
 
     def _panels(self, obj):
         """[(surface, (u0, v0, du, dv))] and the sheet thickness."""
@@ -972,6 +1014,10 @@ class ShedFeature:
         ("RidgeMaterial", "ridge", "lumber.metric.45x195"),
         ("TieMaterial", "tie", "lumber.metric.45x145"),
     ]
+    COVERINGS = [  # property, sheathing it goes on, tip
+        ("RoofCovering", ("Roof sheathing",), "Roofing over the roof sheathing"),
+        ("WallCovering", ("Wall sheathing", "Gable sheathing"), "Wrap or cladding on the walls"),
+    ]
     SHEETS = [  # property, components it covers, default
         ("FloorSheet", ("Floor",), FLOOR_SHEATHING),
         ("WallSheet", ("Front wall", "Back wall", "Left wall", "Right wall"), DEFAULT_SHEATHING),
@@ -991,6 +1037,17 @@ class ShedFeature:
         for prop, covers, default in self.SHEETS:
             tip = "Sheathing on " + ", ".join(covers).lower()
             add_library_choice(obj, prop, Library.SHEET_GOODS, default, "Sheathing", tip)
+        for prop, _, tip in self.COVERINGS:
+            add_library_choice(obj, prop, AREA, "none", "Coverings", tip)
+
+    def coverings(self, obj):
+        """[(area material id, m²)] of the roof and wall coverings."""
+        parts = [p for _, p in self.parts(obj)]
+        return [
+            (getattr(obj, prop), sheathing_area(p for p in parts if p.name in names))
+            for prop, names, _ in self.COVERINGS
+            if getattr(obj, prop) != "none"
+        ]
 
     def onDocumentRestored(self, obj):
         self.setProperties(obj)
@@ -1434,6 +1491,7 @@ def write_cut_list(doc):
         "Qty",
         "Tag",
         "Operations",
+        "Cost",
     ]
     _write_row(cut, 1, headers)
     cut.setColumnWidth("A", 240)  # material names are long
@@ -1457,20 +1515,53 @@ def write_cut_list(doc):
         (shop, of_category(shop, Library.SHEET_GOODS), trim, ""),
         (sheathing, of_category(sheathing, Library.SHEET_GOODS), 0.0, " (sheathing)"),
     ]
+    costs = []  # every priced line; None for a line without a price
+
+    def line(values, cost):
+        nonlocal summary
+        summary += 1
+        costs.append(cost)
+        _write_row(cut, summary, values + ["", ""] + ([round(cost, 2)] if cost is not None else []))
+
     summary = len(rows) + 3
     _write_row(cut, summary, [f"Sheets (panel-saw layout, kerf {kerf:g} mm, trim {trim:g} mm)"])
     for material, suffix, count, share in _write_sheet_layouts(doc, groups, lib, label, kerf):
-        summary += 1
-        _write_row(
-            cut, summary, [label(material) + suffix, f"{share:.0%} used", "", "", "", "", count]
+        name = label(material) + suffix
+        line(
+            [name, f"{share:.0%} used", "", "", "", "", count], CutList.price(lib[material], count)
         )
     summary += 2
     _write_row(cut, summary, [f"Lumber (stock lengths, kerf {kerf:g} mm)"])
+    volumes = {}
     for material, stock, count in _write_lumber_plan(
         doc, rows, of_category(rows, Library.LUMBER), lib, label, kerf
     ):
+        item = lib[material]
+        line(
+            [label(material), f"{stock:g} mm", "", "", "", "", count],
+            CutList.price(item, count, stock),
+        )
+        m3, bf = volumes.get(material, (0.0, 0.0))
+        volumes[material] = (
+            m3 + count * CutList.volume_m3(item, stock),
+            bf + count * CutList.board_feet(item, stock),
+        )
+    for material, (m3, bf) in volumes.items():
         summary += 1
-        _write_row(cut, summary, [label(material), f"{stock:g} mm", "", "", "", "", count])
+        _write_row(cut, summary, [label(material), f"bought: {m3:.3f} m³ = {bf:.1f} board feet"])
+    coverings = {}
+    for obj in construction_objects(doc):
+        for covering, area in getattr(obj.Proxy, "coverings", lambda o: [])(obj):
+            coverings[covering] = coverings.get(covering, 0.0) + area
+    if coverings:
+        summary += 2
+        _write_row(cut, summary, ["Coverings (area with the item's waste allowance)"])
+        for covering, area in sorted(coverings.items()):
+            item = lib[covering]
+            units = CutList.covering_units(item, area)
+            line(
+                [item["name"], f"{area:.1f} m²", "", "", "", "", units], CutList.price(item, units)
+            )
     summary += 2
     _write_row(cut, summary, ["Hardware"])
     rules = rule_set()
@@ -1481,9 +1572,19 @@ def write_cut_list(doc):
         for hardware_id, count in obj.Proxy.fasteners(obj, schedule).items():
             fasteners[hardware_id] = fasteners.get(hardware_id, 0) + count
     hardware = CutList.hardware(lib, anchored, fasteners)
+    hardware_costs = CutList.hardware_costs(lib, anchored, fasteners)
     for name, qty in hardware:
-        summary += 1
-        _write_row(cut, summary, [name, "", "", "", "", "", qty])
+        line([name, "", "", "", "", "", qty], hardware_costs.get(name))
+    priced = [c for c in costs if c is not None]
+    if priced:
+        summary += 2
+        missing = len(costs) - len(priced)
+        note = (
+            f"{missing} line(s) without a price in the library" if missing else "all lines priced"
+        )
+        _write_row(
+            cut, summary, ["Total cost", note, "", "", "", "", "", "", "", round(sum(priced), 2)]
+        )
     doc.recompute()
     return cut
 

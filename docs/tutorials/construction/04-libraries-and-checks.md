@@ -55,6 +55,44 @@ Example: the plywood your yard sells is 17.5 mm thick, and you also use
 [2400, 2700, 3000, 3600, 4200, 4800, 5400, 6000]
 ```
 
+### Prices, volumes and coverings
+
+Give an item a `price` and the cut list fills its **Cost** column and adds a
+**Total cost** line (saying how many lines have no price). `price_per` is
+`each` (sheets, hardware; the default), `m`, `board_foot` or `m3` (boards).
+The lumber lines also give the volume bought in m³ and board feet (board feet
+from the nominal size when the item has one, as US lumber is sold).
+
+```pycon
+>>> import CutList
+>>> stud = {**items["lumber.metric.45x95"], "price": 2.5, "price_per": "m"}
+>>> CutList.price(stud, 4, 3000)  # four 3 m boards
+30.0
+>>> round(CutList.board_feet(items["lumber.us.2x4"], 8 * 304.8), 2)  # a 2x4x8
+5.33
+```
+
+Area materials (`"category": "area_material"`: shingles, underlayment, house
+wrap) are bought by coverage: `coverage_m2` per bundle or roll and a `waste`
+allowance. Set a **Covering** on a Sheathing object, or **RoofCovering** and
+**WallCovering** on a shed, and the cut list adds a **Coverings** section:
+
+```pycon
+>>> CutList.covering_units(items["area.roofing.asphalt_shingles"], 30)  # 30 m² + 15 %
+12
+```
+
+The library also has engineered lumber (LVL, glulam, I-joists, listed as
+lumber so you can pick them for headers, beams and joists: enter their design
+values from the maker), gypsum board and cement board.
+
+### Region
+
+**Construction > Library Region** chooses which region's items this document
+offers: `metric`, `US` or `all`. Generic items (hardware, joints, rule sets)
+are always offered, and a value already chosen stays. New documents follow the
+`Region` parameter below.
+
 ## 2. Saw settings
 
 **Tools > Edit parameters**, group `BaseApp/Preferences/Mod/Construction`:
@@ -65,6 +103,7 @@ Example: the plywood your yard sells is 17.5 mm thick, and you also use
 | `Trim` | Float | 10 | Edge strip taken off every side of a shop sheet (not sheathing) |
 | `RuleSet` | String | `rules.generic-example` | Rule set used by **Check** |
 | `FasteningSchedule` | String | `fastening.generic-example` | Nails, screws and hangers counted into the cut list's Hardware |
+| `Region` | String | `all` | Library region for new documents (`metric`, `US`, `all`) |
 
 The fastening schedule is library data like the rest. Each rule names the part
 that receives a fastener and the part fastened to it (patterns on part names),

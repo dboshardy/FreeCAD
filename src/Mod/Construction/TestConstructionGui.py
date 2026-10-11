@@ -56,6 +56,7 @@ class TestConstructionGui(unittest.TestCase):
             "Construction_Panel",
             "Construction_Joint",
             "Construction_Align",
+            "Construction_Region",
             "Construction_EndTable",
             "Construction_DiningTable",
             "Construction_Workbench",

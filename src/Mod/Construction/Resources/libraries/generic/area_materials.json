@@ -1,0 +1,12 @@
+{
+  "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp construction library (design doc §9, 5.1.8). Area materials bought by coverage: coverage_m2 per unit (bundle, roll), waste = allowance added to the area (cuts, overlaps, ridges). Coverage varies by product: check the package and override by id in your user library.",
+  "source": "Common package coverages (asphalt shingles sold 3 bundles per 100 sq ft square; underlayment rolls of 4 and 10 squares; house wrap 9 ft x 100 ft); original compilation of facts",
+  "data_license": "CC0-1.0",
+  "defaults": {"category": "area_material", "region": "generic", "waste": 0.1},
+  "items": [
+    {"id": "area.roofing.asphalt_shingles", "name": "Asphalt shingles, bundle", "coverage_m2": 3.1, "waste": 0.15},
+    {"id": "area.roofing.felt_15", "name": "Roofing felt underlayment, roll (4 squares)", "coverage_m2": 37.2},
+    {"id": "area.roofing.synthetic_underlayment", "name": "Synthetic roofing underlayment, roll (10 squares)", "coverage_m2": 92.9},
+    {"id": "area.wall.house_wrap", "name": "House wrap, roll 9 ft x 100 ft", "coverage_m2": 83.6, "waste": 0.15}
+  ]
+}

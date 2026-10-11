@@ -1,0 +1,17 @@
+{
+  "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp construction library (design doc §9, 5.1.3). Common engineered lumber sizes. An I-joist is listed by its flange width and depth (the web is not modelled). Design values come from the manufacturer for each product and are not included: enter them in your user library (design_values) for the checks. Verify sizes and lengths with your supplier.",
+  "source": "Common European LVL, glulam and I-joist sizes; original compilation of facts, no manufacturer's table copied",
+  "data_license": "CC0-1.0",
+  "defaults": {"category": "dimensional_lumber", "region": "metric", "grain_axis": "length", "stock_lengths_mm": [6000, 7200, 9000, 12000]},
+  "items": [
+    {"id": "lumber.metric.lvl.45x200", "name": "LVL 45x200", "material": "LVL", "density_kg_m3": 510, "actual": {"w": 45, "h": 200, "unit": "mm"}},
+    {"id": "lumber.metric.lvl.45x240", "name": "LVL 45x240", "material": "LVL", "density_kg_m3": 510, "actual": {"w": 45, "h": 240, "unit": "mm"}},
+    {"id": "lumber.metric.lvl.45x300", "name": "LVL 45x300", "material": "LVL", "density_kg_m3": 510, "actual": {"w": 45, "h": 300, "unit": "mm"}},
+    {"id": "lumber.metric.lvl.45x360", "name": "LVL 45x360", "material": "LVL", "density_kg_m3": 510, "actual": {"w": 45, "h": 360, "unit": "mm"}},
+    {"id": "lumber.metric.glulam.90x270", "name": "Glulam 90x270", "material": "glulam", "density_kg_m3": 470, "actual": {"w": 90, "h": 270, "unit": "mm"}},
+    {"id": "lumber.metric.glulam.90x315", "name": "Glulam 90x315", "material": "glulam", "density_kg_m3": 470, "actual": {"w": 90, "h": 315, "unit": "mm"}},
+    {"id": "lumber.metric.glulam.115x360", "name": "Glulam 115x360", "material": "glulam", "density_kg_m3": 470, "actual": {"w": 115, "h": 360, "unit": "mm"}},
+    {"id": "lumber.metric.ijoist.45x220", "name": "I-joist 220 (45 flange)", "material": "I-joist", "density_kg_m3": 200, "actual": {"w": 45, "h": 220, "unit": "mm"}},
+    {"id": "lumber.metric.ijoist.45x300", "name": "I-joist 300 (45 flange)", "material": "I-joist", "density_kg_m3": 200, "actual": {"w": 45, "h": 300, "unit": "mm"}}
+  ]
+}

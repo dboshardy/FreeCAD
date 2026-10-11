@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # FORK: cut list and panel-saw sheet layout (design doc §5.6). No FreeCAD imports.
 
+import math
 from collections import Counter
 from dataclasses import dataclass
 
@@ -193,6 +194,64 @@ def pieces(cut_rows, material):
         if m == material
         for _ in range(qty)
     ]
+
+
+def board_feet(item, length_mm):
+    """Board feet of one board: nominal section when the item has one (as US
+    lumber is sold), else the actual section; length as cut."""
+    section = item.get("nominal") if "w" in item.get("nominal", {}) else item["actual"]
+    to_in = 1.0 if section.get("unit") == "in" else 1 / 25.4
+    return section["w"] * to_in * section["h"] * to_in * length_mm / 25.4 / 144
+
+
+def volume_m3(item, length_mm):
+    """Cubic metres of one board of actual section."""
+    actual = item["actual"]
+    to_mm = 25.4 if actual.get("unit") == "in" else 1.0
+    return actual["w"] * to_mm * actual["h"] * to_mm * length_mm / 1e9
+
+
+def price(item, qty, length_mm=0.0):
+    """Cost of qty of a library item from its optional "price" and
+    "price_per" ("each" (default), "m", "board_foot" or "m3"; sheets and
+    hardware are "each", boards of length_mm the others). None when the item
+    has no price."""
+    amount = item.get("price")
+    if amount is None:
+        return None
+    per = item.get("price_per", "each")
+    unit = {
+        "each": lambda: 1.0,
+        "m": lambda: length_mm / 1000,
+        "board_foot": lambda: board_feet(item, length_mm),
+        "m3": lambda: volume_m3(item, length_mm),
+    }[per]()
+    return qty * unit * amount
+
+
+def covering_units(item, area_m2):
+    """Units (bundles, rolls, ...) of an area material to cover area_m2, with
+    the item's waste allowance."""
+    return math.ceil(area_m2 * (1 + item.get("waste", 0.1)) / item["coverage_m2"] - 1e-9)
+
+
+def hardware_costs(items, anchored_cabinets=0, fasteners=None):
+    """{name: cost or None} for the lines of hardware()."""
+    costs = {}
+    lines = list((fasteners or {}).items())
+    if anchored_cabinets:
+        anchor = items["hardware.wall_anchor"]
+        lines.append(("hardware.wall_anchor", anchored_cabinets * anchor.get("per_cabinet", 2)))
+    for key, count in lines:
+        hardware_id, _, length = key.partition("@")
+        item = items.get(hardware_id, {})
+        name = item.get("name", hardware_id)
+        name = f"{name}, {length} mm" if length else name
+        cost = price(item, count)
+        costs[name] = (
+            None if cost is None or costs.get(name, 0) is None else costs.get(name, 0) + cost
+        )
+    return costs
 
 
 def hardware(items, anchored_cabinets=0, fasteners=None):
