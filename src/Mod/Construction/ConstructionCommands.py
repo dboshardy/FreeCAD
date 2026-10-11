@@ -263,6 +263,20 @@ def selected_build_parts():
     return build, names
 
 
+def selected_face(build):
+    """(part name, axis, sign) of the one face selected on the build, or None."""
+    sel = [s for s in FreeCADGui.Selection.getSelectionEx() if s.Object == build]
+    elements = [e for s in sel for e in s.SubElementNames if e.startswith("Face")]
+    if len(elements) != 1:
+        return None
+    face = build.Shape.getElement(elements[0])
+    normal = build.Placement.Rotation.inverted().multVec(face.normalAt(0, 0))
+    axis = max(range(3), key=lambda n: abs(normal[n]))
+    index = build.Proxy.part_at(build, elements[0])
+    rows = build.Proxy.part_rows(build)
+    return rows[index][0], axis, 1 if normal[axis] > 0 else -1
+
+
 class BuildCommand:
     def GetResources(self):
         return {
@@ -287,8 +301,8 @@ class BuildCommand:
 class AddPartCommand:
     """Adds a part to the selected build with ConstructionObjects.<factory>."""
 
-    def __init__(self, factory, menu_text, tool_tip, needs=0):
-        self.factory, self.needs = factory, needs
+    def __init__(self, factory, menu_text, tool_tip, needs=0, panel=None):
+        self.factory, self.needs, self.panel = factory, needs, panel
         self.resources = {"MenuText": menu_text, "ToolTip": tool_tip}
 
     def GetResources(self):
@@ -301,10 +315,14 @@ class AddPartCommand:
     def Activated(self):
         build, names = selected_build_parts()
         args = "".join(f", {n!r}" for n in names[: self.needs])
+        factory = self.factory
+        face = selected_face(build) if self.panel is not None else None
+        if face:  # lie on the selected face
+            factory, args = "add_on_face", f", {face[0]!r}, {face[1]}, {face[2]}, {self.panel}"
         build.Document.openTransaction(translate("Construction", "Add part"))
         FreeCADGui.addModule("ConstructionObjects")
         FreeCADGui.doCommand(
-            f"ConstructionObjects.{self.factory}(App.ActiveDocument.{build.Name}{args})"
+            f"ConstructionObjects.{factory}(App.ActiveDocument.{build.Name}{args})"
         )
         FreeCADGui.doCommand("App.ActiveDocument.recompute()")
         build.Document.commitTransaction()
@@ -519,8 +537,10 @@ FreeCADGui.addCommand(
         QT_TRANSLATE_NOOP("Construction_Board", "Board"),
         QT_TRANSLATE_NOOP(
             "Construction_Board",
-            "Adds a board of the build's BoardStock; edit its row in the parts table",
+            "Adds a board of the build's BoardStock, lying on the selected face of a part "
+            "(else at the origin); edit its row in the parts table",
         ),
+        panel=False,
     ),
 )
 FreeCADGui.addCommand(
@@ -542,8 +562,10 @@ FreeCADGui.addCommand(
         QT_TRANSLATE_NOOP("Construction_Panel", "Panel"),
         QT_TRANSLATE_NOOP(
             "Construction_Panel",
-            "Adds a panel of the build's PanelStock; edit its row in the parts table",
+            "Adds a panel of the build's PanelStock covering the selected face of a part "
+            "(else at the origin); edit its row in the parts table",
         ),
+        panel=True,
     ),
 )
 FreeCADGui.addCommand("Construction_Joint", JointCommand())
