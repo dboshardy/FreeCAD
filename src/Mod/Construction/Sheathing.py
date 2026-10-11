@@ -158,4 +158,13 @@ def surfaces(model, extend=(0.0, 0.0)):
                     )
                 )
         return out
-    raise ValueError("sheathing needs a floor, wall or gable roof")
+    if isinstance(model, Framing.ShedRoof):
+        a = math.radians(model.pitch)
+        c, s = math.cos(a), math.sin(a)
+        oh = model.overhang
+        top = model.bottom(-oh) + model.plumb_depth()
+        slope = (model.span + 2 * oh) / c
+        return [
+            Surface("Roof sheathing", (0, -oh, top), (1, 0, 0), (0, c, s), (model.length, slope))
+        ]
+    raise ValueError("sheathing needs a floor, wall, gable roof or shed roof")

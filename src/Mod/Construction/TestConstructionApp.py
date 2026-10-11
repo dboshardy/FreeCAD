@@ -32,6 +32,7 @@ class TestConstructionApp(unittest.TestCase):
             CO.make_wall_frame,
             CO.make_floor_frame,
             CO.make_gable_roof,
+            CO.make_shed_roof,
             CO.make_stair,
             CO.make_deck,
             CO.make_shed,
@@ -260,6 +261,12 @@ class TestConstructionApp(unittest.TestCase):
         column_a = [cut.getContents(f"A{r}").lstrip("'") for r in range(1, 150)]
         self.assertIn("Concrete", column_a)
         self.assertTrue(any("Deck post footings" in c for c in column_a))
+
+    def test_shed_roof(self):
+        roof = CO.make_shed_roof(self.doc)
+        self.assertBuilt(roof)
+        self.assertAlmostEqual(roof.HighWallRise.Value, roof.Proxy.model(roof).rise())
+        self.assertBuilt(CO.make_sheathing(roof, self.doc))
 
     def test_drawing(self):
         shed = CO.make_shed(self.doc)

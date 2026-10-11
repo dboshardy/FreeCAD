@@ -610,6 +610,89 @@ class GableRoof:
         ]
 
 
+@dataclass
+class ShedRoof:
+    """Mono-pitch roof: rafters from a low wall (y = 0 .. seat) up over a high
+    wall (y = span - seat .. span), birdsmouthed on both. z = 0 at the top of
+    the low wall's plates; the high wall's plates must be rise() higher."""
+
+    length: float = 3600.0  # along the walls
+    span: float = 3000.0  # outer face to outer face of the low and high walls
+    pitch: float = 14.04  # degrees (3 in 12)
+    overhang: float = 300.0  # horizontal, beyond each wall face
+    spacing: float = 600.0
+    rafter: tuple = (45.0, 145.0)
+    seat: float = 95.0  # birdsmouth seat: the top plate width
+    max_piece: float = 6000.0
+
+    def sections(self):
+        return {"rafter": self.rafter}
+
+    def slope(self):
+        return math.tan(math.radians(self.pitch))
+
+    def plumb_depth(self):
+        return self.rafter[1] / math.cos(math.radians(self.pitch))
+
+    def heel(self):
+        return self.seat * self.slope()
+
+    def bottom(self, y):
+        """Underside of the rafter at y (through the low wall's inner edge)."""
+        return (y - self.seat) * self.slope()
+
+    def rise(self):
+        """Height of the high wall's plates above the low wall's."""
+        return self.bottom(self.span)
+
+    def validate(self):
+        for name in ("length", "span", "spacing", "seat", "max_piece"):
+            if getattr(self, name) <= 0:
+                raise ValueError(f"{name} must be positive")
+        if self.overhang < 0:
+            raise ValueError("overhang must not be negative")
+        if not 2 <= self.pitch <= 60:
+            raise ValueError("pitch must be between 2 and 60 degrees")
+        if min(self.rafter) <= 0 or self.spacing < self.rafter[0]:
+            raise ValueError("rafter size and spacing must be positive and fit")
+        if self.heel() >= self.plumb_depth():
+            raise ValueError("birdsmouth cuts through the rafter: seat too wide for the pitch")
+        if self.span <= 2 * self.seat:
+            raise ValueError("span too small for the wall plates")
+        longest = self._boards()[0].cut_length()
+        if longest > self.max_piece + 1e-6:
+            raise ValueError(f"rafters ({longest:.0f} mm) longer than the longest stock length")
+
+    def rafter_centres(self):
+        return end_and_layout(self.length, self.spacing, self.rafter[0])
+
+    def _boards(self):
+        b, dp, oh, span, seat = self.bottom, self.plumb_depth(), self.overhang, self.span, self.seat
+        high = span - seat
+        outline = [
+            (-oh, b(-oh)),
+            (0.0, b(0.0)),
+            (0.0, 0.0),
+            (seat, 0.0),
+            (high, b(high)),
+            (high, self.rise()),
+            (span + oh, b(span + oh)),
+            (span + oh, b(span + oh) + dp),
+            (-oh, b(-oh) + dp),
+        ]
+        return [
+            ProfilePiece("Rafter", x, outline, self.pitch, "rafter") for x in self.rafter_centres()
+        ]
+
+    def boards(self):
+        self.validate()
+        return self._boards()
+
+    def pieces(self):
+        self.validate()
+        return []
+
+
 OPEN_SIDES = ("both", "left", "right", "none")
 
 

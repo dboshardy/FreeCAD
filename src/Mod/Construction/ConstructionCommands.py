@@ -592,6 +592,18 @@ FreeCADGui.addCommand(
     ),
 )
 FreeCADGui.addCommand(
+    "Construction_ShedRoof",
+    FramingCommand(
+        "make_shed_roof",
+        QT_TRANSLATE_NOOP("Construction_ShedRoof", "Shed Roof"),
+        QT_TRANSLATE_NOOP(
+            "Construction_ShedRoof",
+            "Creates mono-pitch roof framing: rafters from a low wall over a high wall "
+            "(HighWallRise says how much taller to frame it)",
+        ),
+    ),
+)
+FreeCADGui.addCommand(
     "Construction_GableRoof",
     FramingCommand(
         "make_gable_roof",
