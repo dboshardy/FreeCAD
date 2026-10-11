@@ -55,6 +55,7 @@ class TestConstructionGui(unittest.TestCase):
             "Construction_Board",
             "Construction_BoardBetween",
             "Construction_Panel",
+            "Construction_Edit",
             "Construction_Joint",
             "Construction_Align",
             "Construction_Region",
@@ -139,6 +140,19 @@ class TestConstructionGui(unittest.TestCase):
         )
         self.doc.recompute()
         self.assertNotIn("Invalid", build.State)
+        # J on the same pair again changes that joint instead of adding one. Face numbers
+        # change with the joint, so select the parts again.
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.Selection.addSelection(build, face(250, 600))
+        FreeCADGui.Selection.addSelection(build, face(22.5, 0))
+        saved = QtGui.QInputDialog.getItem, QtGui.QInputDialog.getText
+        QtGui.QInputDialog.getItem = lambda parent, title, label, labels, *a: ("Dowels, 8 mm", True)
+        QtGui.QInputDialog.getText = lambda parent, title, label, mode, text: (text, True)
+        try:
+            FreeCADGui.runCommand("Construction_Joint")
+        finally:
+            QtGui.QInputDialog.getItem, QtGui.QInputDialog.getText = saved
+        self.assertEqual(build.Proxy.joint_rows(build), [("Leg*", "Apron*", "joint.dowel", "")])
 
     def test_board_on_selected_face(self):
         import ConstructionObjects as CO
@@ -179,6 +193,75 @@ class TestConstructionGui(unittest.TestCase):
         FreeCADGui.runCommand("Construction_Align")
         rail = build.Proxy.parts(build)[1][1]
         self.assertEqual(rail.pos, (45, 200, 300))  # its end now against the leg
+
+
+class TestPanels(unittest.TestCase):
+    """Phase 5.2 editing panels: lists with dropdowns instead of typed strings."""
+
+    def setUp(self):
+        self.doc = FreeCAD.newDocument("PanelTest")
+        FreeCADGui.activateWorkbench("ConstructionWorkbench")
+        self.warning = QtGui.QMessageBox.warning
+        self.warned = []
+        QtGui.QMessageBox.warning = lambda *a: self.warned.append(a[-1])
+
+    def tearDown(self):
+        QtGui.QMessageBox.warning = self.warning
+        FreeCADGui.Control.closeDialog()
+        FreeCAD.closeDocument(self.doc.Name)
+
+    def test_wall_openings(self):
+        import ConstructionObjects as CO
+        import ConstructionPanels
+
+        wall = CO.make_wall_frame(self.doc)
+        before = wall.Openings
+        panel = ConstructionPanels.edit_panel(wall)
+        panel.editors[0].add_row(["window", 1200, 1000, 1500, 900])
+        self.assertTrue(panel.accept())
+        self.assertIn("window 1200x1000 @ 1500 sill 900", wall.Openings)
+        panel = ConstructionPanels.edit_panel(wall)
+        panel.editors[0].add_row(["door", 900, 2100, 99999, 0])  # past the wall's end
+        self.assertFalse(panel.accept())
+        self.assertTrue(self.warned)
+        self.assertNotIn("99999", wall.Openings)
+        self.assertNotEqual(wall.Openings, before)
+
+    def test_build_joint_dropdown(self):
+        import ConstructionObjects as CO
+        import ConstructionPanels
+
+        table = CO.make_end_table(self.doc)
+        panel = ConstructionPanels.edit_panel(table)
+        joints = panel.editors[1]
+        row = next(r for r, j in enumerate(joints.rows()) if j[1] == "Top")
+        combo = joints.table.cellWidget(row, 2)
+        combo.setCurrentIndex(combo.findData("joint.z_clip"))
+        self.assertTrue(panel.accept())
+        self.assertIn("hardware.z_clip", table.Proxy.fasteners(table, None))
+
+    def test_run_and_floor(self):
+        import ConstructionObjects as CO
+        import ConstructionPanels
+
+        run = CO.make_cabinet_run("base", self.doc)
+        panel = ConstructionPanels.edit_panel(run)
+        panel.editors[0].set_rows([(600, "drawers"), (800, "gap"), (600, "")])
+        self.assertTrue(panel.accept())
+        self.assertEqual(run.Widths, "600 drawers, 800 gap, 600")
+        floor = CO.make_floor_frame(self.doc)
+        panel = ConstructionPanels.edit_panel(floor)
+        panel.editors[0].set_rows([(1500,)])
+        panel.editors[1].set_rows([(900, 1000, 1000, 300)])
+        self.assertTrue(panel.accept())
+        self.assertEqual((floor.Beams, floor.Openings), ("1500", "900x1000 @ 1000, 300"))
+
+    def test_double_click_opens_panel(self):
+        import ConstructionObjects as CO
+
+        wall = CO.make_wall_frame(self.doc)
+        self.assertTrue(wall.ViewObject.Proxy.doubleClicked(wall.ViewObject))
+        self.assertIsNotNone(FreeCADGui.Control.activeDialog())
 
 
 class TestCoreUx(unittest.TestCase):

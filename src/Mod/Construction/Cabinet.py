@@ -379,9 +379,10 @@ def fill_widths(length, standard=STANDARD_WIDTHS):
     return sorted(widths, reverse=True)
 
 
-# Per-cabinet styles in a run: a front style, a sink, or a blind corner (blind
-# panel on that side; the run's corner end).
-RUN_STYLES = FRONTS + ("sink", "blind_left", "blind_right")
+# Per-cabinet styles in a run: a front style, a sink, a blind corner (blind
+# panel on that side; the run's corner end), or a gap left for an appliance.
+RUN_STYLES = FRONTS + ("sink", "blind_left", "blind_right", "gap")
+GAP = "gap"  # an empty space in a run: a range, fridge or dishwasher
 
 
 def styled(cabinet, style):
@@ -398,6 +399,12 @@ def styled(cabinet, style):
         return replace(cabinet, kind="sink", fronts="false_front_over_doors", shelves=0)
     blind = DEFAULTS["corner"]["blind_width"]
     return replace(cabinet, fronts="doors", blind_width=blind, blind_side=style[len("blind_") :])
+
+
+def format_entries(widths, styles=()):
+    """Inverse of parse_entries: ((600, 800), ("drawers",)) -> '600 drawers, 800'."""
+    styles = list(styles) + [None] * (len(widths) - len(styles))
+    return ", ".join(f"{w:g} {s}" if s else f"{w:g}" for w, s in zip(widths, styles))
 
 
 def parse_entries(text, allow_styles=True):
@@ -478,6 +485,9 @@ class Run:
         out = result.boxes
         x = left
         for width, style in zip(widths, styles):
+            if style == GAP:
+                x += width
+                continue
             cabinet = styled(replace(c, width=width), style)
             part = cabinet.joined(items) if items is not None else Joinery.Result(cabinet.parts())
             base = len(out)

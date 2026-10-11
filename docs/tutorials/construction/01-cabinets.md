@@ -88,14 +88,18 @@ fillers.
 
 ### Choose each cabinet yourself
 
-Type widths left to right in **Widths**, each optionally followed by a style:
+Double-click the run (or click **Edit**) and list the cabinets left to
+right, each with a width and a style from the dropdown. The panel writes the
+**Widths** property, which you can also type, each width optionally followed
+by a style:
 
 ```
 1000 blind_left, 600 drawers, 800 sink, 600
 ```
 
 Styles: `doors`, `drawers`, `drawer_over_doors`, `false_front_over_doors`,
-`sink`, `blind_left`, `blind_right`. A blind corner cabinet at an end stays in
+`sink`, `blind_left`, `blind_right`, and `gap`: an empty space for a range,
+fridge or dishwasher (`600 gap`). A blind corner cabinet at an end stays in
 the corner, so the leftover length goes to the other end:
 
 ```pycon
