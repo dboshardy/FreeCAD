@@ -7,6 +7,7 @@ from dataclasses import replace
 import FreeCAD
 import Part
 
+import Build
 import Cabinet
 import Checks
 import CutList
@@ -1063,8 +1064,190 @@ def make_shed(doc=None, name="Shed"):
     return obj
 
 
+DEFAULT_BOARD = "lumber.metric.45x95"
+DEFAULT_PANEL = "sheet.metric.plywood.18"
+
+
+class BuildFeature:
+    """Woodworking build (design doc Phase 5.1, see Build.py): the parts and
+    joints are rows of two linked spreadsheets; select parts by clicking the
+    solids of this one object."""
+
+    IFC_TYPE = "Element Assembly"
+    GROUP = "Build"
+
+    def __init__(self, obj):
+        obj.Proxy = self
+        self.setProperties(obj)
+
+    def setProperties(self, obj):
+        add_ifc_type(obj, self)
+        for prop, tip in (
+            ("PartsTable", "Spreadsheet of parts, one per row (see Build.py)"),
+            ("JointsTable", "Spreadsheet of joints, one per row (see Build.py)"),
+        ):
+            add_property(obj, "App::PropertyLink", prop, self.GROUP, tip, None)
+        add_library_choice(
+            obj, "BoardStock", Library.LUMBER, DEFAULT_BOARD, self.GROUP, "Stock for new boards"
+        )
+        add_library_choice(
+            obj,
+            "PanelStock",
+            Library.SHEET_GOODS,
+            DEFAULT_PANEL,
+            self.GROUP,
+            "Stock for new panels",
+        )
+
+    def onDocumentRestored(self, obj):
+        self.setProperties(obj)
+
+    def part_rows(self, obj):
+        return _table_rows(obj.PartsTable, len(Build.PARTS_HEADER))
+
+    def joint_rows(self, obj):
+        return _table_rows(obj.JointsTable, len(Build.JOINTS_HEADER))
+
+    def _build(self, obj):
+        return Build.build(self.part_rows(obj), self.joint_rows(obj), items())
+
+    def parts(self, obj):
+        return self._build(obj)[0]
+
+    def solids(self, obj):
+        parts, result = self._build(obj)
+        out = []
+        for i, (_, p) in enumerate(parts):
+            solid = Part.makeBox(*p.size, FreeCAD.Vector(*p.pos))
+            cuts = [
+                Part.makeBox(*c.size, FreeCAD.Vector(*c.pos)) for j, c in result.pockets if j == i
+            ]
+            out.append(solid.cut(cuts) if cuts else solid)
+        return out
+
+    def execute(self, obj):
+        set_shape(obj, self.solids(obj))
+
+    def checks(self, obj, rules):
+        return []
+
+    def anchored(self, obj, rules):
+        return 0
+
+    def fasteners(self, obj, schedule):
+        return self._build(obj)[1].fasteners
+
+    def part_at(self, obj, element):
+        """Index in the parts table of the part a sub-element ("Face12") lies on."""
+        face = obj.Shape.getElement(element)
+        for i, child in enumerate(obj.Shape.childShapes()):
+            if any(face.isSame(f) for f in child.Faces):
+                return i
+        return None
+
+    def add_part(self, obj, row):
+        """Appends a parts-table row; returns its name."""
+        sheet = obj.PartsTable
+        _write_row(sheet, len(self.part_rows(obj)) + 2, list(row))
+        obj.touch()
+        return row[0]
+
+    def add_joint(self, obj, receiver, inserted, joint, opts=""):
+        _write_row(
+            obj.JointsTable, len(self.joint_rows(obj)) + 2, [receiver, inserted, joint, opts]
+        )
+        obj.touch()
+
+    def dumps(self):
+        return None
+
+    def loads(self, state):
+        return None
+
+
+def _table_rows(sheet, width):
+    """Rows below the header until the first empty name; cells as numbers or text."""
+    if sheet is None:
+        raise ValueError("the build has no table linked")
+    sheet.recompute()  # rows just written have no value until then
+    used = set(sheet.getUsedCells())
+    rows = []
+    r = 2
+    while f"A{r}" in used:
+        row = []
+        for c in range(width):
+            cell = f"{chr(65 + c)}{r}"
+            value = sheet.get(cell) if cell in used else ""
+            row.append(getattr(value, "Value", value))  # a Quantity: its number
+        rows.append(tuple(row))
+        r += 1
+    return rows
+
+
+def make_build(doc=None, name="Build"):
+    """A build with empty parts and joints tables."""
+    doc = doc or FreeCAD.ActiveDocument or FreeCAD.newDocument()
+    obj = doc.addObject("Part::FeaturePython", name)
+    BuildFeature(obj)
+    for prop, header in (("PartsTable", Build.PARTS_HEADER), ("JointsTable", Build.JOINTS_HEADER)):
+        sheet = doc.addObject("Spreadsheet::Sheet", f"{obj.Name}{prop[:-5]}")
+        _write_row(sheet, 1, list(header))
+        setattr(obj, prop, sheet)
+    if FreeCAD.GuiUp:
+        obj.ViewObject.Proxy = 0
+    doc.recompute()
+    return obj
+
+
+def add_board(
+    build, name=None, stock=None, length=1000, pos=(0, 0, 0), along="x", thick="z", **sizes
+):
+    """Adds a board (lumber) to a build; returns its name."""
+    feature = build.Proxy
+    names = [row[0] for row in feature.part_rows(build)]
+    name = name or Build.new_name(names, "Board")
+    row = (
+        name,
+        stock or build.BoardStock,
+        length,
+        sizes.get("width", ""),
+        sizes.get("thickness", ""),
+        *pos,
+        along,
+        thick,
+    )
+    return feature.add_part(build, row)
+
+
+def add_panel(
+    build, name=None, stock=None, length=500, width=500, pos=(0, 0, 0), along="x", thick="z"
+):
+    """Adds a panel (sheet goods) to a build; returns its name."""
+    feature = build.Proxy
+    names = [row[0] for row in feature.part_rows(build)]
+    name = name or Build.new_name(names, "Panel")
+    row = (name, stock or build.PanelStock, length, width, "", *pos, along, thick)
+    return feature.add_part(build, row)
+
+
+def add_board_between(build, a, b, name=None, stock=None):
+    """Adds a board spanning the gap between parts named a and b."""
+    parts = {p.name: p for _, p in build.Proxy.parts(build)}
+    stock = stock or build.BoardStock
+    section = lumber_section(stock)
+    length, x, y, z, along, thick = Build.between(parts[a], parts[b], section)
+    return add_board(build, name, stock, length, (x, y, z), along, thick)
+
+
 def construction_objects(doc):
-    kinds = (CabinetFeature, MemberFeature, FramingFeature, SheathingFeature, ShedFeature)
+    kinds = (
+        CabinetFeature,
+        MemberFeature,
+        FramingFeature,
+        SheathingFeature,
+        ShedFeature,
+        BuildFeature,
+    )
     return [o for o in doc.Objects if isinstance(getattr(o, "Proxy", None), kinds)]
 
 
@@ -1122,6 +1305,8 @@ def _text(value):
 
 def _write_row(sheet, row, values):
     for col, value in enumerate(values):
+        if value == "":
+            continue  # leave the cell empty
         cell = f"{chr(65 + col)}{row}"
         sheet.set(cell, _text(value) if isinstance(value, str) else f"{value:g}")
 
@@ -1149,13 +1334,17 @@ def write_cut_list(doc):
         "Grain",
         "Qty",
         "Tag",
+        "Operations",
     ]
     _write_row(cut, 1, headers)
     cut.setColumnWidth("A", 240)  # material names are long
     cut.setColumnWidth("B", 150)
+    cut.setColumnWidth("I", 300)
+    operations = CutList.operations(parts)
     for r, (material, name, length, width, thick, grain, qty) in enumerate(rows, start=2):
         # Tag: the row number, used by the balloons on drawings (CutList.row_numbers).
-        _write_row(cut, r, [label(material), name, length, width, thick, grain, qty, r - 1])
+        values = [label(material), name, length, width, thick, grain, qty, r - 1]
+        _write_row(cut, r, values + [operations[r - 2]])
 
     def of_category(cut_rows, category):
         materials = sorted({r[0] for r in cut_rows})
@@ -1309,7 +1498,7 @@ def make_drawing(objects, doc=None):
     table = doc.addObject("TechDraw::DrawViewSpreadsheet", "CutListTable")
     table.Source = sheet
     table.CellStart = "A1"
-    table.CellEnd = f"H{len(CutList.rows(parts)) + 1}"
+    table.CellEnd = f"I{len(CutList.rows(parts)) + 1}"
     table_page.addView(table)
     doc.recompute()
     _add_tags(page, group.Anchor, objects)

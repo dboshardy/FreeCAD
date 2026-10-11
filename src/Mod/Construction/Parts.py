@@ -17,6 +17,7 @@ class Part:
     size: tuple  # (dx, dy, dz)
     pos: tuple  # (x, y, z) of the minimum corner
     grain: str | None = None  # axis the grain runs along: "x", "y", "z" or None
+    operations: tuple = ()  # shop work for the cut list, e.g. "mortise 80 x 7 x 25 deep"
 
     def lo(self, k):
         return self.pos[k]

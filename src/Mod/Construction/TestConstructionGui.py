@@ -50,6 +50,11 @@ class TestConstructionGui(unittest.TestCase):
             "Construction_Check",
             "Construction_Drawing",
             "Construction_Tutorials",
+            "Construction_Build",
+            "Construction_Board",
+            "Construction_BoardBetween",
+            "Construction_Panel",
+            "Construction_Joint",
             "Std_CommandPalette",
             "Std_RadialMenu",
             "Std_HotkeysReload",
@@ -79,6 +84,49 @@ class TestConstructionGui(unittest.TestCase):
         FreeCADGui.runCommand("Construction_Check")
         for name in ("CutList", "SheetLayout", "LumberPlan", "Checks"):
             self.assertIsNotNone(self.doc.getObject(name), name)
+
+    def test_joint_from_selection(self):
+        import ConstructionObjects as CO
+
+        build = CO.make_build(self.doc)
+        leg = "lumber.metric.hw.45x45"
+        CO.add_board(build, "Leg 1", leg, 600, (0, 0, 0), "z", "x")
+        CO.add_board(build, "Leg 2", leg, 600, (455, 0, 0), "z", "x")
+        CO.add_board_between(build, "Leg 1", "Leg 2", "Apron 1", "lumber.metric.hw.20x95")
+        self.doc.recompute()
+
+        def face(x, z):
+            return next(
+                f"Face{i}"
+                for i, f in enumerate(build.Shape.Faces, start=1)
+                if abs(f.CenterOfMass.x - x) < 1 and abs(f.CenterOfMass.z - z) < 1
+            )
+
+        FreeCADGui.Selection.clearSelection()
+        # The apron first: the command makes the leg the receiver (the apron's end goes in).
+        FreeCADGui.Selection.addSelection(build, face(250, 600))
+        FreeCADGui.Selection.addSelection(build, face(22.5, 0))
+        self.assertTrue(FreeCADGui.isCommandActive("Construction_Joint"))
+        offered = []
+        saved = QtGui.QInputDialog.getItem, QtGui.QMessageBox.question
+
+        def get_item(parent, title, label, labels, *args):
+            offered.extend(labels)
+            return "Mortise and tenon", True
+
+        QtGui.QInputDialog.getItem = get_item
+        QtGui.QMessageBox.question = lambda *a: QtGui.QMessageBox.Yes
+        try:
+            FreeCADGui.runCommand("Construction_Joint")
+        finally:
+            QtGui.QInputDialog.getItem, QtGui.QMessageBox.question = saved
+        self.assertIn("Pocket screws", offered)
+        self.assertNotIn("Half lap", offered)  # only joints for an end on a face
+        self.assertEqual(
+            build.Proxy.joint_rows(build), [("Leg*", "Apron*", "joint.mortise_tenon", "")]
+        )
+        self.doc.recompute()
+        self.assertNotIn("Invalid", build.State)
 
 
 class TestCoreUx(unittest.TestCase):

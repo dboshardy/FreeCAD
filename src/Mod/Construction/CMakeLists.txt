@@ -4,6 +4,7 @@
 set(Construction_SRCS
     Init.py
     InitGui.py
+    Build.py
     Cabinet.py
     Checks.py
     ConstructionCommands.py

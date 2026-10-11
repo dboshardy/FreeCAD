@@ -159,7 +159,21 @@ def apply(boxes, rules):
                 for index, side in ((i, "receiver"), (j, "inserted")):
                     if rule.on in (side, "both"):
                         out.operations.append((index, text))
+    for index, text in out.operations:
+        part = out.boxes[index]
+        out.boxes[index] = replace(part, operations=part.operations + (text,))
     return out
+
+
+def meets(a, b):
+    """How part b meets part a: "end_to_face" (b's end on a), "face_to_face",
+    "edge_to_face", "crossing" (they interpenetrate) or None."""
+    touch = contact(a, b)
+    if touch is None:
+        return "crossing" if overlap(a, b) else None
+    k = touch[0]
+    order = sorted(range(3), key=lambda n: b.size[n])  # thickness, width, length
+    return ("face_to_face", "edge_to_face", "end_to_face")[order.index(k)]
 
 
 def _housing(out, i, j, k, sign, lo, hi, depth):

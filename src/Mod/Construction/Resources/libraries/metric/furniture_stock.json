@@ -1,0 +1,17 @@
+{
+  "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp construction library (design doc §9, Phase 5.1). Planed hardwood and furniture-grade boards and edge-glued panels as sold by timber merchants and DIY stores; sizes and lengths vary by supplier, verify before ordering.",
+  "source": "Common planed (PAR) furniture board sections, square leg blanks and edge-glued panel sizes; original compilation of facts, no supplier's table copied",
+  "data_license": "CC0-1.0",
+  "defaults": {"category": "dimensional_lumber", "region": "metric", "grain_axis": "length", "density_kg_m3": 650, "stock_lengths_mm": [1800, 2100, 2400, 2700]},
+  "items": [
+    {"id": "lumber.metric.hw.20x45", "name": "Hardwood PAR 20x45", "actual": {"w": 20, "h": 45, "unit": "mm"}},
+    {"id": "lumber.metric.hw.20x70", "name": "Hardwood PAR 20x70", "actual": {"w": 20, "h": 70, "unit": "mm"}},
+    {"id": "lumber.metric.hw.20x95", "name": "Hardwood PAR 20x95", "actual": {"w": 20, "h": 95, "unit": "mm"}},
+    {"id": "lumber.metric.hw.20x120", "name": "Hardwood PAR 20x120", "actual": {"w": 20, "h": 120, "unit": "mm"}},
+    {"id": "lumber.metric.hw.20x145", "name": "Hardwood PAR 20x145", "actual": {"w": 20, "h": 145, "unit": "mm"}},
+    {"id": "lumber.metric.hw.45x45", "name": "Hardwood leg blank 45x45", "actual": {"w": 45, "h": 45, "unit": "mm"}},
+    {"id": "lumber.metric.hw.70x70", "name": "Hardwood leg blank 70x70", "actual": {"w": 70, "h": 70, "unit": "mm"}},
+    {"id": "sheet.metric.edge_glued.18", "category": "sheet_goods", "name": "Edge-glued hardwood panel 18 mm 600x2400", "material": "solid wood", "actual": {"w": 600, "h": 2400, "t": 18, "unit": "mm"}, "stock_lengths_mm": null},
+    {"id": "sheet.metric.edge_glued.27", "category": "sheet_goods", "name": "Edge-glued hardwood panel 27 mm 600x2400", "material": "solid wood", "actual": {"w": 600, "h": 2400, "t": 27, "unit": "mm"}, "stock_lengths_mm": null}
+  ]
+}

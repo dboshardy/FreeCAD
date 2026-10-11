@@ -11,6 +11,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import Build  # noqa: E402
 import Cabinet  # noqa: E402
 import Checks  # noqa: E402
 import CutList  # noqa: E402
@@ -1045,7 +1046,6 @@ class TestJoinery(unittest.TestCase):
         depths = sorted(p.size[2] for _, p in result.pockets)
         self.assertEqual(depths, [47.5, 47.5])  # half of 95 each
 
-
     def table(self):
         # Two 45 mm legs, 700 tall, and a 20 x 100 apron between them, flush at the top.
         return [
@@ -1089,6 +1089,86 @@ class TestJoinery(unittest.TestCase):
         # Contact 100 tall: 50 between the end screws -> 2 per apron end.
         self.assertEqual(result.fasteners, {"hardware.pocket_screw": 4})
         self.assertEqual(result.operations, [(2, "2 pocket holes"), (2, "2 pocket holes")])
+
+    def test_meets(self):
+        legs_and_apron = self.table()
+        leg, _, apron = legs_and_apron
+        self.assertEqual(Joinery.meets(leg, apron), "end_to_face")
+        top = Parts.Part("Top", "", (540, 45, 20), (0, 0, 700))
+        self.assertEqual(Joinery.meets(apron, top), "face_to_face")  # top on the apron's edge
+        self.assertIsNone(Joinery.meets(leg, Parts.Part("x", "", (5, 5, 5), (200, 200, 0))))
+        self.assertEqual(Joinery.meets(leg, top), "face_to_face")
+        side = Parts.Part("Side", "", (450, 20, 100), (45, 32.5, 600))
+        self.assertEqual(Joinery.meets(apron, side), "face_to_face")
+        rail = Parts.Part("Rail", "", (20, 200, 50), (100, 0, 610))
+        self.assertEqual(Joinery.meets(apron, rail), "crossing")
+
+
+class TestBuild(unittest.TestCase):
+    ITEMS = Library.load()
+    LEG = "lumber.metric.hw.45x45"
+    APRON = "lumber.metric.hw.20x95"
+
+    def table(self, joints=()):
+        parts = [
+            ("Leg 1", self.LEG, 600, "", "", 0, 0, 0, "z", "x"),
+            ("Leg 2", self.LEG, 600, "", "", 455, 0, 0, "z", "x"),
+            ("Apron 1", self.APRON, 410, "", "", 45, 5, 505, "x", "y"),
+            ("Top", "sheet.metric.edge_glued.18", 500, 500, "", 0, -20, 600, "x", "z"),
+        ]
+        return Build.build(parts, list(joints), self.ITEMS)
+
+    def test_parts_from_rows(self):
+        parts, _ = self.table()
+        sizes = {p.name: (m, p.size, p.role, p.grain) for m, p in parts}
+        self.assertEqual(sizes["Leg 1"], (self.LEG, (45, 45, 600), "board", "z"))
+        self.assertEqual(sizes["Apron 1"], (self.APRON, (410, 20, 95), "board", "x"))
+        self.assertEqual(sizes["Top"][1:3], ((500, 500, 18), "panel"))
+        with self.assertRaises(ValueError):  # a panel needs a width
+            Build.part(
+                ("P", "sheet.metric.edge_glued.18", 500, "", "", 0, 0, 0, "x", "z"),
+                {"sheet.metric.edge_glued.18": self.ITEMS["sheet.metric.edge_glued.18"]},
+            )
+        with self.assertRaises(ValueError):
+            Build.part(("B", "nope", 500, "", "", 0, 0, 0, "x", "z"), self.ITEMS)
+
+    def test_joints_from_presets(self):
+        joints = [
+            ("Leg*", "Apron*", "joint.mortise_tenon", "depth=20"),
+            ("Apron*", "Top", "joint.figure8", ""),
+        ]
+        parts, result = self.table(joints)
+        apron = dict((p.name, p) for _, p in parts)["Apron 1"]
+        self.assertEqual(apron.size[0], 410 + 2 * 20)
+        self.assertIn("tenon 75 x 6.7 x 20 long", apron.operations)
+        leg = dict((p.name, p) for _, p in parts)["Leg 1"]
+        self.assertEqual(leg.operations, ("mortise 75 x 6.7 x 20 deep for Apron 1",))
+        # Top on the apron's top edge, 410 long: 260 between the end fasteners -> 2.
+        self.assertEqual(result.fasteners, {"hardware.figure8": 2})
+        self.assertIn("2 figure-8 recesses", apron.operations)
+        rows = CutList.rows(parts)
+        ops = CutList.operations(parts)
+        self.assertEqual(len(ops), len(rows))
+        self.assertEqual(sum(r[6] for r in rows), 4)
+        self.assertIn("mortise 75 x 6.7 x 20 deep for Apron 1", ops)
+        with self.assertRaises(ValueError):
+            self.table([("Leg*", "Apron*", "joint.nope", "")])
+
+    def test_options_and_names(self):
+        self.assertEqual(Build.options("depth=30, shoulder=5"), {"depth": 30.0, "shoulder": 5.0})
+        self.assertEqual(Build.options(""), {})
+        self.assertEqual(Build.similar("Leg 3"), "Leg*")
+        self.assertEqual(Build.similar("Top"), "Top")
+        self.assertEqual(Build.new_name(["Board 1", "Board 2"], "Board"), "Board 3")
+
+    def test_between(self):
+        parts, _ = self.table()
+        legs = [p for _, p in parts if p.name.startswith("Leg")]
+        length, x, y, z, along, thick = Build.between(*legs, (20, 95))
+        # Gap 455 - 45 = 410 along x; 20 thick centred on the legs' 45; top flush at 600.
+        self.assertEqual((length, x, y, z, along, thick), (410, 45, 12.5, 505, "x", "y"))
+        with self.assertRaises(ValueError):
+            Build.between(legs[0], legs[0], (20, 95))
 
 
 class TestFastening(unittest.TestCase):

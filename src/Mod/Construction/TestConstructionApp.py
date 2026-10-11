@@ -107,6 +107,34 @@ class TestConstructionApp(unittest.TestCase):
         ):
             self.assertEqual(len(ifc.by_type(ifc_type)), count, ifc_type)
 
+    def test_build(self):
+        build = CO.make_build(self.doc)
+        leg = "lumber.metric.hw.45x45"
+        CO.add_board(build, "Leg 1", leg, 600, (0, 0, 0), "z", "x")
+        CO.add_board(build, "Leg 2", leg, 600, (455, 0, 0), "z", "x")
+        apron = CO.add_board_between(build, "Leg 1", "Leg 2", stock="lumber.metric.hw.20x95")
+        self.assertEqual(apron, "Board 1")
+        build.Proxy.add_joint(build, "Leg*", "Board*", "joint.mortise_tenon")
+        self.doc.recompute()
+        self.assertBuilt(build)
+        self.assertEqual(len(build.Shape.childShapes()), 3)
+        # Two mortises of 6.7 x 75 x 25 cut from the legs; the tenons add the same back.
+        volume = 2 * 45 * 45 * 600 + 410 * 20 * 95
+        self.assertAlmostEqual(build.Shape.Volume, volume, delta=1)
+        face = next(
+            f"Face{i}"
+            for i, f in enumerate(build.Shape.Faces, start=1)
+            if abs(f.CenterOfMass.x - 250) < 1 and f.CenterOfMass.z > 590
+        )
+        self.assertEqual(build.Proxy.part_at(build, face), 2)  # the apron's top
+        cut = CO.write_cut_list(self.doc)
+        self.assertEqual(cut.get("I1"), "Operations")
+        ops = [cut.getContents(f"I{r}") for r in range(2, 6)]
+        self.assertTrue(any("mortise" in o for o in ops), ops)
+        build.PartsTable.set("C2", "700")  # edit a leg's length in the table
+        self.doc.recompute()
+        self.assertAlmostEqual(build.Shape.BoundBox.ZMax, 700)
+
     def test_drawing(self):
         shed = CO.make_shed(self.doc)
         page = CO.make_drawing([shed], self.doc)
