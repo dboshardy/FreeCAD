@@ -1129,7 +1129,8 @@ class BuildFeature:
         set_shape(obj, self.solids(obj))
 
     def checks(self, obj, rules):
-        return []
+        parts, result = self._build(obj)
+        return Checks.build(parts, result, rules, items())
 
     def anchored(self, obj, rules):
         return 0

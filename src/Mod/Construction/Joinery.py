@@ -52,6 +52,7 @@ class Rule:
     per_joint: int = 0  # fixed fastener count per joint
     operation: str = ""  # shop work per joint, "{n}" = fastener count
     on: str = "both"  # parts the operation applies to: "receiver", "inserted", "both"
+    allows_movement: bool = False  # lets solid wood move across its grain (tabletop fasteners)
 
 
 def rule(item, receiver, inserted, **overrides):
@@ -67,6 +68,7 @@ class Result:
     pockets: list = field(default_factory=list)  # [(part index, Part)] material removed
     operations: list = field(default_factory=list)  # [(part index, text)] for the cut list
     fasteners: dict = field(default_factory=dict)  # hardware id -> count
+    joints: list = field(default_factory=list)  # [(receiver index, inserted index, Rule)]
 
 
 def contact(a, b):
@@ -151,6 +153,7 @@ def apply(boxes, rules):
                 elif rule.kind == "tenon":
                     _tenon(out, i, j, k, sign, rule)
                 length = max(h - l for n, (l, h) in enumerate(zip(lo, hi)) if n != k)
+            out.joints.append((i, j, rule))
             count = fastener_count(rule, length)
             if count and rule.fastener:
                 out.fasteners[rule.fastener] = out.fasteners.get(rule.fastener, 0) + count

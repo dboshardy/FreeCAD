@@ -115,7 +115,29 @@ The template's sizes are its arguments: `width`, `depth`, `height`,
 `overhang`, `setback`, the leg, apron and top stock, `joint` and
 `top_joint`. After creating it, edit it like any build.
 
-## 5. Cut list and drawing
+## 5. Check it
+
+Click **Check**. For a build the **Checks** sheet lists the wall left around
+each mortise (the thinnest is the 10 mm above it, kept by the tenon's top
+shoulder), cuts that meet inside a part (two tenons that run into each other
+in a leg), and solid wood wider than the rule set's limit that is fixed
+rigidly: change the top's joint to **Screws through the face** and the top is
+flagged, because a 500 mm solid top moves with the seasons.
+
+```pycon
+>>> import Checks
+>>> rules = items["rules.generic-example"]
+>>> screwed = Build.end_table(top_joint="joint.screw")
+>>> built, result = Build.build(*screwed, items)
+>>> [c for c, status, _ in Checks.build(built, result, rules, items) if status == Checks.WARNING]
+['Wood movement, Top']
+
+```
+
+Like every check in the workbench, these are advisory, from the example rule
+set; see [tutorial 4](04-libraries-and-checks.md).
+
+## 6. Cut list and drawing
 
 Click **Cut List**. The **Operations** column lists the mortises, tenons and
 fastener recesses for each row; the hardware list counts the figure-8

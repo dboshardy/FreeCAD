@@ -1170,7 +1170,6 @@ class TestBuild(unittest.TestCase):
         with self.assertRaises(ValueError):
             Build.between(legs[0], legs[0], (20, 95))
 
-
     def test_end_table_template(self):
         parts, result = Build.build(*Build.end_table(), self.ITEMS)
         self.assertEqual(len(parts), 9)
@@ -1183,6 +1182,32 @@ class TestBuild(unittest.TestCase):
             Build.end_table(width=100)
         with self.assertRaises(ValueError):
             Build.end_table(setback=30)
+
+    def test_checks(self):
+        rules = self.ITEMS["rules.generic-example"]
+
+        def checks(**kw):
+            parts, result = Build.build(*Build.end_table(**kw), self.ITEMS)
+            return Checks.build(parts, result, rules, self.ITEMS)
+
+        good = checks()
+        self.assertEqual(len(good), 8)  # one mortise wall per apron end
+        self.assertEqual({status for _, status, _ in good}, {Checks.OK})
+        # Thinnest wall: 10 mm above the mortise, left by the tenon's 10 mm top shoulder
+        # (the face side is 5 + (20 - 6.7) / 2 = 11.7 mm, the back 45 - 25 = 20 mm).
+        self.assertIn("10.0 mm", good[0][2])
+        names = [c for c, s, _ in checks(top_joint="joint.screw") if s == Checks.WARNING]
+        self.assertEqual(names, ["Wood movement, Top"])
+
+        def warnings(options):
+            parts = Build.end_table()[0]
+            joints = [("Leg*", "Apron*", "joint.mortise_tenon", options)]
+            built, result = Build.build(parts, joints, self.ITEMS)
+            found = Checks.build(built, result, rules, self.ITEMS)
+            return {c for c, s, _ in found if s == Checks.WARNING}
+
+        self.assertIn("Mortise wall, Leg 1", warnings("shoulder=3"))  # 3 mm above
+        self.assertIn("Joints meet inside Leg 1", warnings("depth=40"))
 
 
 class TestFastening(unittest.TestCase):

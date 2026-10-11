@@ -1,5 +1,5 @@
 {
-  "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp joint presets (design doc §5.1.1, Phase 5.1). A preset is a joinery rule without part names (see Joinery.py): kind, sizes in mm, fastener (hardware id), spacing / edge / per_joint for the count, operation ({n} = count) and on (receiver, inserted, both). meets lists how the two parts touch for the preset to be offered: end_to_face, face_to_face, edge_to_face, crossing. Copy an item to your user library under a new id to change sizes.",
+  "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp joint presets (design doc §5.1.1, Phase 5.1). A preset is a joinery rule without part names (see Joinery.py): kind, sizes in mm, fastener (hardware id), spacing / edge / per_joint for the count, operation ({n} = count) and on (receiver, inserted, both). allows_movement: the joint lets solid wood move across its grain (checked for wide solid parts). meets lists how the two parts touch for the preset to be offered: end_to_face, face_to_face, edge_to_face, crossing. Copy an item to your user library under a new id to change sizes.",
   "source": "Common woodworking practice; original compilation, no maker's or book's table copied.",
   "data_license": "CC0-1.0",
   "defaults": {"category": "joint", "region": "generic"},
@@ -13,7 +13,7 @@
     {"id": "joint.dado", "name": "Housing (dado / rabbet)", "kind": "housing", "depth": 6, "meets": ["end_to_face", "edge_to_face"]},
     {"id": "joint.half_lap", "name": "Half lap", "kind": "half_lap", "meets": ["crossing"]},
     {"id": "joint.glue", "name": "Glue only", "kind": "fastened", "operation": "glue", "on": "inserted", "meets": ["edge_to_face", "face_to_face"]},
-    {"id": "joint.figure8", "name": "Tabletop fasteners, figure-8", "kind": "fastened", "fastener": "hardware.figure8", "spacing": 400, "edge": 75, "operation": "{n} figure-8 recesses", "on": "receiver", "meets": ["face_to_face"]},
-    {"id": "joint.z_clip", "name": "Tabletop fasteners, Z-clip", "kind": "fastened", "fastener": "hardware.z_clip", "spacing": 300, "edge": 75, "operation": "kerf for {n} Z-clips", "on": "receiver", "meets": ["face_to_face"]}
+    {"id": "joint.figure8", "allows_movement": true, "name": "Tabletop fasteners, figure-8", "kind": "fastened", "fastener": "hardware.figure8", "spacing": 400, "edge": 75, "operation": "{n} figure-8 recesses", "on": "receiver", "meets": ["face_to_face"]},
+    {"id": "joint.z_clip", "allows_movement": true, "name": "Tabletop fasteners, Z-clip", "kind": "fastened", "fastener": "hardware.z_clip", "spacing": 300, "edge": 75, "operation": "kerf for {n} Z-clips", "on": "receiver", "meets": ["face_to_face"]}
   ]
 }

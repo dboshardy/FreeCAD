@@ -10,6 +10,8 @@ loads the user supplies, and report "not checked" without them.
 
 import math
 
+import Joinery
+
 OK, WARNING, NOT_CHECKED, REQUIRED = "ok", "warning", "not checked", "required"
 DISCLAIMER = (
     "Advisory only. Not a building code compliance check. Verify against the code "
@@ -306,3 +308,60 @@ def cabinet(cabinet, rules):
             )
         ]
     return []
+
+
+def build(parts, result, rules, items):
+    """Checks a woodworking build. parts: [(stock id, Part)] after joinery;
+    result: its Joinery.Result; items: the library. Returns [(check, status,
+    detail)]."""
+    out = []
+    boxes = [p for _, p in parts]
+    limit = rules.get("mortise_wall_min_mm")
+    for i, pocket in result.pockets:
+        if limit is None or not pocket.name.endswith("mortise"):
+            continue
+        a = boxes[i]
+        walls = sorted(
+            w for n in range(3) for w in (pocket.lo(n) - a.lo(n), a.hi(n) - pocket.hi(n))
+        )
+        thinnest = walls[1]  # walls[0] is the open face the tenon enters by
+        status = OK if thinnest >= limit - 1e-6 else WARNING
+        out.append((f"Mortise wall, {a.name}", status, f"{thinnest:.1f} mm, rule min {limit:g} mm"))
+    by_part = {}
+    for i, pocket in result.pockets:
+        by_part.setdefault(i, []).append(pocket)
+    for i, pockets in sorted(by_part.items()):
+        for n, a in enumerate(pockets):
+            if any(Joinery.overlap(a, b) for b in pockets[n + 1 :]):
+                out.append(
+                    (
+                        f"Joints meet inside {boxes[i].name}",
+                        WARNING,
+                        "two cuts overlap: shorten or miter the tenons, or offset them",
+                    )
+                )
+                break
+    limit = rules.get("wood_movement_width_mm")
+    moving = set()
+    for i, j, rule in result.joints if limit else ():
+        fixed = rule.kind == "fastened" and (rule.fastener or rule.operation == "glue")
+        if not fixed or rule.allows_movement:
+            continue
+        for index in (i, j):
+            stock, part = parts[index]
+            item = items.get(stock, {})
+            solid = (
+                item.get("category") == "dimensional_lumber" or item.get("material") == "solid wood"
+            )
+            _, width, _ = part.cut_size()
+            if solid and width > limit and index not in moving:
+                moving.add(index)  # once per part, however many joints fix it
+                out.append(
+                    (
+                        f"Wood movement, {part.name}",
+                        WARNING,
+                        f"solid wood {width:g} mm wide fixed rigidly across its grain can split "
+                        f"(rule: over {limit:g} mm); use tabletop fasteners or slotted holes",
+                    )
+                )
+    return out
