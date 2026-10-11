@@ -21,6 +21,7 @@ class ConstructionWorkbench(Workbench):
             "Construction_WallFrame",
             "Construction_FloorFrame",
             "Construction_GableRoof",
+            "Construction_ShedRoof",
             "Construction_Stair",
             "Construction_Deck",
             "Construction_Sheathing",

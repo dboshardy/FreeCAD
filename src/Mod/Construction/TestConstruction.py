@@ -712,6 +712,27 @@ class TestDeckOptions(unittest.TestCase):
         self.assertEqual(Framing.Floor().concrete_m3(), 0)
 
 
+class TestShedRoof(unittest.TestCase):
+    def test_rafters_and_rise(self):
+        roof = Framing.ShedRoof(length=3600, span=3000, pitch=14.04, overhang=300, seat=95)
+        rafters = roof.boards()
+        self.assertEqual(len(rafters), 7)  # 3600 at 600: both ends plus 5
+        # High wall plates (3000 - 95) x tan(14.04) above the low wall's.
+        self.assertAlmostEqual(roof.rise(), 2905 * math.tan(math.radians(14.04)))
+        # Along the slope: 3600 on plan / cos + the plumb cuts' corners.
+        expected = 3600 / math.cos(math.radians(14.04)) + 145 * math.tan(math.radians(14.04))
+        self.assertAlmostEqual(rafters[0].cut_length(), expected, places=6)
+        (surface,) = Sheathing.surfaces(roof)
+        self.assertAlmostEqual(surface.size[1], 3600 / math.cos(math.radians(14.04)))
+        checks = {
+            c: status for c, status, _ in Checks.shed_roof(roof, {"birdsmouth_max_fraction": 0.333})
+        }
+        self.assertEqual(checks["Birdsmouth"], Checks.OK)
+        self.assertEqual(checks["High wall"], Checks.REQUIRED)
+        with self.assertRaises(ValueError):
+            Framing.ShedRoof(span=150).boards()
+
+
 class TestGableRoof(unittest.TestCase):
     def test_geometry(self):
         roof = Framing.GableRoof(length=3600, span=3000, pitch=26.565, overhang=300)

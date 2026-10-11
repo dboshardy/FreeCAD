@@ -189,6 +189,43 @@ def roof(roof, rules, values=None, load_kpa=0.0):
     return out
 
 
+def shed_roof(roof, rules, values=None, load_kpa=0.0):
+    """Checks a Framing.ShedRoof: rafters simply supported between the walls'
+    bearing centres (horizontal projection), birdsmouth depth."""
+    out = [
+        _area_load(
+            "Rafters",
+            roof.span - roof.seat,
+            roof.rafter,
+            roof.spacing,
+            values,
+            load_kpa,
+            rules.get("rafter_deflection_limit"),
+            "horizontal projection",
+        )
+    ]
+    fraction = rules.get("birdsmouth_max_fraction")
+    if fraction:
+        notch = roof.seat * math.sin(math.radians(roof.pitch))
+        status = OK if notch <= fraction * roof.rafter[1] + 1e-6 else WARNING
+        out.append(
+            (
+                "Birdsmouth",
+                status,
+                f"notch {notch:.0f} mm of rafter depth {roof.rafter[1]:g} mm, rule max {fraction:g}",
+            )
+        )
+    out.append(
+        (
+            "High wall",
+            REQUIRED,
+            f"frame the high wall {roof.rise():.0f} mm taller than the low wall; the rafters "
+            "bear on both walls and need no ties",
+        )
+    )
+    return out
+
+
 def stair(stair, rules):
     """Checks a Framing.Stair. Returns [(check, status, detail)]."""
     out = []

@@ -795,6 +795,52 @@ class GableRoofFeature(FramingFeature):
         return Checks.roof(self.model(obj), rules, values, float(obj.RoofLoad))
 
 
+class ShedRoofFeature(FramingFeature):
+    """Mono-pitch roof framing: rafters from the low wall (local y = 0) over the
+    high wall; z = 0 at the top of the low wall's plates."""
+
+    IFC_TYPE = "Roof"
+    GROUP = "Roof"
+    _d = Framing.ShedRoof()
+    PROPERTIES = [
+        _length("Length", "Along the walls", _d.length),
+        _length("Span", "Outer face of the low wall to outer face of the high wall", _d.span),
+        ("App::PropertyAngle", "Pitch", "Roof slope (14.04 = 3 in 12)", _d.pitch),
+        _length("Overhang", "Overhang beyond each wall face, horizontal", _d.overhang),
+        _length("RafterSpacing", "Rafter centres", _d.spacing),
+        _length("Seat", "Birdsmouth seat: the wall top plate width", _d.seat),
+        ("App::PropertyFloat", "RoofLoad", "kPa on plan, " + LOAD_TIP, 0.0),
+        _length("HighWallRise", "Result: how much taller to frame the high wall", 0.0),
+    ]
+    MATERIALS = [("RafterMaterial", "rafter", "lumber.metric.45x145", "Rafters")]
+
+    def setProperties(self, obj):
+        super().setProperties(obj)
+        obj.setEditorMode("HighWallRise", 1)  # read-only
+
+    def model(self, obj):
+        return Framing.ShedRoof(
+            length=float(obj.Length.Value),
+            span=float(obj.Span.Value),
+            pitch=float(obj.Pitch.Value),
+            overhang=float(obj.Overhang.Value),
+            spacing=float(obj.RafterSpacing.Value),
+            rafter=lumber_section(obj.RafterMaterial),
+            seat=float(obj.Seat.Value),
+            max_piece=self.max_piece(obj),
+        )
+
+    def execute(self, obj):
+        rise = self.model(obj).rise()
+        if abs(obj.HighWallRise.Value - rise) > 1e-6:
+            obj.HighWallRise = rise
+        super().execute(obj)
+
+    def checks(self, obj, rules):
+        values = self.design_values(obj, "RafterMaterial")
+        return Checks.shed_roof(self.model(obj), rules, values, float(obj.RoofLoad))
+
+
 class StairFeature(FramingFeature):
     """Straight stair on cut stringers; the riser limit comes from the rule set."""
 
@@ -938,6 +984,10 @@ def make_wall_frame(doc=None, name="WallFrame"):
 
 def make_floor_frame(doc=None, name="FloorFrame"):
     return _make_framing(FloorFrameFeature, name, doc)
+
+
+def make_shed_roof(doc=None, name="ShedRoof"):
+    return _make_framing(ShedRoofFeature, name, doc)
 
 
 def make_gable_roof(doc=None, name="GableRoof"):
