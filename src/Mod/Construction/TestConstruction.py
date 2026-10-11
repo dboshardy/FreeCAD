@@ -1096,13 +1096,26 @@ class TestJoinery(unittest.TestCase):
         with self.assertRaises(ValueError):  # longer than the leg is thick
             Joinery.apply(self.table(), [Joinery.Rule("Leg", "Apron", "tenon", depth=50)])
 
+    def test_loose_tenon(self):
+        rule = Joinery.Rule(
+            "Leg", "Apron", "loose_tenon", depth=20, shoulder=10, fastener="t", per_joint=1
+        )
+        result = Joinery.apply(self.table(), [rule])
+        self.assertEqual(result.boxes[2].size[0], 450)  # the apron keeps its length
+        apron_mortises = [p for i, p in result.pockets if i == 2]
+        self.assertEqual(sorted(p.pos[0] for p in apron_mortises), [45, 475])  # 20 into each end
+        self.assertEqual(len([p for i, p in result.pockets if i in (0, 1)]), 2)
+        self.assertEqual(result.fasteners, {"t": 2})
+
     def test_presets_from_library(self):
         items = Library.load()
         joints = Library.of_category(items, "joint")
         self.assertGreaterEqual(len(joints), 10)
         for joint in joints:
             rule = Joinery.rule(joint, "Leg", "Apron")
-            self.assertIn(rule.kind, ("housing", "tenon", "half_lap", "fastened"), joint["id"])
+            self.assertIn(
+                rule.kind, ("housing", "tenon", "loose_tenon", "half_lap", "fastened"), joint["id"]
+            )
             if rule.fastener:
                 self.assertEqual(items[rule.fastener]["category"], "hardware", joint["id"])
         pocket = Joinery.rule(items["joint.pocket_screw"], "Leg", "Apron")
@@ -1249,7 +1262,6 @@ class TestBuild(unittest.TestCase):
         self.assertFalse(Checks.build_anchored(table, rules))  # 600 mm: no anchoring
         with self.assertRaises(ValueError):
             Build.bookcase(height=300, shelves=10)
-
 
     def test_on_face(self):
         leg = Parts.Part("Leg", "board", (45, 45, 600), (0, 0, 0), "z")
