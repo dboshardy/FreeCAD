@@ -9,16 +9,21 @@ to the back, z up from the bottom of the floor joists. The front and back walls
 run the full length; the side walls (gable ends) fit between them.
 """
 
+import re
 from dataclasses import dataclass
 
 import Framing
 import Sheathing
 
 
+WALLS = ("front", "back", "left", "right")
+ROOFS = ("gable", "shed")
+
+
 @dataclass
 class Component:
     name: str
-    model: object  # Framing.Floor / Wall / GableRoof
+    model: object  # Framing.Floor / Wall / GableRoof / ShedRoof
     origin: tuple  # where the model's origin sits
     rotation: float  # degrees about z
     sheathing_extend: tuple = (0.0, 0.0)  # walls: sheathing past the ends
@@ -45,6 +50,11 @@ class Shed:
     floor_sheet: float = 18.0  # thickness: walls stand on it
     wall_sheet: float = 12.0  # thickness: side wall sheathing wraps the corners
     max_piece: float = 6000.0
+    # Doors and windows: [(wall, Framing.Opening)] with wall front / back / left /
+    # right and positions from the wall framing's left end seen from outside.
+    # None: one door of door_width x door_height centred in the front wall.
+    openings: tuple = None
+    roof: str = "gable"  # or "shed": mono-pitch, low at the front, the back wall taller
 
     def validate(self):
         d = self.stud[1]
@@ -52,18 +62,45 @@ class Shed:
             raise ValueError("shed too narrow for its walls")
         if self.door_width >= self.length - 2 * d:
             raise ValueError("door wider than the front wall")
+        if self.roof not in ROOFS:
+            raise ValueError(f"roof must be one of {', '.join(ROOFS)}")
+        for wall, _ in self.openings or ():
+            if wall not in WALLS:
+                raise ValueError(f"opening on '{wall}': walls are {', '.join(WALLS)}")
+
+    def wall_openings(self, wall):
+        if self.openings is None:
+            if wall != "front":
+                return []
+            x = (self.length - self.door_width) / 2
+            return [Framing.Opening("door", x, self.door_width, self.door_height)]
+        return [o for w, o in self.openings if w == wall]
+
+    def shed_roof(self):
+        return Framing.ShedRoof(
+            length=self.length,
+            span=self.width,
+            pitch=self.pitch,
+            overhang=self.overhang,
+            spacing=self.rafter_spacing,
+            rafter=self.rafter,
+            seat=self.stud[1],
+            max_piece=self.max_piece,
+            gable_studs=True,
+            gable_stud=self.stud,
+        )
 
     def components(self):
         self.validate()
         d = self.stud[1]
         L, W, H = self.length, self.width, self.wall_height
         z_walls = self.joist[1] + self.floor_sheet
-        door = Framing.Opening("door", (L - self.door_width) / 2, self.door_width, self.door_height)
+        rise = self.shed_roof().rise() if self.roof == "shed" else 0.0
 
-        def wall(length, openings=(), corners=(0.0, 0.0)):
+        def wall(length, openings=(), corners=(0.0, 0.0), height=H):
             return Framing.Wall(
                 length=length,
-                height=H,
+                height=height,
                 spacing=self.stud_spacing,
                 stud=self.stud,
                 header=self.header,
@@ -89,24 +126,47 @@ class Shed:
             ),
             # Front and back walls run through; the side walls butt against them,
             # so each end gets a corner stud backing the inside corner.
-            Component("Front wall", wall(L, [door], (d, d)), (0.0, 0.0, z_walls), 0.0),
-            Component("Back wall", wall(L, (), (d, d)), (L, W, z_walls), 180.0),
-            Component("Left wall", wall(side), (0.0, W - d, z_walls), -90.0, (wrap, wrap)),
-            Component("Right wall", wall(side), (L, d, z_walls), 90.0, (wrap, wrap)),
+            Component(
+                "Front wall", wall(L, self.wall_openings("front"), (d, d)), (0.0, 0.0, z_walls), 0.0
+            ),
+            Component(
+                "Back wall",
+                wall(L, self.wall_openings("back"), (d, d), H + rise),
+                (L, W, z_walls),
+                180.0,
+            ),
+            Component(
+                "Left wall",
+                wall(side, self.wall_openings("left")),
+                (0.0, W - d, z_walls),
+                -90.0,
+                (wrap, wrap),
+            ),
+            Component(
+                "Right wall",
+                wall(side, self.wall_openings("right")),
+                (L, d, z_walls),
+                90.0,
+                (wrap, wrap),
+            ),
             Component(
                 "Roof",
-                Framing.GableRoof(
-                    length=L,
-                    span=W,
-                    pitch=self.pitch,
-                    overhang=self.overhang,
-                    spacing=self.rafter_spacing,
-                    rafter=self.rafter,
-                    ridge=self.ridge,
-                    seat=d,
-                    tie=self.tie,
-                    gable_stud=self.stud,
-                    max_piece=self.max_piece,
+                (
+                    self.shed_roof()
+                    if self.roof == "shed"
+                    else Framing.GableRoof(
+                        length=L,
+                        span=W,
+                        pitch=self.pitch,
+                        overhang=self.overhang,
+                        spacing=self.rafter_spacing,
+                        rafter=self.rafter,
+                        ridge=self.ridge,
+                        seat=d,
+                        tie=self.tie,
+                        gable_stud=self.stud,
+                        max_piece=self.max_piece,
+                    )
                 ),
                 (0.0, 0.0, z_walls + H),
                 0.0,
@@ -128,3 +188,23 @@ class Shed:
 
 def sheathing_surfaces(component):
     return Sheathing.surfaces(component.model, component.sheathing_extend)
+
+
+def parse_openings(text):
+    """'front: door 900x2100 @ 1350; right: window 600x600 @ 1000 sill 1200'
+    -> [(wall, Framing.Opening)]."""
+    out = []
+    for entry in filter(None, (e.strip() for e in text.split(";"))):
+        m = re.match(r"^(\w+)\s*:\s*(.+)$", entry)
+        if not m or m.group(1).lower() not in WALLS:
+            raise ValueError(
+                f"'{entry}': start with the wall ({', '.join(WALLS)}), e.g. "
+                "'front: door 900x2100 @ 1350'"
+            )
+        out += [(m.group(1).lower(), o) for o in Framing.parse_openings(m.group(2))]
+    return out
+
+
+def format_openings(openings):
+    """Inverse of parse_openings."""
+    return "; ".join(f"{w}: {Framing.format_openings([o])}" for w, o in openings)

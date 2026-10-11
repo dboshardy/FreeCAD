@@ -54,6 +54,8 @@ Everything is driven by the shed's properties. Try:
 |---|---|---|
 | Taller walls | **WallHeight** `2700` | Studs, king/jack studs, sheathing; the roof moves up |
 | Wider door | **DoorWidth** `1200` | Header, jacks, cripples, bottom plate cut, sheathing cut-out |
+| Doors and windows anywhere | Double-click the shed: a list of openings per wall | Each wall's framing and sheathing |
+| Mono-pitch roof | **RoofType** `shed` (and a lower **Pitch**, e.g. `14.04` = 3 in 12) | Rafters low at the front, back wall taller, side walls' gable studs |
 | Steeper roof | **Pitch** `33.69` (8 in 12) | Rafters, ridge height, ties, roof sheathing |
 | Bigger shed | **Length**, **Width** | Everything |
 | US lumber | **StudMaterial** `lumber.us.2x4`, **JoistMaterial** `lumber.us.2x8`, ... | Sizes and the buying plan |
@@ -125,7 +127,7 @@ document.
 
 ## Not in the template yet
 
-- Foundation (skids, piers), roofing, trim, windows.
+- Foundation (skids, piers), trim. (Roofing: set **RoofCovering**, tutorial 4.)
 
 Add those yourself with **Member** and **Sheathing**, or as ordinary FreeCAD
 parts.

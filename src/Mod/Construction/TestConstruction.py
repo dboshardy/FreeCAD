@@ -1071,6 +1071,27 @@ class TestShed(unittest.TestCase):
             Shed.Shed(door_width=3500).components()
 
 
+class TestShedOptions(unittest.TestCase):
+    def test_openings_and_shed_roof(self):
+        text = "front: door 900x2100 @ 1350; right: window 600x600 @ 1000 sill 1200"
+        openings = Shed.parse_openings(text)
+        self.assertEqual(Shed.format_openings(openings), text)
+        shed = Shed.Shed(roof="shed", pitch=14.04, openings=tuple(openings))
+        parts = {c.name: c for c in shed.components()}
+        roof = parts["Roof"].model
+        self.assertIsInstance(roof, Framing.ShedRoof)
+        # The back (high) wall is the roof's rise taller than the front.
+        self.assertAlmostEqual(parts["Back wall"].model.height, 2440 + roof.rise())
+        right = Counter(p.name for p in parts["Right wall"].model.pieces())
+        self.assertEqual(right["Sill"], 1)  # the window
+        self.assertEqual(Counter(b.name for b in roof.boards())["Gable stud"], 8)
+        names = [s.name for s in Shed.sheathing_surfaces(parts["Roof"])]
+        self.assertEqual(names.count("Gable sheathing"), 2)
+        self.assertEqual(Shed.Shed(openings=()).wall_openings("front"), [])
+        with self.assertRaises(ValueError):
+            Shed.parse_openings("roof: window 600x600 @ 100 sill 100")
+
+
 class TestStair(unittest.TestCase):
     def test_equal_risers_and_run(self):
         stair = Framing.Stair(total_rise=2600, max_riser=190)

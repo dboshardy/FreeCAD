@@ -189,7 +189,7 @@ def roof(roof, rules, values=None, load_kpa=0.0):
     return out
 
 
-def shed_roof(roof, rules, values=None, load_kpa=0.0):
+def shed_roof(roof, rules, values=None, load_kpa=0.0, framed=False):
     """Checks a Framing.ShedRoof: rafters simply supported between the walls'
     bearing centres (horizontal projection), birdsmouth depth."""
     out = [
@@ -215,14 +215,17 @@ def shed_roof(roof, rules, values=None, load_kpa=0.0):
                 f"notch {notch:.0f} mm of rafter depth {roof.rafter[1]:g} mm, rule max {fraction:g}",
             )
         )
-    out.append(
-        (
-            "High wall",
-            REQUIRED,
-            f"frame the high wall {roof.rise():.0f} mm taller than the low wall; the rafters "
-            "bear on both walls and need no ties",
+    if framed:
+        out.append(("High wall", OK, f"framed {roof.rise():.0f} mm taller than the low wall"))
+    else:
+        out.append(
+            (
+                "High wall",
+                REQUIRED,
+                f"frame the high wall {roof.rise():.0f} mm taller than the low wall; the rafters "
+                "bear on both walls and need no ties",
+            )
         )
-    )
     return out
 
 

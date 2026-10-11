@@ -21,6 +21,7 @@ import ConstructionObjects as CO
 import Framing
 import Library
 import Room
+import Shed
 
 translate = FreeCAD.Qt.translate
 TEXT, NUMBER, CHOICE = "text", "number", "choice"
@@ -360,6 +361,40 @@ def room_panel(obj):
     return EditPanel(obj, [walls, openings, gaps, use], apply)
 
 
+def shed_panel(obj):
+    model = obj.Proxy.model(obj)
+    rows = [
+        (wall, o.kind, o.width, o.height, o.x, o.sill)
+        for wall in Shed.WALLS
+        for o in model.wall_openings(wall)
+    ]
+    editor = TableEditor(
+        translate("Construction", "Doors and windows (position from the wall's left end, outside)"),
+        [
+            ("Wall", CHOICE, [(w, w) for w in Shed.WALLS]),
+            ("Kind", CHOICE, [("door", "door"), ("window", "window")]),
+            ("Width", NUMBER, None),
+            ("Height", NUMBER, None),
+            ("Position", NUMBER, None),
+            ("Sill", NUMBER, None),
+        ],
+        rows,
+    )
+
+    def apply(rows):
+        obj.Openings = (
+            Shed.format_openings(
+                [
+                    (wall, Framing.Opening(kind, float(x or 0), float(w), float(h), float(s or 0)))
+                    for wall, kind, w, h, x, s in rows
+                ]
+            )
+            or "none"
+        )  # an empty list: no openings at all (not the default door)
+
+    return EditPanel(obj, [editor], apply)
+
+
 def edit_panel(obj):
     """The editing panel for a construction object, or None."""
     proxy = getattr(obj, "Proxy", None)
@@ -369,6 +404,7 @@ def edit_panel(obj):
         (CO.FloorFrameFeature, floor_panel),
         (CO.CabinetRunFeature, run_panel),
         (CO.RoomFeature, room_panel),
+        (CO.ShedFeature, shed_panel),
     ):
         if isinstance(proxy, kind):
             return make(obj)

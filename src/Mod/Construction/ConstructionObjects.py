@@ -94,6 +94,7 @@ CHOICES = {
     "FillerSide": Cabinet.FILLER_SIDES,
     "BlindSide": Cabinet.BLIND_SIDES,
     "OpenSides": Framing.OPEN_SIDES,
+    "RoofType": Shed.ROOFS,
 }
 
 
@@ -1135,8 +1136,21 @@ class ShedFeature:
         _length("Length", "Front and back walls, outside", _d.length),
         _length("Width", "Side walls, outside", _d.width),
         _length("WallHeight", "Bottom plate to top of the top plates", _d.wall_height),
-        _length("DoorWidth", "Rough opening, centred in the front wall", _d.door_width),
-        _length("DoorHeight", "Rough opening", _d.door_height),
+        _length(
+            "DoorWidth",
+            "Rough opening of the door centred in the front wall, used when Openings is empty",
+            _d.door_width,
+        ),
+        _length("DoorHeight", "Rough opening, used when Openings is empty", _d.door_height),
+        (
+            "App::PropertyString",
+            "Openings",
+            "Doors and windows per wall (double-click the shed to edit as a list), e.g. "
+            "'front: door 900x2100 @ 1350; right: window 600x600 @ 1000 sill 1200'; "
+            "empty = one door centred in the front wall; none = no openings",
+            "",
+        ),
+        (ENUM, "RoofType", "gable, or shed (mono-pitch, low at the front)", "gable"),
         ("App::PropertyAngle", "Pitch", "Roof slope (26.57 = 6 in 12)", _d.pitch),
         _length("Overhang", "Eave overhang, horizontal", _d.overhang),
         _length("StudSpacing", "Stud centres", _d.stud_spacing),
@@ -1206,6 +1220,8 @@ class ShedFeature:
             wall_height=float(obj.WallHeight.Value),
             door_width=float(obj.DoorWidth.Value),
             door_height=float(obj.DoorHeight.Value),
+            openings=shed_openings(obj.Openings),
+            roof=obj.RoofType,
             pitch=float(obj.Pitch.Value),
             overhang=float(obj.Overhang.Value),
             stud_spacing=float(obj.StudSpacing.Value),
@@ -1273,6 +1289,10 @@ class ShedFeature:
                 results = Checks.floor(
                     c.model, rules, values("JoistMaterial"), float(obj.FloorLoad)
                 )
+            elif isinstance(c.model, Framing.ShedRoof):
+                results = Checks.shed_roof(
+                    c.model, rules, values("RafterMaterial"), float(obj.RoofLoad), framed=True
+                )
             else:
                 results = Checks.roof(c.model, rules, values("RafterMaterial"), float(obj.RoofLoad))
             out += [(f"{c.name}: {check}", status, detail) for check, status, detail in results]
@@ -1294,6 +1314,15 @@ class ShedFeature:
 
     def loads(self, state):
         return None
+
+
+def shed_openings(text):
+    """Shed openings from the Openings property: None (empty: the default
+    door), () for "none", else Shed.parse_openings."""
+    text = text.strip()
+    if not text:
+        return None
+    return () if text.lower() == "none" else tuple(Shed.parse_openings(text))
 
 
 def make_shed(doc=None, name="Shed"):

@@ -164,7 +164,19 @@ def surfaces(model, extend=(0.0, 0.0)):
         oh = model.overhang
         top = model.bottom(-oh) + model.plumb_depth()
         slope = (model.span + 2 * oh) / c
-        return [
+        out = [
             Surface("Roof sheathing", (0, -oh, top), (1, 0, 0), (0, c, s), (model.length, slope))
         ]
+        if model.gable_studs:
+            # End walls up to the rafter tops: a trapezoid, low at the front.
+            span, dp = model.span, model.plumb_depth()
+            low, high = model.bottom(0.0) + dp, model.bottom(span) + dp
+            outline = [(0.0, 0.0), (span, 0.0), (span, high), (0.0, low)]
+            for x, u in ((0.0, (0, -1, 0)), (model.length, (0, 1, 0))):
+                origin = (x, span if u[1] < 0 else 0.0, 0.0)
+                clip = outline if u[1] > 0 else [(span - a, b) for a, b in reversed(outline)]
+                out.append(
+                    Surface("Gable sheathing", origin, u, (0, 0, 1), (span, high), "v", clip=clip)
+                )
+        return out
     raise ValueError("sheathing needs a floor, wall, gable roof or shed roof")
