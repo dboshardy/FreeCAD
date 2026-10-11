@@ -316,6 +316,16 @@ def build(parts, result, rules, items):
     detail)]."""
     out = []
     boxes = [p for _, p in parts]
+    if build_anchored(boxes, rules):
+        height = _height(boxes)
+        out.append(
+            (
+                "Wall anchoring",
+                REQUIRED,
+                f"fix to the wall: {height:g} mm tall furniture can tip over (rule: over "
+                f"{rules['anchor_furniture_height_mm']:g} mm); anchors are in the hardware list",
+            )
+        )
     limit = rules.get("mortise_wall_min_mm")
     for i, pocket in result.pockets:
         if limit is None or not pocket.name.endswith("mortise"):
@@ -365,3 +375,14 @@ def build(parts, result, rules, items):
                     )
                 )
     return out
+
+
+def build_anchored(boxes, rules):
+    """True when a build (its Parts) is taller than the rule set's
+    anchor_furniture_height_mm and must be fixed to the wall."""
+    limit = rules.get("anchor_furniture_height_mm")
+    return bool(limit and boxes and _height(boxes) > limit + 1e-6)
+
+
+def _height(boxes):
+    return max(b.hi(2) for b in boxes) - min(b.lo(2) for b in boxes)

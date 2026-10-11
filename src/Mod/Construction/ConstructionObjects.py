@@ -1152,7 +1152,7 @@ class BuildFeature:
         return Checks.build(parts, result, rules, items())
 
     def anchored(self, obj, rules):
-        return 0
+        return int(Checks.build_anchored([p for _, p in self.parts(obj)], rules))
 
     def fasteners(self, obj, schedule):
         return self._build(obj)[1].fasteners
@@ -1220,10 +1220,20 @@ def make_build(doc=None, name="Build"):
 
 
 def make_end_table(doc=None, name="EndTable", **sizes):
-    """A build filled from the end table template (Build.end_table: sizes);
-    edit it afterwards in its tables like any build."""
+    """A build filled from the end table template (Build.end_table: sizes)."""
+    return make_from_template(Build.end_table, doc, name, **sizes)
+
+
+def make_bookcase(doc=None, name="Bookcase", **sizes):
+    """A build filled from the bookcase template (Build.bookcase: sizes)."""
+    return make_from_template(Build.bookcase, doc, name, **sizes)
+
+
+def make_from_template(template, doc=None, name="Build", **sizes):
+    """A build filled from a Build.py template; edit it afterwards in its
+    tables like any build."""
+    parts, joints = template(**sizes)
     build = make_build(doc, name)
-    parts, joints = Build.end_table(**sizes)
     for r, row in enumerate(parts, start=2):
         _write_row(build.PartsTable, r, list(row))
     for r, row in enumerate(joints, start=2):

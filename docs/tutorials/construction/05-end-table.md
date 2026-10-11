@@ -145,6 +145,21 @@ fasteners; the boards are planned from stock lengths and the top from a
 panel. Click **Drawing** for front, top and right views tagged with the cut
 list's row numbers.
 
+## Other templates
+
+**Bookcase** makes a build the same way: two sides, a top, a bottom on a
+kick board and fixed shelves, all in dados, with a back nailed on. Anything
+taller than the rule set's `anchor_furniture_height_mm` (700 mm in the
+example) must be fixed to the wall against tipping: the checks say so and
+the hardware list gets the anchors.
+
+```pycon
+>>> parts, result = Build.build(*Build.bookcase(height=1800, shelves=4), items)
+>>> [(c, status) for c, status, _ in Checks.build(parts, result, rules, items)]
+[('Wall anchoring', 'required')]
+
+```
+
 ## From the Python console
 
 ```py

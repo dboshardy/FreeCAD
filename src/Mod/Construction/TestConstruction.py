@@ -1230,6 +1230,26 @@ class TestBuild(unittest.TestCase):
         self.assertIn("Mortise wall, Leg 1", warnings("shoulder=3"))  # 3 mm above
         self.assertIn("Joints meet inside Leg 1", warnings("depth=40"))
 
+    def test_bookcase_template(self):
+        parts, result = Build.build(*Build.bookcase(), self.ITEMS)
+        rows = {r[1]: r for r in CutList.rows(parts)}
+        # Top, bottom and 4 shelves: 800 - 2 x 18 = 764 between the sides, + 6 dado each end.
+        self.assertEqual(rows["Top"][2:], (776, 300, 18, "yes", 6))
+        ops = dict(zip((r[1] for r in CutList.rows(parts)), CutList.operations(parts)))
+        self.assertEqual(ops["Left side"], "6 x housing 18 x 6 deep")
+        # Back: sides 1800 -> 1750 between end nails at 150 -> 13 each; top and bottom
+        # 776 -> 6 each. Kick board: 2 pocket screws each end.
+        self.assertEqual(result.fasteners, {"hardware.brad_nail": 38, "hardware.pocket_screw": 4})
+        rules = self.ITEMS["rules.generic-example"]
+        checks = Checks.build(parts, result, rules, self.ITEMS)
+        self.assertEqual([(c, s) for c, s, _ in checks], [("Wall anchoring", Checks.REQUIRED)])
+        boxes = [p for _, p in parts]
+        self.assertTrue(Checks.build_anchored(boxes, rules))
+        table = [p for _, p in Build.build(*Build.end_table(), self.ITEMS)[0]]
+        self.assertFalse(Checks.build_anchored(table, rules))  # 600 mm: no anchoring
+        with self.assertRaises(ValueError):
+            Build.bookcase(height=300, shelves=10)
+
 
 class TestFastening(unittest.TestCase):
     def schedule(self):

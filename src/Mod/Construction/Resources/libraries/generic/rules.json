@@ -1,6 +1,6 @@
 {
   "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp construction rule sets (design doc §5.5, §12 R14). Advisory checks only. These are EXAMPLE values: they are not taken from any building code and do not show code compliance. Copy this item to your user library under a new id with the values adopted where you build, and have the design reviewed by your building official or a qualified professional.",
-  "source": "Generic example values from conventional framing practice and engineering mechanics (beam bending and deflection; column slenderness l/d) the stair comfort rule 2 x riser + tread (F. Blondel, Cours d'architecture, 1675), and common woodworking practice (mortise walls, allowing solid wood to move across its grain); not copied from any code or standard",
+  "source": "Generic example values from conventional framing practice and engineering mechanics (beam bending and deflection; column slenderness l/d) the stair comfort rule 2 x riser + tread (F. Blondel, Cours d'architecture, 1675), and common woodworking practice (mortise walls, allowing solid wood to move across its grain, anchoring tall furniture against tipping); not copied from any code or standard",
   "data_license": "CC0-1.0",
   "items": [
     {
@@ -27,6 +27,7 @@
       "guard_opening_max_mm": 100,
       "anchor_cabinet_kinds": ["wall", "tall"],
       "mortise_wall_min_mm": 6,
+      "anchor_furniture_height_mm": 700,
       "wood_movement_width_mm": 250
     }
   ]

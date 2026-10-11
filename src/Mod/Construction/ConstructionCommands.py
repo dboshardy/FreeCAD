@@ -548,6 +548,18 @@ FreeCADGui.addCommand(
 )
 FreeCADGui.addCommand("Construction_Joint", JointCommand())
 FreeCADGui.addCommand(
+    "Construction_Bookcase",
+    FramingCommand(
+        "make_bookcase",
+        QT_TRANSLATE_NOOP("Construction_Bookcase", "Bookcase"),
+        QT_TRANSLATE_NOOP(
+            "Construction_Bookcase",
+            "Creates a bookcase build: sides, top, bottom and fixed shelves in dados, a "
+            "kick board and a nailed back; edit it in its parts and joints tables",
+        ),
+    ),
+)
+FreeCADGui.addCommand(
     "Construction_EndTable",
     FramingCommand(
         "make_end_table",
