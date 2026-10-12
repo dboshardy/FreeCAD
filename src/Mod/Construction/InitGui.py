@@ -45,6 +45,7 @@ class ConstructionWorkbench(Workbench):
             "Construction_BuildSteps",
             "Construction_ExportCSV",
             "Construction_Region",
+            "Construction_Library",
         ]
         self.appendToolbar("Construction", commands)
         self.appendMenu("&Construction", commands + ["Separator", "Construction_Tutorials"])

@@ -670,6 +670,37 @@ class ExportCsvCommand:
             FreeCADGui.doCommand(f"ConstructionObjects.export_csv(App.ActiveDocument, {folder!r})")
 
 
+class LibraryCommand:
+    def GetResources(self):
+        return {
+            "MenuText": QT_TRANSLATE_NOOP("Construction_Library", "Library"),
+            "ToolTip": QT_TRANSLATE_NOOP(
+                "Construction_Library",
+                "Edits the material library: lumber, sheet goods, hardware and area materials "
+                "with sizes, stock lengths and prices; imports and exports CSV",
+            ),
+        }
+
+    def Activated(self):
+        from PySide import QtGui
+
+        import ConstructionPanels
+        import Library
+
+        categories = [Library.LUMBER, Library.SHEET_GOODS, Library.HARDWARE, Library.AREA_MATERIAL]
+        category, ok = QtGui.QInputDialog.getItem(
+            FreeCADGui.getMainWindow(),
+            translate("Construction", "Library"),
+            translate("Construction", "Category:"),
+            categories,
+            0,
+            False,
+        )
+        if ok:
+            FreeCADGui.Control.closeDialog()
+            FreeCADGui.Control.showDialog(ConstructionPanels.LibraryPanel(category))
+
+
 EDIT_HINT = "; edit its sizes in the property view"
 CABINET_COMMANDS = {
     "Construction_BaseCabinet": MakeCommand(
@@ -854,6 +885,7 @@ FreeCADGui.addCommand(
     ),
 )
 FreeCADGui.addCommand("Construction_Joint", JointCommand())
+FreeCADGui.addCommand("Construction_Library", LibraryCommand())
 FreeCADGui.addCommand("Construction_BuildSteps", BuildStepsCommand())
 FreeCADGui.addCommand("Construction_ExportCSV", ExportCsvCommand())
 FreeCADGui.addCommand("Construction_Move", MoveCommand())

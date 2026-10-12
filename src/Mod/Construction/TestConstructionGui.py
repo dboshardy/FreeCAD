@@ -63,6 +63,7 @@ class TestConstructionGui(unittest.TestCase):
             "Construction_Align",
             "Construction_Move",
             "Construction_Region",
+            "Construction_Library",
             "Construction_EndTable",
             "Construction_DiningTable",
             "Construction_Workbench",
@@ -370,6 +371,43 @@ class TestDrag(unittest.TestCase):
         mouse.on_key({"Key": "ESCAPE", "State": "DOWN"})
         self.assertEqual(mouse.callbacks, [])
         self.assertEqual(build.Proxy.drawn_parts(build)["Rail"].pos, (45, 215, 300))
+
+
+class TestLibraryPanel(unittest.TestCase):
+    def test_add_lumber(self):
+        import tempfile
+
+        import ConstructionObjects as CO
+        import ConstructionPanels
+        import Library
+
+        saved = Library.user_dir
+        folder = tempfile.mkdtemp()
+        Library.user_dir = lambda: folder  # never the real user library
+        CO._items = None
+        try:
+            panel = ConstructionPanels.LibraryPanel(Library.LUMBER)
+            panel.editor.add_row(
+                [
+                    "lumber.mine.oak.25x150",
+                    "Oak 25x150",
+                    25,
+                    150,
+                    "mm",
+                    "1800 2400",
+                    12.5,
+                    "m",
+                    "metric",
+                ]
+            )
+            self.assertTrue(panel.accept())
+            self.assertEqual(CO.items()["lumber.mine.oak.25x150"]["price"], 12.5)
+            csv = os.path.join(folder, "lumber.csv")
+            panel.export_csv(csv)
+            self.assertTrue(os.path.getsize(csv) > 0)
+        finally:
+            Library.user_dir = saved
+            CO._items = None
 
 
 class TestCoreUx(unittest.TestCase):

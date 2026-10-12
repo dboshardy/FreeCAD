@@ -18,8 +18,14 @@ The shipped ones are read first, then yours, from
 console). An item with the same `id`
 as a shipped one replaces it. Restart the application after editing.
 
-Example: the plywood your yard sells is 17.5 mm thick, and you also use
-2500 × 1250 mm sheets:
+The quickest way is **Construction > Library**: pick a category (lumber, sheet
+goods, hardware, area materials) and edit the list: change a size, add your
+own boards or sheets, enter prices. **OK** saves your changes to your user
+library (the shipped files are never changed). **Export CSV** and **Import
+CSV** move a list to and from a spreadsheet, e.g. your supplier's price list.
+
+The files can also be written by hand. Example: the plywood your yard sells
+is 17.5 mm thick, and you also use 2500 × 1250 mm sheets:
 
 ```json
 {

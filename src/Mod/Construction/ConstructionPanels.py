@@ -10,6 +10,7 @@ None when it has none.
 """
 
 import json
+import os
 
 import FreeCAD
 import FreeCADGui
@@ -82,7 +83,13 @@ class TableEditor(QtGui.QWidget):
                 self.table.setCellWidget(r, c, combo)
             else:
                 text = (
-                    "" if value in ("", None) else (f"{value:g}" if kind == NUMBER else str(value))
+                    ""
+                    if value in ("", None)
+                    else (
+                        f"{value:g}"
+                        if kind == NUMBER and isinstance(value, (int, float))
+                        else str(value)
+                    )
                 )
                 self.table.setItem(r, c, QtGui.QTableWidgetItem(text))
 
@@ -393,6 +400,95 @@ def shed_panel(obj):
         )  # an empty list: no openings at all (not the default door)
 
     return EditPanel(obj, [editor], apply)
+
+
+LIBRARY_CHOICES = {
+    "unit": [("mm", "mm"), ("in", "in")],
+    "grain": [("length", "length"), ("none", "none")],
+    "price per": [
+        ("", ""),
+        ("each", "each"),
+        ("m", "m"),
+        ("board foot", "board_foot"),
+        ("m³", "m3"),
+    ],
+    "region": [("generic", "generic"), ("metric", "metric"), ("US", "US")],
+}
+
+
+class LibraryPanel(EditPanel):
+    """The items of one library category as a list; saving writes the new and
+    changed ones to the user library (shipped items stay as shipped)."""
+
+    def __init__(self, category):
+        self.category = category
+        columns = []
+        for name, _, kind in Library.COLUMNS[category]:
+            if name in LIBRARY_CHOICES:
+                columns.append((name, CHOICE, LIBRARY_CHOICES[name]))
+            else:
+                columns.append((name, NUMBER if kind == "number" else TEXT, None))
+        self.editor = TableEditor(
+            translate("Construction", "Library: {}").format(category.replace("_", " ")),
+            columns,
+            Library.to_rows(CO.items(), category),
+        )
+        buttons = QtGui.QHBoxLayout()
+        for text, slot in (
+            (translate("Construction", "Import CSV"), self.import_csv),
+            (translate("Construction", "Export CSV"), self.export_csv),
+        ):
+            button = QtGui.QPushButton(text)
+            button.clicked.connect(lambda checked=False, s=slot: s())
+            buttons.addWidget(button)
+        self.editor.layout().addLayout(buttons)
+        self.form = [self.editor]
+        self.editors = [self.editor]
+
+    def path(self):
+        return os.path.join(Library.user_dir(), "user", f"{self.category}.json")
+
+    def save(self, rows):
+        """Writes the rows; returns the user items written."""
+        shipped = Library.load([Library.LIBRARY_DIR])
+        items = Library.from_rows(rows, self.category, CO.items())
+        user = Library.changed(items, shipped)
+        Library.write_user_file(self.path(), user)
+        CO._items = None  # read the library again
+        return user
+
+    def accept(self):
+        try:
+            self.save(self.editor.rows())
+        except ValueError as e:
+            QtGui.QMessageBox.warning(FreeCADGui.getMainWindow(), "Library", str(e))
+            return False
+        FreeCADGui.Control.closeDialog()
+        return True
+
+    def import_csv(self, path=None):
+        path = (
+            path
+            or QtGui.QFileDialog.getOpenFileName(
+                FreeCADGui.getMainWindow(), "CSV", "", "CSV (*.csv)"
+            )[0]
+        )
+        if path:
+            rows = {r[0]: r for r in self.editor.rows()}
+            for row in Library.read_csv(path, self.category):
+                rows[row[0]] = tuple(row)
+            self.editor.set_rows(list(rows.values()))
+
+    def export_csv(self, path=None):
+        path = (
+            path
+            or QtGui.QFileDialog.getSaveFileName(
+                FreeCADGui.getMainWindow(), "CSV", f"{self.category}.csv", "CSV (*.csv)"
+            )[0]
+        )
+        if path:
+            items = Library.from_rows(self.editor.rows(), self.category, CO.items())
+            Library.write_csv(path, {i["id"]: i for i in items}, self.category)
 
 
 def edit_panel(obj):

@@ -59,7 +59,7 @@ advisory checks. Nothing here certifies building-code compliance:
 | 5.1.9 | Hardware (hinges, slides, shelf pins, connectors) | Partial | `Resources/libraries/generic/hardware.json`: concealed hinge, drawer slide pair, shelf pin, framing nail, joist hanger, deck screw, wall anchor, dowel, pocket screw, wood and confirmat screws, biscuit, tabletop fasteners; override by id in the user library. Counted through joint presets (`generic/joints.json`: hinges by door height, slides by depth, pins per shelf end) |
 | 5.1.10 | Cost / SKU per item | Present | Optional `price` / `price_per` (each, m, board foot, m³) per item, `sku` free field; cut list Cost column and Total cost (counts unpriced lines). No prices shipped (they vary by supplier) |
 | 5.1.11 | Region switch per document | Present | **Library Region** command stores the region in the document (`Meta`); library choices narrow to it plus generic items; preference `Region` for new documents |
-| 5.1.12 | Library editor UI, CSV import/export | Missing | |
+| 5.1.12 | Library editor UI, CSV import/export | Present | **Library** command: a category's items (lumber, sheet goods, hardware, area materials) as an editable list (sizes, unit, stock lengths, grain, price, region); saving writes new and changed items to `<user data>/Construction/libraries/user/<category>.json` (shipped files untouched); Import / Export CSV in the panel (`Library.to_rows`, `from_rows`, `read_csv`, `write_csv`). Rule sets and joint presets are still edited as JSON |
 
 ## 5.2 Structural members
 
