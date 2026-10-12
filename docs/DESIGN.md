@@ -13,6 +13,8 @@ Implement phase by phase. Do not start a phase until the previous phase's exit c
 
 **Inherited-feature rule:** features implemented upstream stay enabled by default. Do not disable or remove them. Where an inherited feature conflicts with this document (§1 network rule, §12 risk register), record the conflict in `docs/inherited-conflicts.md` and isolate it behind a compile/runtime flag that defaults to **on**, so it can be removed later if required.
 
+**Reuse rule:** never reimplement something FreeCAD already provides (a workbench, command, document object, module or bundled library). Before adding code, check that the capability does not already exist: search the source tree (`src/Mod/*`, `src/Gui`, `src/App`, `src/3rdParty`) for its commands, objects and properties, and record the result (what exists, where, and why it falls short) in the phase's gap document. Where upstream covers part of a need, build on its objects (take them as input, subclass, or add properties) and implement only the missing part. A separate implementation needs a written reason in the gap document, such as a constraint upstream cannot meet (e.g., guillotine cuts for a panel saw).
+
 ---
 
 ## 1. Decisions
@@ -265,10 +267,26 @@ Every change to an upstream file carries a `// FORK:` (C++) or `# FORK:` (Python
 
 **Exit criteria**: Generate a 10×12 ft (3×3.6 m) gable shed from template; edit wall height and door width; framing regenerates; BOM, optimized cut list, sheet nesting, and framing drawings produce correct quantities (validated against hand count).
 
+**Overlap with upstream (review 2026-10-12)**: Phase 5 work that partly repeats what FreeCAD provides, checked against the BIM source. Under the reuse rule each is to be rebuilt on the upstream object where marked.
+
+| Construction work | Upstream equivalent | Construction-specific part | Action |
+|---|---|---|---|
+| Member (`Member.py`, `MemberFeature`): lumber section along an edge, roll, end cuts | `Arch_Structure` / `BIM_Beam` (profile along an edge or sketch, offsets, rotation, computed length); `Arch_Frame` (profile along every edge of a wire) | Library lumber sizes, angled end cuts, grain, cut-list rows | Rebuild on `Arch_Structure`: keep the library, end cuts and cut-list entry only |
+| Stair (`Framing.Stair`, `LandingStair`) | `Arch_Stairs`: risers, tread depth, nosing, stringers, landings, winders, railings, Blondel ratio | Treads from whole boards, cut stringers, baluster and guard counts, advisory checks, cut-list parts | Take an `Arch_Stairs` as input; generate parts, counts and checks from it |
+| Panel-saw sheet layout (`CutList.layout_sheets`, `SheetLayout`) | `Arch_Panel` (grain direction, tags), `Arch_Panel_Sheet` with its nester, `Arch_Nest` (true-shape) | Guillotine cuts (edge to edge, as a panel saw cuts), kerf and trim, whole sheets uncut | Keep the guillotine packer (upstream nesting is not guillotine-constrained); write results as `Arch_Panel_Sheet` objects instead of our own layout sheets |
+| Sheathing (`Sheathing.py`) | `Arch_Covering`: tiles or boards on a face (length, width, thickness, joints, rotation, alignment) | Joints on studs, joists and rafters, staggered seams, cut-list panels | Keep for structural sheathing; siding courses and finishes use `Arch_Covering` |
+| Deck guards (`Framing.Deck` guards) | `Arch_Fence`: posts and sections along a path | Guard height, baluster gaps, posts bolted through framing, checks | Keep; small overlap |
+| Slab (`Framing.Slab`, `SlabFeature`) | `BIM_Slab`; `BIM_IfcQuantities` (volumes, areas) | Thickened edge, concrete in the cut list, foundation check | Rebuild as a BIM slab plus the thickened edge |
+| Build sequence pages (`make_build_steps`) | Assembly exploded views (`Assembly_CreateView`) | Works on Builds, which are not Assembly objects | Keep until Builds can feed the Assembly views |
+| Cut list Concrete and Coverings sections | `Arch_Schedule` (counts, sums, spreadsheet), `BIM_IfcQuantities` | Grouping by cut size, lumber buying plan, costs | Keep the cut list; take areas and volumes from BIM quantities where objects are BIM objects |
+| Library items | Material workbench cards (density, appearance) | Section sizes, stock lengths, prices, region | Link each item to a material card for density and appearance |
+
+Not duplicated: joinery and joint presets, Builds (Board, Panel, Joint), wall/floor/roof/deck framing, cabinets and runs, edge banding, shaker doors, fastening schedules and hardware counts, the lumber cutting plan, advisory checks, shed and garage templates, the region switch and library editor. `Arch_Roof` makes a roof solid without rafters; `Arch_Truss` is not reimplemented. Drawings, dimensions and IFC export already use TechDraw and BIM. Room overlaps `Arch_Space`/`Arch_Wall` only slightly (it is input for generators). The tutorials tab replaces `Help.show` only because this build has no Qt WebEngine.
+
 ---
 
 ### Phase 5.1 — Woodworking Assemblies & Joinery
-**Upstream baseline (verify in audit)**: None for woodworking joinery. The Assembly workbench's joints position parts for motion, not joinery. The Woodworking add-on (MIT, not in tree) was reviewed 2026-10-10 and not incorporated: its joints are hand-placed PartDesign pockets inside Qt dialogs, with no joint model to build on (see `docs/gaps/phase-5.md`). Builds on Phase 5 (`src/Mod/Construction/`: `Parts.py`, libraries, `Joinery.py`, cut list, drawings, checks) and BIM's IFC export.
+**Upstream baseline**: None for woodworking joinery. The Assembly workbench's joints position parts for motion, not joinery. The Woodworking add-on (MIT, not in tree) was reviewed 2026-10-10 and not incorporated: its joints are hand-placed PartDesign pockets inside Qt dialogs, with no joint model to build on (see `docs/gaps/phase-5.md`). Builds on Phase 5 (`src/Mod/Construction/`: `Parts.py`, libraries, `Joinery.py`, cut list, drawings, checks) and BIM's IFC export.
 
 **Known gaps**: General woodworking design: free-form boards and panels, user-selected joints and hardware, furniture templates. Phase 5 generators (cabinets, shed) are special-purpose.
 
@@ -288,7 +306,7 @@ Every change to an upstream file carries a `// FORK:` (C++) or `# FORK:` (Python
 ---
 
 ### Phase 5.2 — Construction Usability: Measure, Generate, Iterate
-**Upstream baseline (verify in audit)**: FreeCAD task panels (`Gui::TaskView`), Draft/Sketcher snapping, Gui::Selection, Gui draggers (`SoTransformManip`). Builds on Phases 5 and 5.1.
+**Upstream baseline**: FreeCAD task panels (`Gui::TaskView`), Draft/Sketcher snapping, `Gui::Selection`, Coin draggers (`SoTransformManip`); inline value entry only in Sketcher (on-view parameters). Builds on Phases 5 and 5.1.
 
 **Known gaps** (review 2026-10-11): generators produce correct outputs, but going from a measured space to a design, and iterating on it, needs typed strings (openings, widths, beams), spreadsheet cells (build parts and joints) and library ids. Templates stop being parametric once created. There is no room or footprint input, and parts cannot be moved in the 3D view.
 
@@ -685,7 +703,7 @@ Not legal advice. This register identifies risks and design-arounds; it does not
 ## 13. Rules for Implementation Agents (Claude Code)
 
 1. Read this document, `SURVEY.md`, and the phase's `docs/gaps/phase-N.md` before writing code.
-2. Run the §5.0 audit before implementing a phase. Do not reimplement Present items.
+2. Run the §5.0 audit before implementing a phase. Do not reimplement Present items. Before writing any feature, check the source tree for an existing upstream implementation and follow the reuse rule (top of this document): build on what exists, and write down why when you cannot.
 3. Place code per §4.2. New workbenches over core patches. Mark upstream-file edits with `FORK:` comments.
 4. Do not copy code from GPL-only projects, commercial software, or unlicensed sources. Cite prior art for algorithms with patent exposure in `docs/prior-art/` (§12.4).
 5. No network access in fork-added code (§1). Never disable or remove inherited upstream features; record conflicts in `docs/inherited-conflicts.md`. No new dependency without the license check (§3.2).
