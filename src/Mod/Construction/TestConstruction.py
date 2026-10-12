@@ -707,6 +707,45 @@ class TestDeckOptions(unittest.TestCase):
         self.assertNotIn("Ledger attachment", found)
         self.assertIn("Footings", found)
 
+    def test_guards(self):
+        deck = Framing.Deck(height=1200, guards=True)
+        pieces = deck.pieces()
+        names = Counter(p.name for p in pieces)
+        # Rim side 3695 at most 1500 apart -> 4 posts; each end 3047.5 -> 4, the
+        # outer corner shared: 10 posts.
+        self.assertEqual(names["Guard post"], 10)
+        self.assertEqual(names["Guard rail"], 3)
+        # Along the rim side, no clear gap (baluster to baluster or to a post) over 100.
+        h, bt = deck.post[0] / 2, deck.baluster[1]
+        y = deck.projection
+        edges = sorted(
+            [
+                (p.start[0] - h, p.start[0] + h)
+                for p in pieces
+                if p.name == "Guard post" and p.start[1] > y
+            ]
+            + [
+                (p.start[0] - bt / 2, p.start[0] + bt / 2)
+                for p in pieces
+                if p.name == "Baluster" and p.start[1] > y - 1
+            ]
+        )
+        gaps = [b0 - a1 for (_, a1), (b0, _) in zip(edges, edges[1:])]
+        self.assertLessEqual(max(gaps), 100 + 1e-6)
+        self.assertGreater(min(gaps), 0)
+        rules = Library.load()["rules.generic-example"]
+        checks = {c: st for c, st, _ in Checks.deck(deck, rules)}
+        self.assertEqual(checks["Guards"], Checks.OK)
+        self.assertEqual(checks["Guard posts"], Checks.REQUIRED)
+        self.assertEqual(deck.extra_hardware(), {"hardware.guard_corner_bracket": 2})
+        loose = Framing.Deck(height=1200, guards=True, max_baluster_gap=150)
+        self.assertEqual(
+            {c: st for c, st, _ in Checks.deck(loose, rules)}["Guards"], Checks.WARNING
+        )
+        free = Framing.Deck(height=1200, guards=True, attached=False)
+        self.assertEqual(len(free.guard_sides()), 4)
+        self.assertEqual(free.guard_corners(), 4)
+
     def test_floor_concrete(self):
         floor = Framing.Floor(width=6000, beams=(3000,), post_height=600)
         self.assertAlmostEqual(floor.concrete_m3(), 3 * 0.4 * 0.4 * 0.6)

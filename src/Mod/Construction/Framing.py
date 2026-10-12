@@ -63,7 +63,11 @@ def fasteners(model, rules):
     (Joinery rules matched on member names). hardware id -> count."""
     sections = model.sections()
     boxes = [piece_box(p, sections[p.section]) for p in model.pieces()]
-    return Joinery.apply(boxes, rules).fasteners
+    out = Joinery.apply(boxes, rules).fasteners
+    # Hardware the model needs beyond member-to-member joints.
+    for hardware_id, count in getattr(model, "extra_hardware", dict)().items():
+        out[hardware_id] = out.get(hardware_id, 0) + count
+    return out
 
 
 @dataclass
@@ -1052,9 +1056,25 @@ class Deck:
     attached: bool = True
     blocking_rows: int = 0
     footing: tuple = (400.0, 600.0)
+    # Guards on the open sides (the rim and both ends; all four when
+    # freestanding): posts bolted to the outside of the framing, a top rail
+    # guard_height above the decking, balusters fixed to the rim and the rail.
+    guards: bool = False
+    guard_height: float = 900.0
+    guard_post_spacing: float = 1500.0
+    rail: tuple = (45.0, 70.0)
+    baluster: tuple = (45.0, 45.0)
+    max_baluster_gap: float = 100.0
 
     def sections(self):
-        return {"joist": self.joist, "beam": self.beam, "post": self.post, "decking": self.decking}
+        return {
+            "joist": self.joist,
+            "beam": self.beam,
+            "post": self.post,
+            "decking": self.decking,
+            "rail": self.rail,
+            "baluster": self.baluster,
+        }
 
     def beam_lines(self):
         """y of every beam's centre: near the rim, and (freestanding) near the house."""
@@ -1173,6 +1193,87 @@ class Deck:
                     Piece("Decking", (a, y, top + dt / 2), (b, y, top + dt / 2), 90.0, "decking")
                 )
             joints = [b for _, b in segments[:-1]]
+        if self.guards:
+            out += self._guards()
+        return out
+
+    def guard_corners(self):
+        """Corner posts of the guards: they stand off the framing's corner, so
+        each needs a corner bracket or blocking."""
+        if not self.guards:
+            return 0
+        return 2 if self.attached else 4  # the outer corners; all four when freestanding
+
+    def extra_hardware(self):
+        corners = self.guard_corners()
+        return {"hardware.guard_corner_bracket": corners} if corners else {}
+
+    def guard_sides(self):
+        """Guard lines on plan [((x0, y0), (x1, y1))] through the post centres,
+        outside the framing."""
+        h = self.post[0] / 2
+        L, P = self.length, self.projection
+        sides = [
+            ((-h, P + h), (L + h, P + h)),
+            ((-h, 0.0), (-h, P + h)),
+            ((L + h, 0.0), (L + h, P + h)),
+        ]
+        if not self.attached:
+            sides = [
+                ((-h, -h), (L + h, -h)),
+                ((-h, -h), (-h, P + h)),
+                ((L + h, -h), (L + h, P + h)),
+                sides[0],
+            ]
+        return sides
+
+    def _guards(self):
+        t, d = self.joist
+        pt, h = self.post[0], self.post[0] / 2
+        bt, rd = self.baluster[1], self.rail[1]
+        top = self.height
+        rail_bottom = top + self.guard_height - rd
+        frame_bottom = self.joist_top() - d
+        out, posts = [], set()
+        for (x0, y0), (x1, y1) in self.guard_sides():
+            length = math.hypot(x1 - x0, y1 - y0)
+            ux, uy = (x1 - x0) / length, (y1 - y0) / length
+            bays = max(1, math.ceil(length / self.guard_post_spacing - 1e-9))
+            stations = [length * i / bays for i in range(bays + 1)]
+            for s in stations:
+                key = (round(x0 + ux * s, 3), round(y0 + uy * s, 3))
+                if key not in posts:
+                    posts.add(key)
+                    out.append(
+                        Piece("Guard post", (*key, frame_bottom), (*key, rail_bottom), 0.0, "post")
+                    )
+            z = rail_bottom + rd / 2
+            for a, b in splice(0.0, length, stations, self.max_piece):
+                start, end = (x0 + ux * a, y0 + uy * a, z), (x0 + ux * b, y0 + uy * b, z)
+                out.append(Piece("Guard rail", start, end, 0.0, "rail"))
+            # Balusters on the framing's face (the post line moved in by the post's
+            # half and out by the baluster's), the same in every bay.
+            nx, ny = -uy, ux  # into the deck, for a side drawn counter-clockwise
+            inward = (h - bt / 2) * (
+                1 if (nx * (self.length / 2 - x0) + ny * (self.projection / 2 - y0)) > 0 else -1
+            )
+            for a, b in zip(stations, stations[1:]):
+                clear = b - a - pt
+                n = max(
+                    0,
+                    math.ceil(
+                        (clear - self.max_baluster_gap) / (bt + self.max_baluster_gap) - 1e-9
+                    ),
+                )
+                gap = (clear - n * bt) / (n + 1)
+                for k in range(n):
+                    s = a + h + gap * (k + 1) + bt * k + bt / 2
+                    x, y = x0 + ux * s + nx * inward, y0 + uy * s + ny * inward
+                    out.append(
+                        Piece(
+                            "Baluster", (x, y, frame_bottom), (x, y, rail_bottom), 0.0, "baluster"
+                        )
+                    )
         return out
 
 
