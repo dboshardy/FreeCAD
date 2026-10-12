@@ -27,6 +27,7 @@ COMMANDS = [
     "Construction_Stair",
     "Construction_Deck",
     "Construction_Shed",
+    "Construction_Garage",
 ]
 
 

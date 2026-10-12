@@ -102,6 +102,7 @@ CHOICES = {
     "BlindSide": Cabinet.BLIND_SIDES,
     "OpenSides": Framing.OPEN_SIDES,
     "RoofType": Shed.ROOFS,
+    "Foundation": Shed.FOUNDATIONS,
     "Guards": ("auto", "yes", "no"),
 }
 
@@ -1268,6 +1269,10 @@ class ShedFeature:
         ),
         (ENUM, "RoofType", "gable, or shed (mono-pitch, low at the front)", "gable"),
         ("App::PropertyAngle", "Pitch", "Roof slope (26.57 = 6 in 12)", _d.pitch),
+        (ENUM, "Foundation", "floor: framed floor platform; slab: walls on a concrete slab", "floor"),
+        _length("SlabThickness", "Slab thickness (Foundation slab)", _d.slab[0]),
+        _length("SlabEdgeWidth", "Thickened edge width (Foundation slab)", _d.slab[1]),
+        _length("SlabEdgeDepth", "Top of the slab to the bottom of the edge", _d.slab[2]),
         _length("Overhang", "Eave overhang, horizontal", _d.overhang),
         _length("StudSpacing", "Stud centres", _d.stud_spacing),
         _length("JoistSpacing", "Floor joist centres", _d.joist_spacing),
@@ -1340,6 +1345,11 @@ class ShedFeature:
             door_height=float(obj.DoorHeight.Value),
             openings=shed_openings(obj.Openings),
             roof=obj.RoofType,
+            foundation=obj.Foundation,
+            slab=tuple(
+                float(getattr(obj, p).Value)
+                for p in ("SlabThickness", "SlabEdgeWidth", "SlabEdgeDepth")
+            ),
             pitch=float(obj.Pitch.Value),
             overhang=float(obj.Overhang.Value),
             stud_spacing=float(obj.StudSpacing.Value),
@@ -1386,12 +1396,21 @@ class ShedFeature:
             shapes.append(solid)
         return shapes
 
+    def slab_solids(self, obj):
+        slab = self.model(obj).slab_model()
+        boxes = slab.boxes() if slab else []
+        return [Part.makeBox(*size, FreeCAD.Vector(*pos)) for _, size, pos in boxes]
+
+    def concrete(self, obj):
+        slab = self.model(obj).slab_model()
+        return [("Slab", slab.concrete_m3())] if slab else []
+
     def execute(self, obj):
         solids = self.solids(obj)
         if not obj.ShowSheathing:
             parts = self.parts(obj)
             solids = [s for s, (_, p) in zip(solids, parts) if p.role != "sheathing"]
-        set_shape(obj, solids)
+        set_shape(obj, solids + self.slab_solids(obj))
 
     def checks(self, obj, rules):
         def values(prop):
@@ -1414,6 +1433,18 @@ class ShedFeature:
             else:
                 results = Checks.roof(c.model, rules, values("RafterMaterial"), float(obj.RoofLoad))
             out += [(f"{c.name}: {check}", status, detail) for check, status, detail in results]
+        slab = self.model(obj).slab_model()
+        if slab:
+            out += [(f"Slab: {check}", s, detail) for check, s, detail in Checks.slab(slab, rules)]
+            out.append(
+                (
+                    "Slab: Bottom plates",
+                    Checks.REQUIRED,
+                    "bottom plates on concrete: preservative-treated lumber on a damp-proof "
+                    "course, anchored to the slab to a design for your site; anchors are not "
+                    "generated",
+                )
+            )
         return out
 
     def anchored(self, obj, rules):
@@ -1450,6 +1481,18 @@ def make_shed(doc=None, name="Shed"):
     if FreeCAD.GuiUp:
         ViewProvider(obj.ViewObject)
     doc.recompute()
+    return obj
+
+
+def make_garage(doc=None, name="Garage"):
+    """A shed on a slab with a wide door (Shed.GARAGE); its door header is an
+    LVL, to be checked for your loads."""
+    obj = make_shed(doc, name)
+    obj.Length, obj.Width = Shed.GARAGE["length"], Shed.GARAGE["width"]
+    obj.DoorWidth, obj.DoorHeight = Shed.GARAGE["door_width"], Shed.GARAGE["door_height"]
+    obj.Foundation = Shed.GARAGE["foundation"]
+    obj.HeaderMaterial = "lumber.metric.lvl.45x240"
+    obj.Document.recompute()
     return obj
 
 
