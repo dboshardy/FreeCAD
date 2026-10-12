@@ -31,7 +31,7 @@ USER vscode
 RUN curl -fsSL https://pixi.sh/install.sh | bash \
  && curl -fsSL https://claude.ai/install.sh | bash \
  && echo '{"hasCompletedOnboarding":true}' > ~/.claude.json \
- && mkdir -p ~/.claude && printf '%s\n' \
+ && mkdir -p ~/.claude/plugins && printf '%s\n' \
   '# GUI in this container' \
   'FreeCAD runs on the virtual X display $DISPLAY (:99, 1920x1080). Build and launch:' \
   '`pixi run configure && pixi run build`, then `pixi run freecad > /tmp/freecad.log 2>&1 &`.' \
@@ -63,6 +63,21 @@ else
   echo "warning: no Claude credentials found; run 'claude setup-token' and export CLAUDE_CODE_OAUTH_TOKEN" >&2
 fi
 
+# Plugins enabled in the repo's .claude/settings.json, as "<github repo> <plugin@marketplace>"
+# lines. Installed inside the container on start; the settings file is mounted
+# read-only because the host's Claude Code loads it too.
+plugin_args=()
+if [ -f "$repo/.claude/settings.json" ]; then
+  plugin_args=(-v "$repo/.claude/settings.json":/workspace/.claude/settings.json:ro
+    -e CLAUDE_PLUGINS="$(python3 -c '
+import json, sys
+d = json.load(open(sys.argv[1]))
+m = d.get("extraKnownMarketplaces", {})
+for p, on in d.get("enabledPlugins", {}).items():
+    if on and p.split("@")[-1] in m:
+        print(m[p.split("@")[-1]]["source"]["repo"], p)' "$repo/.claude/settings.json")")
+fi
+
 tty=(-i); [ -t 0 ] && tty=(-it)
 
 docker run "${tty[@]}" --rm --name mycad-dev \
@@ -72,6 +87,7 @@ docker run "${tty[@]}" --rm --name mycad-dev \
   -v "$repo/.git/hooks":/workspace/.git/hooks:ro \
   -v "$repo/docker-dev.sh":/workspace/docker-dev.sh:ro \
   -v mycad-pixi:/workspace/.pixi \
+  -v mycad-claude-plugins:/home/vscode/.claude/plugins \
   -v mycad-build:/workspace/build \
   -w /workspace \
   -p 127.0.0.1:5900:5900 \
@@ -83,9 +99,15 @@ docker run "${tty[@]}" --rm --name mycad-dev \
   -e GIT_CONFIG_VALUE_0='!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f' \
   -e GIT_CONFIG_KEY_1=safe.directory -e GIT_CONFIG_VALUE_1=/workspace \
   ${claude_args[@]+"${claude_args[@]}"} \
+  ${plugin_args[@]+"${plugin_args[@]}"} \
   "$image" bash -c '
     Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp >/tmp/xvfb.log 2>&1 &
     until xdpyinfo >/dev/null 2>&1; do sleep 0.1; done
     x11vnc -display :99 -forever -shared -nopw -quiet -bg -o /tmp/x11vnc.log >/dev/null
     [ -f /tmp/claude-credentials.json ] && install -D -m 600 /tmp/claude-credentials.json ~/.claude/.credentials.json
+    printf "%s\n" "${CLAUDE_PLUGINS:-}" | while read -r src plugin; do
+      [ -n "$plugin" ] && ! claude plugin list 2>/dev/null | grep -q "$plugin" &&
+        { claude plugin marketplace add "$src" && claude plugin install "$plugin"; } >/dev/null 2>&1 ||
+        true
+    done
     exec "$@"' _ "${@:-bash}"
