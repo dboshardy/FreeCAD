@@ -13,6 +13,7 @@ Straight pieces are members (see Member.py): a section swept from start to end.
 Rafters are profiles (plumb cuts, birdsmouth) extruded by their thickness.
 """
 
+import fnmatch
 import math
 import re
 from dataclasses import dataclass, field, replace
@@ -22,6 +23,7 @@ import Member
 import Parts
 
 OPENING_KINDS = ("door", "window")
+EACH = "each"  # fastening rule receiver: fasteners per piece (see fasteners())
 
 
 @dataclass
@@ -60,10 +62,19 @@ def piece_box(piece, size):
 
 def fasteners(model, rules):
     """Fasteners for a framing model's members under a fastening schedule
-    (Joinery rules matched on member names). hardware id -> count."""
+    (Joinery rules matched on member names). hardware id -> count. A rule
+    with receiver "each" counts per_joint fasteners on every member or
+    profile board named like `inserted` (rafters, stringers: pieces whose
+    joints are not modelled as boxes)."""
     sections = model.sections()
     boxes = [piece_box(p, sections[p.section]) for p in model.pieces()]
-    out = Joinery.apply(boxes, rules).fasteners
+    out = Joinery.apply(boxes, [r for r in rules if r.receiver != EACH]).fasteners
+    names = [p.name for p in list(model.pieces()) + list(getattr(model, "boards", list)())]
+    for r in rules:
+        if r.receiver == EACH:
+            n = r.per_joint * sum(fnmatch.fnmatchcase(name, r.inserted) for name in names)
+            if n:
+                out[r.fastener] = out.get(r.fastener, 0) + n
     # Hardware the model needs beyond member-to-member joints.
     for hardware_id, count in getattr(model, "extra_hardware", dict)().items():
         out[hardware_id] = out.get(hardware_id, 0) + count
