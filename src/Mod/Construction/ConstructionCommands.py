@@ -591,6 +591,31 @@ class RoomCommand:
         ConstructionPanels.show(doc.Objects[-1])
 
 
+class MoveCommand:
+    def GetResources(self):
+        return {
+            "MenuText": QT_TRANSLATE_NOOP("Construction_Move", "Move Part"),
+            "ToolTip": QT_TRANSLATE_NOOP(
+                "Construction_Move",
+                "Drags the part of a build whose face is selected, in the plane of that face; "
+                "it snaps against or flush with other parts' faces, else to a 5 mm grid. "
+                "Click to place, Esc to cancel",
+            ),
+        }
+
+    def IsActive(self):
+        build, _ = selected_build_parts()
+        return build is not None and len(selected_faces(build)) == 1
+
+    def Activated(self):
+        import ConstructionDrag
+
+        build, _ = selected_build_parts()
+        ((part, axis, _, plane),) = selected_faces(build)
+        FreeCADGui.Selection.clearSelection()
+        ConstructionDrag.start(build, part, axis, plane)
+
+
 EDIT_HINT = "; edit its sizes in the property view"
 CABINET_COMMANDS = {
     "Construction_BaseCabinet": MakeCommand(
@@ -775,6 +800,7 @@ FreeCADGui.addCommand(
     ),
 )
 FreeCADGui.addCommand("Construction_Joint", JointCommand())
+FreeCADGui.addCommand("Construction_Move", MoveCommand())
 FreeCADGui.addCommand("Construction_Room", RoomCommand())
 FreeCADGui.addCommand("Construction_Edit", EditCommand())
 FreeCADGui.addCommand("Construction_Region", RegionCommand())

@@ -472,3 +472,20 @@ def merge(old, new, current, key):
             out.append((row, k in new_by or k in old_by))
     out += [(r, False) for r in new if key(r) not in seen]
     return out
+
+
+def snap(part, pos, axes, others, tolerance=15.0, grid=5.0):
+    """Snapped minimum corner for `part` dragged to `pos` along `axes`: on each
+    axis, the nearest position within `tolerance` where one of its faces lies
+    against or flush with a face of one of `others`; else `pos` rounded to
+    `grid`. Axes not in `axes` keep the part's position."""
+    out = list(part.pos)
+    for k in axes:
+        size = part.size[k]
+        candidates = [c for o in others for c in (o.lo(k) - size, o.hi(k), o.lo(k), o.hi(k) - size)]
+        best = min(candidates, key=lambda c: abs(c - pos[k]), default=None)
+        if best is not None and abs(best - pos[k]) <= tolerance:
+            out[k] = best
+        else:
+            out[k] = round(pos[k] / grid) * grid
+    return tuple(out)

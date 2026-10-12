@@ -59,6 +59,7 @@ class TestConstructionGui(unittest.TestCase):
             "Construction_Room",
             "Construction_Joint",
             "Construction_Align",
+            "Construction_Move",
             "Construction_Region",
             "Construction_EndTable",
             "Construction_DiningTable",
@@ -316,6 +317,57 @@ class TestShedPanel(unittest.TestCase):
         model = shed.Proxy.model(shed)
         self.assertEqual([o.kind for o in model.wall_openings("right")], ["window"])
         self.assertEqual([o.kind for o in model.wall_openings("front")], ["door"])
+
+
+class TestDrag(unittest.TestCase):
+    def setUp(self):
+        self.doc = FreeCAD.newDocument("DragTest")
+        FreeCADGui.activateWorkbench("ConstructionWorkbench")
+
+    def tearDown(self):
+        FreeCAD.closeDocument(self.doc.Name)
+
+    def test_drag_snaps_to_a_face(self):
+        # Phase 5.2 exit (d): a board dragged to a new position snaps to a face.
+        import ConstructionDrag
+        import ConstructionObjects as CO
+
+        build = CO.make_build(self.doc)
+        CO.add_board(build, "Leg 1", "lumber.metric.hw.45x45", 600, (0, 0, 0), "z", "x")
+        CO.add_board(build, "Rail", "lumber.metric.hw.20x95", 400, (100, 200, 300), "x", "y")
+        self.doc.recompute()
+        # Grab the rail's top face (z = 395) and pull it 52 mm left, 13 mm back.
+        drag = ConstructionDrag.DragPart(build, "Rail", 2, 395)
+        drag.move_to((300, 210, 395))
+        pos = drag.move_to((248, 223, 395))
+        self.assertEqual(pos, (45, 215, 300))  # against the leg's face; y on the grid
+        drag.finish()
+        self.assertEqual(build.Proxy.drawn_parts(build)["Rail"].pos, (45, 215, 300))
+        drag = ConstructionDrag.DragPart(build, "Rail", 2, 395)
+        drag.move_to((0, 0, 395))
+        drag.move_to((500, 500, 395))
+        drag.cancel()  # Esc
+        self.assertEqual(build.Proxy.drawn_parts(build)["Rail"].pos, (45, 215, 300))
+        # The command starts the mouse drag from a selected face.
+        face = next(
+            f"Face{i}"
+            for i, f in enumerate(build.Shape.Faces, start=1)
+            if abs(f.CenterOfMass.z - 395) < 1e-6
+        )
+        FreeCADGui.Selection.clearSelection()
+        FreeCADGui.Selection.addSelection(build, face)
+        self.assertTrue(FreeCADGui.isCommandActive("Construction_Move"))
+        # The mouse: two moves through the view, then Esc puts the rail back.
+        view = FreeCADGui.ActiveDocument.ActiveView
+        view.viewTop()
+        view.fitAll()
+        mouse = ConstructionDrag.start(build, "Rail", 2, 395)
+        mouse.on_move({"Position": (200, 200)})
+        mouse.on_move({"Position": (400, 300)})  # some 100 mm on screen
+        self.assertNotEqual(build.Proxy.drawn_parts(build)["Rail"].pos, (45, 215, 300))
+        mouse.on_key({"Key": "ESCAPE", "State": "DOWN"})
+        self.assertEqual(mouse.callbacks, [])
+        self.assertEqual(build.Proxy.drawn_parts(build)["Rail"].pos, (45, 215, 300))
 
 
 class TestCoreUx(unittest.TestCase):

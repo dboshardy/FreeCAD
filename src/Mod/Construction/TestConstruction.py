@@ -1562,6 +1562,15 @@ class TestBuild(unittest.TestCase):
         again = Build.template_arguments(template, values, lumber, sheet)
         self.assertEqual(Build.table(**again), Build.dining_table())
 
+    def test_snap(self):
+        leg = Parts.Part("Leg", "", (45, 45, 600), (0, 0, 0))
+        board = Parts.Part("Board", "", (400, 20, 95), (100, 200, 300))
+        # Within 15 mm of the leg's face: against it. Else the 5 mm grid.
+        self.assertEqual(Build.snap(board, (52, 213, 300), (0, 1), [leg]), (45, 215, 300))
+        self.assertEqual(Build.snap(board, (120, 213, 300), (0, 1), [leg]), (120, 215, 300))
+        # Flush: the board's end lines up with the leg's far face.
+        self.assertEqual(Build.snap(board, (-350, 200, 300), (0,), [leg])[0], -355)
+
     def test_bookcase_template(self):
         parts, result = Build.build(*Build.bookcase(), self.ITEMS)
         rows = {r[1]: r for r in CutList.rows(parts)}

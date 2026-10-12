@@ -190,6 +190,14 @@ the hardware list gets the anchors.
 
 ```
 
+## Moving parts with the mouse
+
+Select a face of a part and click **Move Part**: the part follows the cursor
+in the plane of that face. Near another part's face (within 15 mm) it snaps
+against or flush with it; elsewhere it moves in 5 mm steps. Click to place
+it, or press Esc to put it back. The move updates the part's X, Y, Z in the
+table and is one undo step.
+
 ## Editing in a panel
 
 Double-click the build (or select it and click **Edit**) for a panel with
