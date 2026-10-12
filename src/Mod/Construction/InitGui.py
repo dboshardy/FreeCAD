@@ -34,6 +34,7 @@ class ConstructionWorkbench(Workbench):
             "Construction_Edit",
             "Construction_Joint",
             "Construction_Align",
+            "Construction_Move",
             "Construction_EndTable",
             "Construction_DiningTable",
             "Construction_Workbench",

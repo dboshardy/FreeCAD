@@ -8,6 +8,7 @@ set(Construction_SRCS
     Cabinet.py
     Checks.py
     ConstructionCommands.py
+    ConstructionDrag.py
     ConstructionObjects.py
     ConstructionPanels.py
     CutList.py
