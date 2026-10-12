@@ -400,6 +400,47 @@ class TestQuantities(unittest.TestCase):
         self.assertEqual(CutList.covering_units({"coverage_m2": 10, "waste": 0}, 20), 2)
 
 
+class TestLibraryEditing(unittest.TestCase):
+    def test_rows_csv_and_user_items(self):
+        import tempfile
+
+        items = Library.load()
+        rows = Library.to_rows(items, Library.LUMBER)
+        mine = [
+            "lumber.mine.oak.25x150",
+            "Oak 25x150",
+            "25",
+            "150",
+            "mm",
+            "1800 2400",
+            "12.5",
+            "m",
+            "metric",
+        ]
+        new = Library.from_rows(rows + [mine], Library.LUMBER, items)
+        user = Library.changed(new, items)
+        self.assertEqual([i["id"] for i in user], ["lumber.mine.oak.25x150"])
+        oak = user[0]
+        self.assertEqual(oak["actual"], {"w": 25.0, "h": 150.0, "unit": "mm"})
+        self.assertEqual((oak["stock_lengths_mm"], oak["price"]), ([1800.0, 2400.0], 12.5))
+        folder = tempfile.mkdtemp()
+        path = os.path.join(folder, "lumber.csv")
+        Library.write_csv(path, {i["id"]: i for i in new}, Library.LUMBER)
+        read = {r[0]: r for r in Library.read_csv(path, Library.LUMBER)}
+        self.assertEqual(read[mine[0]][:2], mine[:2])
+        Library.write_user_file(os.path.join(folder, "user", "lumber.json"), user)
+        self.assertEqual(Library.load([folder])["lumber.mine.oak.25x150"]["name"], "Oak 25x150")
+        with self.assertRaises(ValueError):
+            Library.from_rows([["x", "", "1", "2", "mm", "", "", "", "metric"]], Library.LUMBER)
+        with self.assertRaises(ValueError):
+            Library.from_rows(
+                [["x", "X", "thick", "2", "mm", "", "", "", "metric"]], Library.LUMBER
+            )
+        sheets = Library.to_rows(items, Library.SHEET_GOODS)
+        mdf = next(r for r in sheets if r[0] == "sheet.us.mdf.3-4")
+        self.assertEqual(mdf[6], "none")  # no grain: turns freely in layouts
+
+
 class TestMember(unittest.TestCase):
     def assertVec(self, a, b):
         for x, y in zip(a, b):
