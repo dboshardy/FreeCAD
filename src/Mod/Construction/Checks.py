@@ -74,14 +74,25 @@ def header(span, ply, plies, values, load, deflection_limit):
     return beam(span, ply[0] * plies, ply[1], values, load, deflection_limit)
 
 
-def beam(span, b, h, values, load, deflection_limit):
-    """Simply supported rectangular beam under a uniform load. span: mm; b, h:
+# Uniform load w on span L: (largest moment / (w L^2), largest deflection /
+# (w L^4 / EI), deflection limit measured on this multiple of the span).
+SUPPORTS = {
+    "simple": (1 / 8, 5 / 384, 1),
+    "cantilever": (1 / 2, 1 / 8, 2),  # limit taken on twice the overhang
+    "two_spans": (1 / 8, 1 / 185, 1),  # continuous over a middle support
+}
+
+
+def beam(span, b, h, values, load, deflection_limit, support="simple"):
+    """Rectangular beam under a uniform load, simply supported, cantilevered
+    or continuous over two equal spans (SUPPORTS). span: mm (each span); b, h:
     width and depth mm; values: {"Fb_MPa", "E_MPa"}; load: N/mm.
     Returns (status, detail): bending stress and deflection against limits."""
-    moment = load * span**2 / 8  # N mm
+    m, d, limit_span = SUPPORTS[support]
+    moment = m * load * span**2  # N mm
     stress = moment / (b * h**2 / 6)  # MPa
-    deflection = 5 * load * span**4 / (384 * values["E_MPa"] * b * h**3 / 12)  # mm
-    allowed = span / deflection_limit
+    deflection = d * load * span**4 / (values["E_MPa"] * b * h**3 / 12)  # mm
+    allowed = limit_span * span / deflection_limit
     ok = stress <= values["Fb_MPa"] and deflection <= allowed
     detail = (
         f"bending {stress:.1f} of {values['Fb_MPa']:g} MPa; "
@@ -90,12 +101,12 @@ def beam(span, b, h, values, load, deflection_limit):
     return (OK if ok else WARNING), detail
 
 
-def _area_load(name, span, section, spacing, values, load_kpa, limit, how):
+def _area_load(name, span, section, spacing, values, load_kpa, limit, how, support="simple"):
     """Beam check of a joist or rafter carrying load_kpa over its spacing."""
     if not (values and load_kpa > 0 and limit):
         return (name, NOT_CHECKED, "enter the lumber design values (Fb, E) and the load")
     load = load_kpa * 1e-3 * spacing  # kPa = 1e-3 N/mm2, times spacing -> N/mm
-    status, detail = beam(span, section[0], section[1], values, load, limit)
+    status, detail = beam(span, section[0], section[1], values, load, limit, support)
     return (name, status, f"{detail}; span {span:.0f} mm {how}, {load_kpa:g} kPa")
 
 
@@ -338,6 +349,20 @@ def deck(deck, rules, joist_values=None, beam_values=None, load_kpa=0.0):
             "ledger to beam" if deck.attached else "beam to beam",
         )
     ]
+    if deck.cantilever > 0:
+        out.append(
+            _area_load(
+                "Joist cantilever",
+                deck.cantilever + deck.beam_plies * deck.beam[0] / 2,
+                deck.joist,
+                deck.spacing,
+                joist_values,
+                load_kpa,
+                rules.get("floor_joist_deflection_limit"),
+                "past the beam's centre",
+                "cantilever",
+            )
+        )
     # Beam: simply supported between posts, carrying half the joist span plus
     # the cantilever (its tributary width; the same for both beams of a
     # freestanding deck, which is symmetric).

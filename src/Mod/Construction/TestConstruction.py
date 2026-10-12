@@ -1643,6 +1643,22 @@ class TestBuild(unittest.TestCase):
         self.assertEqual(Build.on_face(leg, 2, -1, 18), (45, 45, 0, 0, -18, "x", "z"))
 
 
+class TestBeamSupports(unittest.TestCase):
+    def test_supports(self):
+        values = {"Fb_MPa": 10, "E_MPa": 10000}
+        # 45 x 195, 1000 mm, 2 N/mm: M = wL^2/8 simply supported, wL^2/2 cantilevered.
+        section = 45 * 195**2 / 6
+        _, simple = Checks.beam(1000, 45, 195, values, 2.0, 360)
+        _, cantilever = Checks.beam(1000, 45, 195, values, 2.0, 360, "cantilever")
+        self.assertIn(f"bending {2 * 1000**2 / 8 / section:.1f}", simple)
+        self.assertIn(f"bending {2 * 1000**2 / 2 / section:.1f}", cantilever)
+        self.assertIn("of 5.6 mm", cantilever)  # limit on twice the overhang: 2000/360
+        found = {
+            c for c, _, _ in Checks.deck(Framing.Deck(), {"floor_joist_deflection_limit": 360})
+        }
+        self.assertIn("Joist cantilever", found)
+
+
 class TestFastening(unittest.TestCase):
     def schedule(self):
         item = Library.load()["fastening.generic-example"]
