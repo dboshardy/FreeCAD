@@ -1,5 +1,5 @@
 {
-  "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp joint presets (design doc §5.1.1, Phase 5.1). A preset is a joinery rule without part names (see Joinery.py): kind, sizes in mm, fastener (hardware id), spacing / edge / per_joint for the count, operation ({n} = count; {s} / {es} = plural ending) and on (receiver, inserted, both). hole: [diameter, depth into the receiver (-1 = through), depth into the inserted part] modelled as holes. allows_movement: the joint lets solid wood move across its grain (checked for wide solid parts). fixes: false for joints that hold without fixing (shelf pins). meets lists how the two parts touch for the preset to be offered: end_to_face, face_to_face, edge_to_face, crossing. Copy an item to your user library under a new id to change sizes.",
+  "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp joint presets (design doc §5.1.1, Phase 5.1). A preset is a joinery rule without part names (see Joinery.py): kind, sizes in mm, fastener (hardware id), spacing / edge / per_joint for the count, operation ({n} = count; {s} / {es} = plural ending) and on (receiver, inserted, both). hole: [diameter, depth into the receiver (-1 = through), depth into the inserted part] modelled as holes. allows_movement: the joint lets solid wood move across its grain (checked for wide solid parts). fixes: false for joints that hold without fixing (shelf pins). meets lists how the two parts touch for the preset to be offered: end_to_face, face_to_face, edge_to_face, crossing (also two boards overlapping at a corner, as box joints, dovetails and miters are drawn: both run to the outside corner). Copy an item to your user library under a new id to change sizes.",
   "source": "Common woodworking practice; original compilation, no maker's or book's table copied.",
   "data_license": "CC0-1.0",
   "defaults": {"category": "joint", "region": "generic"},
@@ -13,6 +13,9 @@
     {"id": "joint.biscuit", "name": "Biscuits, No. 20", "kind": "fastened", "fastener": "hardware.biscuit_20", "spacing": 150, "edge": 50, "operation": "{n} biscuit slot{s}", "meets": ["end_to_face", "edge_to_face"]},
     {"id": "joint.dado", "name": "Housing (dado / rabbet)", "kind": "housing", "depth": 6, "meets": ["end_to_face", "edge_to_face"]},
     {"id": "joint.bridle", "name": "Bridle (open mortise and tenon)", "kind": "bridle", "meets": ["crossing"]},
+    {"id": "joint.box_joint", "name": "Box joint (finger joint)", "kind": "box_joint", "thickness": 0, "meets": ["crossing"]},
+    {"id": "joint.dovetail", "name": "Through dovetails", "kind": "dovetail", "thickness": 0, "meets": ["crossing"]},
+    {"id": "joint.miter", "name": "Miter, glued", "kind": "miter", "operation": "glue", "on": "inserted", "meets": ["crossing"]},
     {"id": "joint.half_lap", "name": "Half lap", "kind": "half_lap", "meets": ["crossing"]},
     {"id": "joint.glue", "name": "Glue only", "kind": "fastened", "operation": "glue", "on": "inserted", "meets": ["edge_to_face", "face_to_face"]},
     {"id": "joint.figure8", "allows_movement": true, "name": "Tabletop fasteners, figure-8", "kind": "fastened", "fastener": "hardware.figure8", "spacing": 400, "edge": 75, "operation": "{n} figure-8 recess{es}", "on": "receiver", "meets": ["face_to_face"]},

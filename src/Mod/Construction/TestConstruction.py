@@ -1369,6 +1369,40 @@ class TestJoinery(unittest.TestCase):
         self.assertAlmostEqual(high, 2 * 95 / 3)
         self.assertIn((0, "bridle slot 31.7 wide"), result.operations)
 
+    def corner(self):
+        # Two 18 mm boards, 200 wide (z), overlapping at an L corner (0..18, 0..18).
+        return [
+            Parts.Part("Side", "", (18, 400, 200), (0, 0, 0)),
+            Parts.Part("Front", "", (500, 18, 200), (0, 0, 0)),
+        ]
+
+    def test_box_joint_and_dovetail(self):
+        result = Joinery.apply(self.corner(), [Joinery.Rule("Side", "Front", "box_joint")])
+        fingers = sorted((p.pos[2], i) for i, p in result.pockets)
+        # 200 / 18 -> 11 fingers (odd), alternating: the inserted part loses the even ones.
+        self.assertEqual(len(fingers), 11)
+        self.assertEqual([i for _, i in fingers], [1, 0] * 5 + [1])
+        self.assertEqual(result.operations[0][1], "box joint: 11 fingers 18.2 wide")
+        result = Joinery.apply(self.corner(), [Joinery.Rule("Side", "Front", "dovetail")])
+        texts = dict((i, t) for i, t in result.operations)
+        self.assertEqual(texts[1], "dovetails: 6 tails, 18.2 wide")
+
+    def test_miter(self):
+        result = Joinery.apply(self.corner(), [Joinery.Rule("Side", "Front", "miter")])
+        (i, a), (j, b) = result.pockets
+        # Side runs along y (body past the corner's high side), Front along x: each
+        # loses the triangle on the other's side of the diagonal.
+        self.assertEqual(a.profile, ("triangle", 1, 0, 0, 1))
+        self.assertEqual(b.profile, ("triangle", 1, 1, 0, 0))
+        with self.assertRaises(ValueError):  # parallel boards cannot miter
+            Joinery.apply(
+                [
+                    Parts.Part("A", "", (500, 18, 200), (0, 0, 0)),
+                    Parts.Part("B", "", (500, 18, 200), (400, 0, 0)),
+                ],
+                [Joinery.Rule("A", "B", "miter")],
+            )
+
     def test_presets_from_library(self):
         items = Library.load()
         joints = Library.of_category(items, "joint")
@@ -1377,7 +1411,17 @@ class TestJoinery(unittest.TestCase):
             rule = Joinery.rule(joint, "Leg", "Apron")
             self.assertIn(
                 rule.kind,
-                ("housing", "tenon", "loose_tenon", "half_lap", "bridle", "fastened"),
+                (
+                    "housing",
+                    "tenon",
+                    "loose_tenon",
+                    "half_lap",
+                    "bridle",
+                    "box_joint",
+                    "dovetail",
+                    "miter",
+                    "fastened",
+                ),
                 joint["id"],
             )
             if rule.fastener:

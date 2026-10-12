@@ -169,10 +169,13 @@ def library_item(material_id):
     return item
 
 
-def member_part(name, start, end, section):
-    """Cut-list Part of a member: grain along its length."""
+def member_part(name, start, end, section, cuts=(0.0, 0.0)):
+    """Cut-list Part of a member: grain along its length, long point to long
+    point when its ends are cut at an angle."""
     length = Member.frame(start, end)[0]
-    return Parts.Part(name, "member", (*section, length), (0, 0, 0), "z")
+    length += sum(Member.end_extension(section[1], a) for a in cuts)
+    operations = tuple(f"end cut {a:g}°" for a in cuts if a)
+    return Parts.Part(name, "member", (*section, length), (0, 0, 0), "z", operations)
 
 
 def lumber_section(material_id):
@@ -181,12 +184,25 @@ def lumber_section(material_id):
     return Library.mm(item, "w"), Library.mm(item, "h")
 
 
-def member_box(start, end, roll, section):
-    """Solid of a member (see Member.py), placed in the object's coordinates."""
+def member_box(start, end, roll, section, cuts=(0.0, 0.0)):
+    """Solid of a member (see Member.py), placed in the object's coordinates.
+    cuts: (start, end) angles in degrees from square, turning the end cut in
+    the plane of the member's depth (a miter or plumb cut); the cut passes
+    through the end point on the centre line."""
     length, x, y, z = Member.frame(start, end, roll)
     w, h = section
-    box = Part.makeBox(w, h, length, FreeCAD.Vector(-w / 2, -h / 2, 0))
+    e0, e1 = (Member.end_extension(h, a) for a in cuts)
     V = FreeCAD.Vector
+    box = Part.makeBox(w, h, length + e0 + e1, V(-w / 2, -h / 2, -e0))
+    big = 4 * (length + h + w + e0 + e1)
+    for angle, origin, outward in ((cuts[0], 0.0, -1), (cuts[1], length, 1)):
+        if not angle:
+            continue
+        a = math.radians(angle)
+        normal = V(0, -outward * math.sin(a), outward * math.cos(a))
+        waste = Part.makeBox(big, big, big, V(-big / 2, -big / 2, 0))
+        waste.Placement = FreeCAD.Placement(V(0, 0, origin), FreeCAD.Rotation(V(0, 0, 1), normal))
+        box = box.cut(waste)
     box.Placement = FreeCAD.Placement(V(*start), FreeCAD.Rotation(V(*x), V(*y), V(*z), "ZXY"))
     return box
 
@@ -207,7 +223,24 @@ def joined_solids(result):
 
 
 def _cut_shape(pocket):
-    """Box of a pocket, or the cylinder of a hole (its grain is the axis)."""
+    """Box of a pocket, the cylinder of a hole (its grain is the axis), or the
+    prism of a triangular pocket (Parts.Part.profile)."""
+    if pocket.profile and pocket.profile[0] == "triangle":
+        _, a, ca, b, cb = pocket.profile
+        k = 3 - a - b
+        lo, size = pocket.pos, pocket.size
+
+        def point(ua, ub):
+            p = list(lo)
+            p[a] += ua * size[a]
+            p[b] += ub * size[b]
+            return FreeCAD.Vector(*p)
+
+        # The right angle at (ca, cb); the hypotenuse from (ca, 1 - cb) to (1 - ca, cb).
+        triangle = [point(ca, cb), point(ca, 1 - cb), point(1 - ca, cb), point(ca, cb)]
+        face = Part.Face(Part.makePolygon(triangle))
+        direction = FreeCAD.Vector(*(size[k] if n == k else 0 for n in range(3)))
+        return face.extrude(direction)
     if pocket.role != "hole":
         return Part.makeBox(*pocket.size, FreeCAD.Vector(*pocket.pos))
     k = "xyz".index(pocket.grain)
@@ -452,6 +485,12 @@ class MemberFeature:
             ("App::PropertyVector", "Start", "Start point when Base is empty"),
             ("App::PropertyVector", "End", "End point when Base is empty"),
             ("App::PropertyAngle", "Roll", "Turns the profile about the member axis (90 = flat)"),
+            (
+                "App::PropertyAngle",
+                "StartCut",
+                "End cut at the start, degrees from square, across the depth (45 = miter)",
+            ),
+            ("App::PropertyAngle", "EndCut", "End cut at the end, degrees from square"),
         ]
         for ptype, prop, tip in props:
             if prop not in obj.PropertiesList:
@@ -474,7 +513,9 @@ class MemberFeature:
 
     def parts(self, obj):
         start, end = self.endpoints(obj)
-        return [(obj.Material, member_part(obj.Label, start, end, lumber_section(obj.Material)))]
+        cuts = (obj.StartCut.Value, obj.EndCut.Value)
+        section = lumber_section(obj.Material)
+        return [(obj.Material, member_part(obj.Label, start, end, section, cuts))]
 
     def checks(self, obj, rules):
         return []
@@ -487,7 +528,8 @@ class MemberFeature:
 
     def solids(self, obj):
         start, end = self.endpoints(obj)
-        return [member_box(start, end, obj.Roll.Value, lumber_section(obj.Material))]
+        cuts = (obj.StartCut.Value, obj.EndCut.Value)
+        return [member_box(start, end, obj.Roll.Value, lumber_section(obj.Material), cuts)]
 
     def execute(self, obj):
         set_shape(obj, self.solids(obj))

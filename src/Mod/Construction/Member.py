@@ -33,6 +33,13 @@ def _unit(a):
     return _scale(a, 1 / n)
 
 
+def end_extension(depth, angle):
+    """How far an end cut at `angle` degrees from square reaches past the
+    member's end point on its long side (the cut passes through the end point
+    on the centre line)."""
+    return depth / 2 * abs(math.tan(math.radians(angle)))
+
+
 def frame(start, end, roll=0.0):
     """(length, x, y, z): member length and unit axes. z runs start -> end,
     y is the profile depth direction, x the thickness direction (x = y cross z).

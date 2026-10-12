@@ -164,7 +164,7 @@ def apply(boxes, rules):
                 crossing = overlap(a, b)
                 if crossing is None:
                     continue
-                _cross(out, i, j, crossing, rule.kind)
+                _cross(out, i, j, crossing, rule)
                 length = max(h - l for l, h in zip(*crossing))
             else:
                 touch = contact(a, b, rule.gap)
@@ -231,16 +231,25 @@ def _housing(out, i, j, k, sign, lo, hi, depth):
     out.operations.append((i, f"housing {round(width[0], 1):g} x {depth:g} deep"))
 
 
-CROSSING = ("half_lap", "bridle")
+CROSSING = ("half_lap", "bridle", "box_joint", "dovetail", "miter")
 
 
-def _cross(out, i, j, crossing, kind):
+def _cross(out, i, j, crossing, rule):
     """Joint where two parts cross (or overlap at a corner), cut along the
     axis neither part runs along (parallel parts: the axis of least overlap).
     half_lap: each loses half the overlap's depth from opposite faces.
     bridle: the receiver loses the middle third (an open mortise or slot), the
-    inserted part the outer thirds (its tenon)."""
+    inserted part the outer thirds (its tenon). box_joint / dovetail: two
+    boards overlapping at a corner interlock in fingers across the corner's
+    length (rule.thickness: finger width, 0 = the boards' thickness);
+    dovetails are drawn as square fingers and listed as dovetails. miter: the
+    corner is split on its diagonal."""
+    kind = rule.kind
     lo, hi = crossing
+    if kind in ("box_joint", "dovetail"):
+        return _fingers(out, i, j, lo, hi, rule)
+    if kind == "miter":
+        return _miter(out, i, j, lo, hi)
     lengths = {max(range(3), key=lambda n: out.boxes[x].size[n]) for x in (i, j)}
     across = [n for n in range(3) if n not in lengths]
     k = across[0] if len(across) == 1 else min(range(3), key=lambda n: hi[n] - lo[n])
@@ -263,6 +272,54 @@ def _cross(out, i, j, crossing, kind):
         out.pockets.append((index, Part(name, "pocket", size, tuple(plo))))
         if text:
             out.operations.append((index, text))
+
+
+def _fingers(out, i, j, lo, hi, rule):
+    """Fingers along the overlap's longest direction, alternating between the
+    two parts: the receiver keeps the even ones, the inserted part the odd."""
+    k = max(range(3), key=lambda n: hi[n] - lo[n])
+    length = hi[k] - lo[k]
+    thick = min(min(out.boxes[x].size) for x in (i, j))
+    width = rule.thickness or thick
+    n = max(3, round(length / width))
+    n += 1 - n % 2  # odd: the same finger at both edges
+    step = length / n
+    for m in range(n):
+        index = j if m % 2 == 0 else i  # who loses this slice
+        plo, phi = list(lo), list(hi)
+        plo[k], phi[k] = lo[k] + m * step, lo[k] + (m + 1) * step
+        size = tuple(h - l for l, h in zip(plo, phi))
+        out.pockets.append(
+            (index, Part(f"{out.boxes[index].name} finger", "pocket", size, tuple(plo)))
+        )
+    w = round(step, 1)
+    if rule.kind == "dovetail":
+        out.operations += [
+            (j, f"dovetails: {n // 2 + 1} tails, {w:g} wide"),
+            (i, f"dovetail pins: {n // 2}"),
+        ]
+    else:
+        out.operations += [(x, f"box joint: {n} fingers {w:g} wide") for x in (i, j)]
+
+
+def _miter(out, i, j, lo, hi):
+    """Each part loses the triangle of the corner on the other part's side of
+    the diagonal from the outside corner to the inside corner."""
+    a_axis = max(range(3), key=lambda n: out.boxes[i].size[n])
+    b_axis = max(range(3), key=lambda n: out.boxes[j].size[n])
+    if a_axis == b_axis:
+        raise ValueError(f"miter needs {out.boxes[i].name} and {out.boxes[j].name} at an angle")
+
+    def body_side(x, axis):  # 1 when the part continues past the corner's high side
+        return 1 if out.boxes[x].hi(axis) > hi[axis] + EPS else 0
+
+    sa, sb = body_side(i, a_axis), body_side(j, b_axis)
+    size = tuple(h - l for l, h in zip(lo, hi))
+    for index, corner in ((i, (1 - sa, sb)), (j, (sa, 1 - sb))):
+        profile = ("triangle", a_axis, corner[0], b_axis, corner[1])
+        name = f"{out.boxes[index].name} miter"
+        out.pockets.append((index, Part(name, "pocket", size, tuple(lo), profile=profile)))
+        out.operations.append((index, "miter 45°"))
 
 
 def _holes(out, i, j, touch, rule, count):
