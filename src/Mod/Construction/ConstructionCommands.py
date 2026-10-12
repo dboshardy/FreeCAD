@@ -241,6 +241,7 @@ class CutListCommand:
         doc.openTransaction(translate("Construction", "Cut list"))
         FreeCADGui.addModule("ConstructionObjects")
         FreeCADGui.doCommand("ConstructionObjects.write_cut_list(App.ActiveDocument)")
+        FreeCADGui.doCommand("ConstructionObjects.write_part_labels(App.ActiveDocument)")
         doc.commitTransaction()
 
 
@@ -616,6 +617,59 @@ class MoveCommand:
         ConstructionDrag.start(build, part, axis, plane)
 
 
+class BuildStepsCommand:
+    def GetResources(self):
+        return {
+            "MenuText": QT_TRANSLATE_NOOP("Construction_BuildSteps", "Build Sequence"),
+            "ToolTip": QT_TRANSLATE_NOOP(
+                "Construction_BuildSteps",
+                "Makes a drawing page of the selected construction object built up step by "
+                "step, bottom up, one group of parts per step",
+            ),
+        }
+
+    def IsActive(self):
+        import ConstructionObjects as CO
+
+        sel = FreeCADGui.Selection.getSelection()
+        kinds = (
+            tuple(type(o.Proxy) for o in CO.construction_objects(FreeCAD.ActiveDocument))
+            if FreeCAD.ActiveDocument
+            else ()
+        )
+        return len(sel) == 1 and any(isinstance(getattr(sel[0], "Proxy", None), k) for k in kinds)
+
+    def Activated(self):
+        obj = FreeCADGui.Selection.getSelection()[0]
+        FreeCADGui.addModule("ConstructionObjects")
+        FreeCADGui.doCommand(f"ConstructionObjects.make_build_steps(App.ActiveDocument.{obj.Name})")
+
+
+class ExportCsvCommand:
+    def GetResources(self):
+        return {
+            "MenuText": QT_TRANSLATE_NOOP("Construction_ExportCSV", "Export Cut List (CSV)"),
+            "ToolTip": QT_TRANSLATE_NOOP(
+                "Construction_ExportCSV",
+                "Writes the cut list and the part labels (one per piece) as CSV files, for a "
+                "spreadsheet or a label printer",
+            ),
+        }
+
+    def IsActive(self):
+        return FreeCAD.ActiveDocument is not None
+
+    def Activated(self):
+        from PySide import QtGui
+
+        folder = QtGui.QFileDialog.getExistingDirectory(
+            FreeCADGui.getMainWindow(), translate("Construction", "Export the cut list to")
+        )
+        if folder:
+            FreeCADGui.addModule("ConstructionObjects")
+            FreeCADGui.doCommand(f"ConstructionObjects.export_csv(App.ActiveDocument, {folder!r})")
+
+
 EDIT_HINT = "; edit its sizes in the property view"
 CABINET_COMMANDS = {
     "Construction_BaseCabinet": MakeCommand(
@@ -800,6 +854,8 @@ FreeCADGui.addCommand(
     ),
 )
 FreeCADGui.addCommand("Construction_Joint", JointCommand())
+FreeCADGui.addCommand("Construction_BuildSteps", BuildStepsCommand())
+FreeCADGui.addCommand("Construction_ExportCSV", ExportCsvCommand())
 FreeCADGui.addCommand("Construction_Move", MoveCommand())
 FreeCADGui.addCommand("Construction_Room", RoomCommand())
 FreeCADGui.addCommand("Construction_Edit", EditCommand())
