@@ -3,15 +3,19 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 FORK: design document added by the CADApp fork.
 -->
 
-# Parametric CAD/Construction Application — Design Document
+# Parametric CAD/Construction on FreeCAD — Design Document
 
-Working name: `CADApp` (placeholder; final name required before first public release, §11).
+Working name: `CADApp` (placeholder for the add-on suite; final names required before first public release, §11).
 
-**Strategy: fork of FreeCAD.** The application is a fork of FreeCAD (LGPL-2.1-or-later), rebranded, with the construction module, context-hotkey UX, and the gaps listed per phase added on top. See `SURVEY.md` for the reuse analysis.
+**Strategy: FreeCAD is the base application** (decision 2026-10-12; replaces the earlier rebranded fork). Users run stock FreeCAD. Everything this document adds is delivered as:
+- **Add-ons** (plugins) by default: separate workbenches or modules, installed into stock FreeCAD from the Addon Manager or a local folder, that use FreeCAD's Python and C++ APIs without modifying FreeCAD's code. This includes extensions of existing workbenches wherever an add-on can provide them (new commands, objects, panels, posts, exporters).
+- **Changes to FreeCAD's code** only when an add-on cannot deliver the feature: the functionality needs a hook FreeCAD does not expose (e.g., per-tool hotkey context), or an add-on would be measurably too slow. Such changes go upstream as pull requests to FreeCAD, kept to the minimal hook, with the feature itself in an add-on where possible. The reason is recorded in the phase's gap document.
 
-Implement phase by phase. Do not start a phase until the previous phase's exit criteria pass. Each phase's **Upstream baseline** names what FreeCAD already provides (checked against the source tree 2026-10-12); its **Target scope** lists only what upstream lacks or covers partially. Every phase from 1 onward starts with an audit (§5.0) to confirm both.
+No fork of FreeCAD is shipped. See `SURVEY.md` for the reuse analysis, §4.5 for the migration of work already done in this repository's fork, and §14 for a summary of what has been added and how.
 
-**Inherited-feature rule:** features implemented upstream stay enabled by default. Do not disable or remove them. Where an inherited feature conflicts with this document (§1 network rule, §12 risk register), record the conflict in `docs/inherited-conflicts.md` and isolate it behind a compile/runtime flag that defaults to **on**, so it can be removed later if required.
+Implement phase by phase. Do not start a phase until the previous phase's exit criteria pass. Each phase's **Upstream baseline** names what FreeCAD already provides (checked against the source tree 2026-10-12); its **Target scope** lists only what upstream lacks or covers partially, each item delivered as an add-on or an upstream contribution (§4.2). Every phase from 1 onward starts with an audit (§5.0) to confirm both.
+
+**FreeCAD as is:** add-ons use FreeCAD's features as they are and never patch, disable or replace them. Behaviour FreeCAD should change is proposed upstream.
 
 **Reuse rule:** never reimplement something FreeCAD already provides (a workbench, command, document object, module or bundled library). Before adding code, check that the capability does not already exist: search the source tree (`src/Mod/*`, `src/Gui`, `src/App`, `src/3rdParty`) for its commands, objects and properties, and record the result (what exists, where, and why it falls short) in the phase's gap document. Where upstream covers part of a need, build on its objects (take them as input, subclass, or add properties) and implement only the missing part. A separate implementation needs a written reason in the gap document, such as a constraint upstream cannot meet (e.g., guillotine cuts for a panel saw).
 
@@ -22,14 +26,15 @@ Implement phase by phase. Do not start a phase until the previous phase's exit c
 | Item | Decision |
 |---|---|
 | Platform | Desktop: Windows, macOS, Linux |
-| Base | Fork of FreeCAD, starting from the latest stable release tag (1.1.x at time of writing) |
-| Native file format | FreeCAD `.FCStd` (inherited; keeps compatibility with upstream) |
-| Geometry kernel | OpenCascade Technology (OCCT), LGPL 2.1 + exception; version follows upstream |
+| Base | Stock FreeCAD, latest stable release (1.1.x at time of writing); add-ons support it and the development version |
+| Delivery | Add-ons (Addon Manager `package.xml`, installable from a local folder) and upstream pull requests; no fork, no rebranded build |
+| Native file format | FreeCAD `.FCStd` |
+| Geometry kernel | OpenCascade Technology (OCCT) as shipped with FreeCAD |
 | Modules in scope | Parametric solid/surface/direct/freeform modeling, 2D drafting, drawings, assemblies, sheet metal, structural frames, construction module, rendering, simulation (FEA), CAM, generative design. Electronics/PCB deferred (Phase 13 placeholder). |
 | Material standards | US imperial and metric, region-switchable per document |
-| App license | LGPL-2.1-or-later, matching upstream, so changes can be contributed back and upstream merges stay simple. New files use the same license. Binaries that link Apache-2.0 libraries are distributed under LGPL-3.0 terms (permitted by "or later"). GPL programs (CalculiX GPL-2.0-only, Gmsh, LibreDWG) run only as separate executables, never linked. GPL-only source (SolveSpace, QCAD, OpenCutList, Dune 3D, Bonsai, Fasteners add-on) is reference only and must not be copied into the fork. |
-| Dependencies | Open source only. No commercial SDKs. Functionality normally provided by commercial SDKs is implemented in-house or via open-source libraries. |
-| Network | Code added by the fork makes no network requests (no accounts, cloud, telemetry, update checks, marketplace). Inherited upstream network features (Addon Manager online fetching, online Help) remain enabled per the inherited-feature rule and are listed in `docs/inherited-conflicts.md`. |
+| License | LGPL-2.1-or-later for add-ons and upstream contributions, matching FreeCAD, so add-on code can move upstream. Add-ons with compiled parts that link Apache-2.0 libraries are distributed under LGPL-3.0 terms (permitted by "or later"). GPL programs (CalculiX GPL-2.0-only, Gmsh, LibreDWG) run only as separate executables, never linked. GPL-only source (SolveSpace, QCAD, OpenCutList, Dune 3D, Bonsai, Fasteners add-on) is reference only and must not be copied into add-ons or contributions. |
+| Dependencies | Open source only. No commercial SDKs. Prefer what FreeCAD already bundles; an add-on declares any extra dependency in its `package.xml`. |
+| Network | Add-on code makes no network requests (no accounts, cloud, telemetry, update checks, marketplace). FreeCAD's own network features (Addon Manager, online Help) are FreeCAD's and left as they are. |
 
 ---
 
@@ -37,11 +42,11 @@ Implement phase by phase. Do not start a phase until the previous phase's exit c
 
 - Clean-room implementation. No code, icons, UI layouts, help text, sample files, or tutorials copied from SolidWorks, SketchUp, Fusion 360, or other commercial CAD.
 - No reverse engineering of proprietary native formats (.sldprt, .sldasm, .f3d, .f3z, .skp, Parasolid .x_t). Interoperate via neutral and open formats (STEP, IGES, STL, OBJ, 3MF, glTF, COLLADA .dae, DXF, DWG via LibreDWG, IFC). Users of other apps export to these formats.
-- Fork compliance: keep all upstream copyright and license notices; keep full git history; mark fork-modified files in their headers; include upstream `LICENSE` files.
-- Rebrand completely: new product name, icons, splash, About dialog, installer names, window titles. No FreeCAD logo (registered trademark of the FreeCAD Project Association). The word "FreeCAD" may be used only in factual statements ("based on FreeCAD", "opens .FCStd files"). Include a non-affiliation statement.
-- All dependencies must carry licenses compatible with LGPL-2.1-or-later as described in §1. Ship a `THIRD_PARTY_LICENSES` file listing each dependency, version, and license.
+- Add-on compliance: each add-on carries its `LICENSE`, SPDX headers on every file, and keeps copyright notices of any code it takes from FreeCAD. Upstream contributions follow FreeCAD's contribution guidelines and license.
+- Naming: add-ons get their own names and icons. No FreeCAD logo (registered trademark of the FreeCAD Project Association). "FreeCAD" appears only in factual statements ("an add-on for FreeCAD", "opens .FCStd files"), with a non-affiliation statement in each add-on's README.
+- All dependencies must carry licenses compatible with LGPL-2.1-or-later as described in §1. Each add-on ships a `THIRD_PARTY_LICENSES` file listing the dependencies it adds, with version and license.
 - Use generic names for features. Avoid vendor trademarks (e.g., "Push/Pull", "Press Pull", "T-Splines", "SmartMates", "FeatureManager", "Toolbox"). Names used in this document are generic.
-- Default hotkeys defined in §8 are original to this app.
+- Default hotkeys defined in §8 are original to this project.
 - Building-code span tables (IRC, AWC/NDS) are copyrighted. Do not embed them. Compute spans from beam mechanics using user-supplied or public-domain design values; label code checks as advisory.
 - No freedom-to-operate (patent) analysis has been performed. Obtain one from patent counsel before the 1.0 release. Specific risks and required mitigations are in §12; they are binding implementation constraints.
 
@@ -49,7 +54,7 @@ Implement phase by phase. Do not start a phase until the previous phase's exit c
 
 ## 3. Technology Stack
 
-### 3.1 Inherited from upstream (do not replace)
+### 3.1 Provided by FreeCAD (do not replace)
 | Layer | Component | License |
 |---|---|---|
 | Language | C++ core, Python 3 workbenches/scripting | — |
@@ -66,7 +71,7 @@ Implement phase by phase. Do not start a phase until the previous phase's exit c
 | DWG | LibreDWG external converter (GPL-3.0-or-later, external) | — |
 | Linear algebra / misc | Eigen, Boost, Xerces-C, VTK (FEM post) | MPL-2.0 / BSL / Apache-2.0 / BSD |
 
-### 3.2 Added by this fork
+### 3.2 Added by add-ons
 | Purpose | Component | License | Phase |
 |---|---|---|---|
 | 1D stock optimization | OR-Tools (CP-SAT) | Apache-2.0 | 5 |
@@ -74,13 +79,13 @@ Implement phase by phase. Do not start a phase until the previous phase's exit c
 | Photoreal rendering | Cycles | Apache-2.0 | 9 |
 | Topology optimization | In-house SIMP (Eigen) | — | 12 |
 
-Rule: add a dependency only after verifying its license against §1 and recording it in `THIRD_PARTY_LICENSES`. Not added because upstream covers them: sheet nesting (guillotine layout in-house, true-shape via BIM `Arch_Nest`) and mesh booleans (Mesh workbench).
+Rule: add a dependency only after verifying its license against §1, declaring it in the add-on's `package.xml` and recording it in the add-on's `THIRD_PARTY_LICENSES`. A dependency FreeCAD itself should carry is proposed upstream. Not added because upstream covers them: sheet nesting (guillotine layout in-house, true-shape via BIM `Arch_Nest`) and mesh booleans (Mesh workbench).
 
 ---
 
-## 4. Fork Architecture
+## 4. Architecture: FreeCAD plus Add-ons
 
-### 4.1 Repository layout (upstream)
+### 4.1 FreeCAD layout (for reference and upstream contributions)
 ```
 src/Base/     units, quantities, exceptions, persistence
 src/App/      document, document objects, properties, expressions, transactions
@@ -88,27 +93,37 @@ src/Gui/      main window, commands, shortcuts, 3D view, NaviCube, task panels
 src/Mod/<X>/  workbenches (Sketcher, PartDesign, Part, TechDraw, Assembly, BIM, Draft, FEM, CAM, Mesh, Surface, Spreadsheet, Measure, Material, ...)
 ```
 
-### 4.2 Where fork code goes
-| Change type | Location | Rule |
+### 4.2 Where new code goes
+| Change type | Delivery | Rule |
 |---|---|---|
-| New feature area | New workbench: `src/Mod/Construction/`, `src/Mod/Generative/`, `src/Mod/Render/`, `src/Mod/Freeform/` | Preferred. No upstream conflicts. |
-| UX system (hotkey engine, heads-up panel, radial menu, command palette) | `src/Gui/` | Core patch. Keep isolated in new files; minimal hooks into existing files. |
-| Fix/extension of an existing workbench | That workbench | Prefer generic changes suitable for upstream contribution. |
-| Branding | `src/Gui/Icons`, installer, resources | Isolated branding layer; one config file for name/strings. |
+| New feature area (construction and woodworking, rendering, generative design, freeform) | An add-on per area: its own repository with a workbench (`InitGui.py`), `package.xml`, tests, `LICENSE` | Default. Pure Python where possible, using FreeCAD's Python API; compiled parts built against FreeCAD's released libraries. |
+| Extension of an existing FreeCAD workbench (a new command, object, TechDraw view, CAM operation or post, exporter) | Add-on that adds commands and objects alongside the workbench, using its Python API | Default. Never patch the workbench's files from an add-on. |
+| Feature an add-on cannot provide (needs a hook FreeCAD does not expose, e.g. a new Sketcher constraint inside the PlaneGCS solver, per-tool hotkey context) or that is measurably too slow as an add-on | Upstream pull request to FreeCAD, limited to the minimal hook or the performance-critical part; the rest in an add-on | Exception. Record in the gap document why an add-on cannot do it (missing API, or the measured cost). Fixes of FreeCAD bugs found along the way also go upstream. |
+| Core UX (context hotkeys, heads-up strip, command palette, radial menu, inline value entry) | Add-on (Qt event filters, docks and dialogs from Python); upstream PR only for the hooks an add-on lacks (active tool handler as context, context layers ahead of Qt shortcuts) | Palette, radial menu and strip need no FreeCAD change. |
+| Branding | None | Users run FreeCAD; add-ons have their own names and icons only. |
 
-Every change to an upstream file carries a `// FORK:` (C++) or `# FORK:` (Python) marker comment at the change site, to support merges.
-
-### 4.3 Inherited models (use, do not redesign)
+### 4.3 FreeCAD models (use, do not redesign)
 - Document model: `App::Document`, `DocumentObject`, properties, dependency graph, recompute, transactions/undo.
 - Parameters and expressions: Spreadsheet, expressions engine, VarSets.
 - Topological naming: upstream implementation (FreeCAD 1.0+).
-- Units: `Base::Quantity` and unit schemas. Verify feet-inch-fraction input (`3' 4-1/2"`); add parser support if missing.
-- File format: `.FCStd` (ZIP: `Document.xml`, `GuiDocument.xml`, BREP files, thumbnails).
+- Units: `Base::Quantity` and unit schemas. Verify feet-inch-fraction input (`3' 4-1/2"`); if missing, add parser support upstream.
+- File format: `.FCStd` (ZIP: `Document.xml`, `GuiDocument.xml`, BREP files, thumbnails). Add-on objects are `FeaturePython` objects saved in it; a document opened without the add-on keeps their shapes.
 
-### 4.4 Upstream sync
-- Remote `upstream` = FreeCAD repository. Fork `main` tracks the chosen stable release tag; merge each new upstream stable release within 30 days of its publication.
-- Upstream any generic bug fix or improvement to reduce divergence.
-- CI runs upstream's test suite plus fork tests on every merge.
+### 4.4 Supported FreeCAD versions
+- Add-ons support the latest FreeCAD stable release and are tested against the development version; each `package.xml` states the minimum version.
+- Each new FreeCAD stable release is tested within 30 days of its publication.
+- CI installs stock FreeCAD (AppImage, conda or the release DMG/installer) and runs each add-on's tests in it, headless and with the GUI.
+- Generic fixes found while building add-ons go upstream rather than into workarounds.
+
+### 4.5 Migration from the fork
+Work done before 2026-10-12 lives in this repository's FreeCAD fork. Moving it:
+
+| Fork work | Destination |
+|---|---|
+| `src/Mod/Construction/` (Construction workbench, libraries, tests) and `docs/tutorials/construction/` | Construction add-on repository, unchanged in substance; pure Python already. Its tests run in stock FreeCAD. First apply the Phase 5.3 rollback |
+| `src/Gui/Hotkeys/` and the hooks in `Command.cpp`, `Control.cpp`, `ToolHandler.cpp`, `ShortcutManager.cpp`, `MainWindow.cpp`, `CommandStd.cpp`, `Workbench.cpp` | Rewritten as a UX add-on (command palette, radial menu, hotkey strip, workspace and task-dialog contexts from Python). Only the per-tool context hook (tool handler start/finish, context layers ahead of Qt shortcuts) is proposed upstream as a minimal PR |
+| Branding (`src/Main`, `branding/`), installers, `src/App/Fork/FeatureFlags.*`, `src/Ext/freecad/fork_features.py`, the feature-flag sites in FreeCAD files (NaviCube, CAM Adaptive, BIM/Help/download network features), `docs/inherited-conflicts.md` | Retired: FreeCAD is shipped by the FreeCAD project, so its features are not ours to flag |
+| `tools/fork/check.py` (network, reserved terms, data licences, SPDX headers, dependencies) | Kept as add-on CI checks; the fork-path and upstream-base checks are dropped |
 
 ---
 
@@ -118,19 +133,20 @@ Every change to an upstream file carries a `// FORK:` (C++) or `# FORK:` (Python
 1. Inventory upstream functionality against the phase's target scope.
 2. Write `docs/gaps/phase-N.md`: each target item marked Present / Partial / Missing, with the upstream file or command implementing it.
 3. Implement only Partial/Missing items; Present items get UX alignment (hotkey context layer, §8) only.
-4. Exit criteria are tested regardless of whether the feature was inherited or built.
+4. Mark each Partial/Missing item **add-on** (default) or **FreeCAD change**, the latter with the reason an add-on cannot do it (§4.2).
+5. Exit criteria are tested regardless of whether the feature came from FreeCAD or was built.
 
-### Phase 0 — Fork Setup, Rebrand, Compliance, Core UX
+### Phase 0 — Add-on Infrastructure, Compliance, Core UX
+Done in the fork before 2026-10-12 (branded build, feature flags, hotkey engine in `src/Gui`); migrated per §4.5.
+
 **Target scope**
-- Fork repository; `upstream` remote; branch from latest stable tag; reproducible builds and installers on Windows, macOS, Linux in CI (MSI, DMG, AppImage/Flatpak); upstream test suite passing.
-- Rebrand per §2: name, icons, splash, About (credits FreeCAD, non-affiliation statement), window titles, installer metadata, user data directory name (must not collide with upstream installs).
-- Compliance files: `LICENSE` (upstream), `THIRD_PARTY_LICENSES`, `CONTRIBUTING.md` (clean-room attestation, §12 R20), `LEGAL.md`, SPDX headers on new files, license and reserved-term CI checks (§12 R21).
-- Network rule (§1): static CI check for network APIs (`QNetworkAccessManager`, `urllib`, `requests`, `http.client`, sockets) in fork-added code. Inventory inherited network features (Addon Manager, online Help, others found) into `docs/inherited-conflicts.md`; leave them enabled.
-- DWG: inherited converter options (LibreDWG, ODA File Converter, QCAD Pro) remain as upstream provides them; the fork bundles only LibreDWG and ships no commercial converter.
-- Inherited risk-register conflicts (§12): NaviCube (R1) and CAM Adaptive (R3) stay enabled by default; isolate each behind a flag defaulting to on; record in `docs/inherited-conflicts.md`.
-- Core UX layer in `src/Gui/` (§6, §8): context-layered hotkey engine, heads-up hotkey strip, next-tool suggestions, command palette, radial menu, inline value entry framework. Build on upstream's command and shortcut system; audit it first.
+- Add-on template: repository layout, `package.xml` (Addon Manager metadata, minimum FreeCAD version, dependencies), workbench registration, test runner; installs from a local folder and from the Addon Manager.
+- CI per add-on: install stock FreeCAD stable and development builds on Windows, macOS and Linux; run the add-on's tests headless and with the GUI.
+- Compliance files per add-on: `LICENSE`, `THIRD_PARTY_LICENSES`, `CONTRIBUTING.md` (clean-room attestation, §12 R20), `LEGAL.md`, SPDX headers, license and reserved-term CI checks (§12 R21).
+- Network rule (§1): static CI check for network APIs (`QNetworkAccessManager`, `urllib`, `requests`, `http.client`, sockets) in add-on code.
+- Core UX (§6, §8) as a UX add-on: context-layered hotkeys (workspace and task-dialog contexts from Python), heads-up hotkey strip, next-tool suggestions, command palette, radial menu, inline value entry. Build on FreeCAD's command and shortcut system; audit it first. Per-tool context (inside a Sketcher tool) needs a FreeCAD hook: proposed upstream as a minimal PR.
 
-**Exit criteria**: Branded build installs side-by-side with upstream FreeCAD on all 3 OS; upstream tests pass; fork-added code passes the network-API check; `docs/inherited-conflicts.md` lists all inherited conflicts with their flags (default on); hotkey context layers switch with the active tool; remap a hotkey; command palette finds any registered command.
+**Exit criteria**: The Construction and UX add-ons install into stock FreeCAD on all 3 OS from a local folder and pass their tests there; add-on code passes the network-API check; workspace-level hotkey layers switch with the workbench and task dialog; remap a hotkey; command palette finds any registered command; the per-tool context hook is proposed upstream.
 
 ---
 
@@ -210,7 +226,7 @@ Every change to an upstream file carries a `// FORK:` (C++) or `# FORK:` (Python
 ### Phase 5 — Construction & Woodworking Module
 **Upstream baseline**: BIM workbench: walls (multi-material), windows, doors, slabs, levels, buildings, sites, spaces (rooms with areas), roofs, stairs, structural members, beams and columns with steel profiles (`Presets/profiles.csv`), rebar, trusses (`Arch_Truss`), frames, fences, panels with thickness and sheet cut layouts (`Arch_Panel`, `Arch_Panel_Sheet`), true-shape nesting (`Arch_Nest`), materials and multi-materials, schedules, reports, quantities, native IFC import/export. TechDraw and Spreadsheet for drawings and tables. The Woodworking add-on (MIT, not in tree) was reviewed and not incorporated (`docs/gaps/phase-5.md`).
 
-**Known gaps**: Primary differentiator. Framing generators, member/joinery model, region-switchable material libraries, 1D/2D cut optimization, framing drawings, build sequences. Implement as `src/Mod/Construction/`, building on BIM objects where possible so IFC export works.
+**Known gaps**: Primary differentiator. Framing generators, member/joinery model, region-switchable material libraries, 1D/2D cut optimization, framing drawings, build sequences. Delivered as the Construction add-on (developed so far in `src/Mod/Construction/` of the fork, §4.5), building on BIM objects so IFC export works.
 
 **Target scope**
 
@@ -267,21 +283,7 @@ Every change to an upstream file carries a `// FORK:` (C++) or `# FORK:` (Python
 
 **Exit criteria**: Generate a 10×12 ft (3×3.6 m) gable shed from template; edit wall height and door width; framing regenerates; BOM, optimized cut list, sheet nesting, and framing drawings produce correct quantities (validated against hand count).
 
-**Overlap with upstream (review 2026-10-12)**: Phase 5 work that partly repeats what FreeCAD provides, checked against the BIM source. Under the reuse rule each is to be rebuilt on the upstream object where marked.
-
-| Construction work | Upstream equivalent | Construction-specific part | Action |
-|---|---|---|---|
-| Member (`Member.py`, `MemberFeature`): lumber section along an edge, roll, end cuts | `Arch_Structure` / `BIM_Beam` (profile along an edge or sketch, offsets, rotation, computed length); `Arch_Frame` (profile along every edge of a wire) | Library lumber sizes, angled end cuts, grain, cut-list rows | Rebuild on `Arch_Structure`: keep the library, end cuts and cut-list entry only |
-| Stair (`Framing.Stair`, `LandingStair`) | `Arch_Stairs`: risers, tread depth, nosing, stringers, landings, winders, railings, Blondel ratio | Treads from whole boards, cut stringers, baluster and guard counts, advisory checks, cut-list parts | Take an `Arch_Stairs` as input; generate parts, counts and checks from it |
-| Panel-saw sheet layout (`CutList.layout_sheets`, `SheetLayout`) | `Arch_Panel` (grain direction, tags), `Arch_Panel_Sheet` with its nester, `Arch_Nest` (true-shape) | Guillotine cuts (edge to edge, as a panel saw cuts), kerf and trim, whole sheets uncut | Keep the guillotine packer (upstream nesting is not guillotine-constrained); write results as `Arch_Panel_Sheet` objects instead of our own layout sheets |
-| Sheathing (`Sheathing.py`) | `Arch_Covering`: tiles or boards on a face (length, width, thickness, joints, rotation, alignment) | Joints on studs, joists and rafters, staggered seams, cut-list panels | Keep for structural sheathing; siding courses and finishes use `Arch_Covering` |
-| Deck guards (`Framing.Deck` guards) | `Arch_Fence`: posts and sections along a path | Guard height, baluster gaps, posts bolted through framing, checks | Keep; small overlap |
-| Slab (`Framing.Slab`, `SlabFeature`) | `BIM_Slab`; `BIM_IfcQuantities` (volumes, areas) | Thickened edge, concrete in the cut list, foundation check | Rebuild as a BIM slab plus the thickened edge |
-| Build sequence pages (`make_build_steps`) | Assembly exploded views (`Assembly_CreateView`) | Works on Builds, which are not Assembly objects | Keep until Builds can feed the Assembly views |
-| Cut list Concrete and Coverings sections | `Arch_Schedule` (counts, sums, spreadsheet), `BIM_IfcQuantities` | Grouping by cut size, lumber buying plan, costs | Keep the cut list; take areas and volumes from BIM quantities where objects are BIM objects |
-| Library items | Material workbench cards (density, appearance) | Section sizes, stock lengths, prices, region | Link each item to a material card for density and appearance |
-
-Not duplicated: joinery and joint presets, Builds (Board, Panel, Joint), wall/floor/roof/deck framing, cabinets and runs, edge banding, shaker doors, fastening schedules and hardware counts, the lumber cutting plan, advisory checks, shed and garage templates, the region switch and library editor. `Arch_Roof` makes a roof solid without rafters; `Arch_Truss` is not reimplemented. Drawings, dimensions and IFC export already use TechDraw and BIM. Room overlaps `Arch_Space`/`Arch_Wall` only slightly (it is input for generators). The tutorials tab replaces `Help.show` only because this build has no Qt WebEngine.
+Phase 5 work that repeats FreeCAD features (review 2026-10-12) is rolled back in Phase 5.3.
 
 ---
 
@@ -321,6 +323,30 @@ Not duplicated: joinery and joint presets, Builds (Board, Panel, Joint), wall/fl
 
 ---
 
+### Phase 5.3 — Roll Back Overlap with FreeCAD
+**Upstream baseline**: BIM workbench objects checked against the source 2026-10-12: `Arch_Structure` / `BIM_Beam` / `Arch_Frame`, `Arch_Stairs`, `Arch_Panel` / `Arch_Panel_Sheet` / `Arch_Nest`, `Arch_Covering`, `Arch_Fence`, `BIM_Slab`, `Arch_Schedule`, `BIM_IfcQuantities`; Assembly exploded views; Material workbench cards; Help module.
+
+**Known gaps**: Phases 5–5.2 implemented some features in the Construction workbench that FreeCAD already provides (before the reuse rule). Under the reuse rule, that code is removed and the Construction add-on builds on the FreeCAD feature, keeping only what FreeCAD lacks. Do this before migrating the workbench into the Construction add-on (§4.5), and before the remaining Phase 5 gaps.
+
+**Target scope** (in order; each row: remove the code, use the FreeCAD feature, re-add only the construction-specific part on top of it)
+
+| # | Roll back (Construction code) | Replace with (FreeCAD) | Keep, on top of the FreeCAD object |
+|---|---|---|---|
+| 1 | `MemberFeature`, `make_member` and the member geometry in `Member.py` (sweep of a section along an edge or two points, roll) | `Arch_Structure` / `BIM_Beam` on the edge or sketch, with the section from a BIM profile; `Arch_Frame` for members along every edge of a wire | Lumber library sizes as profiles, angled end cuts (`StartCut`, `EndCut`) as properties added to the structure, grain, cut-list rows and checks read from the structure |
+| 2 | `Framing.Stair`, `Framing.LandingStair` geometry (risers, treads, stringers, landing, handrails) and `StairFeature` | `Arch_Stairs` (risers, tread depth, nosing, stringers, landings, winders, railings, Blondel ratio) | Read an `Arch_Stairs`: treads cut from whole boards, cut-stringer layout and count, balusters and guard counts, advisory stair checks, cut-list parts |
+| 3 | Slab geometry (`Framing.Slab.boxes`, `SlabFeature` solids) and its volume | `BIM_Slab` for the slab; volumes from the shape or `BIM_IfcQuantities` | Thickened edge (an addition to the slab), concrete in the cut list, the foundation check; the garage template creates a BIM slab |
+| 4 | The flat layout drawing of sheets (`SheetLayout`, `SheetLayoutView` written by `_write_sheet_layouts`) | `Arch_Panel_Sheet` objects holding the placed panels (tags, grain, sheet outline), drawable with TechDraw; `Arch_Nest` for true-shape nesting | The guillotine packer `CutList.layout_sheets` (FreeCAD's nesters do not keep cuts edge to edge for a panel saw), kerf and trim |
+| 5 | Deck guard posts, rails and balusters as Construction members (`Framing.Deck._guards`) | `Arch_Fence` along the deck's open sides (posts and sections on a path) | Guard height and baluster gap from the rule set, posts bolted through the framing, the guard checks and hardware |
+| 6 | Concrete and covering totals computed in the cut list for BIM-backed objects | `BIM_IfcQuantities` / shape volume and area of the BIM objects | Cut list grouping by size, lumber buying plan, costs |
+| 7 | Material data duplicated in library items (density, appearance) | Material workbench cards linked from each library item | Section sizes, stock lengths, prices, region |
+| 8 | `show_tutorials` (Markdown in a `QTextBrowser` tab) | `Help.show` of FreeCAD's Help module (official FreeCAD builds include Qt WebEngine) | A fallback to the text browser only when `Help.get_qtwebwidgets()` is false |
+
+Not rolled back (no FreeCAD equivalent, or FreeCAD's is a different job): Sheathing (structural panels with joints on the framing; finishes and siding courses use `Arch_Covering`), build sequence pages (Builds are not Assembly objects; revisit if Builds become Assembly-compatible), joinery and Builds, wall/floor/roof/deck framing, cabinets, fastening and hardware, lumber plan, checks, templates, region switch, library editor. `Arch_Roof` has no rafters; `Arch_Truss` is not reimplemented; drawings and IFC export already use TechDraw and BIM.
+
+**Exit criteria**: Each rolled-back object is created from the FreeCAD object (an `Arch_Structure`, `Arch_Stairs`, `BIM_Slab`, `Arch_Fence`, `Arch_Panel_Sheet`); the shed and garage templates, cut list, hardware list, checks and tutorials give the same quantities as before the rollback (snapshot tests); IFC export writes them as FreeCAD's BIM types; the removed code is gone from the Construction workbench.
+
+---
+
 ### Phase 6 — Direct, Surface, Mesh & Freeform Modeling
 **Upstream baseline**: Part: extrude, revolve, loft, sweep, ruled surface, offset (3D and 2D), thickness, make face/solid, shape builder, section and cross-sections, projection on surface, curve networks, helix and spiral primitives, defeaturing, refine. Surface workbench: filling (G0/G1/G2 boundary patches), sections, curve-network surfaces, extend face, blend curve, curve on mesh, cut. Mesh/MeshPart: import, evaluate and repair (fill holes, normals, components, self-intersections), decimate, remesh (Gmsh), smoothing, booleans (union, intersection, difference), cut/trim/split, cross-sections, segmentation, curvature, flatten; mesh to shape (faceted; BIM `Arch_MeshToShape` for planar). Reverse Engineering: approximate plane, cylinder, sphere, B-spline surface from points or meshes. Inspection: deviation of shapes and meshes from a reference. Draft workbench: 3D wires and B-splines.
 
@@ -356,7 +382,7 @@ Not duplicated: joinery and joint presets, Builds (Board, Panel, Joint), wall/fl
 ### Phase 8 — Data Management, Interop, Automation
 **Upstream baseline**: Import/export: STEP (with colors, STEPZ), IGES, BREP, STL, OBJ, PLY, OFF, AMF, 3MF, glTF, COLLADA .dae, 3DS (import), DXF and DWG (LibreDWG), SVG, IFC and IFC-JSON (IfcOpenShell), OpenSCAD, JT (import), point clouds, CSV and XLSX (spreadsheet import); PDF and SVG from TechDraw. Python API over every command, macro recorder, FeaturePython (script-defined parametric features), headless `FreeCADCmd`, C++ and Python module system, Addon Manager.
 
-**Known gaps**: listed below; headless CLI rebrand.
+**Known gaps**: listed below. Version history, vault and batch commands as an add-on; exporters and Addon Manager changes as upstream PRs.
 
 **Target scope**
 - Local version history per file (snapshots, diff of parameters/feature tree, restore); branching/merge of feature trees for single-user workflows.
@@ -426,7 +452,7 @@ Not duplicated: joinery and joint presets, Builds (Board, Panel, Joint), wall/fl
 ### Phase 12 — Generative Design / Topology Optimization
 **Upstream baseline (verify in audit)**: None built in. External `beso` add-on (LGPL-3.0, BESO + CalculiX) is reference only.
 
-**Known gaps**: Entire phase, as `src/Mod/Generative/`.
+**Known gaps**: Entire phase, as a Generative add-on.
 
 **Target scope**
 - Inputs: design space, preserve regions, obstacle regions, loads/constraints (from Phase 10), material, objectives (min mass, max stiffness), constraints (stress, displacement, mass target), manufacturing constraints (symmetry, min member size, draw direction, overhang limit for AM, 2.5-axis milling).
@@ -456,7 +482,7 @@ Scope, depth (full PCB tool vs. interop with an external open-source ECAD tool),
 
 ---
 
-## 6. Cross-Cutting UI Requirements (core built in Phase 0; applied to every workbench in later phases)
+## 6. Cross-Cutting UI Requirements (core hooks proposed upstream and UX add-on in Phase 0; applied to every add-on in later phases)
 
 - Workspaces: Design, Sketch, Drafting, Drawing, Assembly, Construction, Render, Simulate, Manufacture, Generative, Electronics. Map onto upstream workbenches; each shows only relevant toolbars.
 - Contextual heads-up panel: when a command runs, a compact input panel appears near the cursor with fields, options, and current context hotkeys.
@@ -588,7 +614,7 @@ Assembly, Drawing, CAM, and Simulation layers follow the same pattern; each comm
 
 ## 9. Construction Library Data Format
 
-- Location: `src/Mod/Construction/Resources/libraries/{region}/*.json` + user overrides in user data folder.
+- Location: `Resources/libraries/{region}/*.json` in the Construction add-on + user overrides in FreeCAD's user data folder.
 - Schema (per item):
 ```json
 {
@@ -617,11 +643,11 @@ Assembly, Drawing, CAM, and Simulation layers follow the same pattern; each comm
 
 ## 10. Testing Strategy
 
-- Upstream test suite (C++ gtest and Python `TestApp`) must pass on every merge.
+- Add-on tests run in stock FreeCAD (stable and development) on every change; upstream PRs carry tests in FreeCAD's suites (C++ gtest, Python `TestApp`) and pass its CI.
 - Unit tests per new module; tolerance assertions for geometry.
 - Golden-model regression suite: reference `.FCStd` files rebuilt each CI run; compare volume, area, topology counts, and bounding box.
-- Topological-naming stress tests (inherited implementation): scripted upstream edits on 50+ models, assert references resolve.
-- Constraint solver fuzz tests.
+- Topological-naming stress tests (FreeCAD's implementation): scripted edits on 50+ models, assert add-on references resolve; failures reported upstream.
+- Constraint solver fuzz tests (contributed upstream with Phase 1 PRs).
 - Construction module: BOM/cut-list snapshot tests for each template.
 - Simulation/CAM: analytic benchmark comparisons (exit criteria values).
 - Viewport image-diff tests.
@@ -633,8 +659,8 @@ Assembly, Drawing, CAM, and Simulation layers follow the same pattern; each comm
 
 ## 11. Open Questions
 
-1. **Product name** — required before first public release; trademark search per §12 R17.
-2. **Upstream contribution policy** — which fork changes to submit upstream (recommended: generic fixes and the hotkey engine if accepted).
+1. **Add-on names** — required before first public release; trademark search per §12 R17.
+2. **Upstream acceptance** — what to do when FreeCAD declines a PR this plan depends on (e.g., the hotkey-context hooks): keep the feature out, or find an add-on design that needs no core change. Shipping a patched FreeCAD is not an option.
 3. **Reference hardware** for performance targets — confirm or adjust §7.
 4. **Construction rule sets**: which jurisdiction defaults (e.g., US IRC-derived limits entered by user vs. EU) should ship as editable presets?
 5. **Localization**: languages beyond English, and when.
@@ -650,9 +676,9 @@ Not legal advice. This register identifies risks and design-arounds; it does not
 
 | ID | Area (doc location) | Potential claimant / basis | Required mitigation |
 |---|---|---|---|
-| R1 | Clickable cube orientation widget (upstream NaviCube; Phase 0) | Autodesk: US 7,782,319 (filed Mar 2007, cube orientation indicator/controller) and continuation US 9,043,707 (listed active) | Upstream ships a clickable NaviCube (`src/Gui/NaviCube.cpp`). Inherited: stays enabled by default, isolated behind a flag (default on). Counsel reviews before 1.0; if required, disable and fall back to a display-only axis triad + standard-view buttons + hotkeys. Fork code must not add new cube-widget functionality. |
+| R1 | Clickable cube orientation widget (upstream NaviCube; Phase 0) | Autodesk: US 7,782,319 (filed Mar 2007, cube orientation indicator/controller) and continuation US 9,043,707 (listed active) | FreeCAD ships a clickable NaviCube (`src/Gui/NaviCube.cpp`); it is FreeCAD's, not distributed by this project. Add-on code must not add cube-widget functionality. |
 | R2 | Direct editing with automatic face-relationship detection (Phase 6) | Siemens (Synchronous Technology / "Live Rules", patent filings from 2008) | Edits apply only to user-selected faces. Relationships maintained only when explicitly user-defined. No automatic relationship-inference engine. FTO before adding any. |
-| R3 | Constant-engagement / adaptive clearing toolpaths (Phase 11) | Celeritive (VoluMill; EP 2 681 683 B1 granted 2020), and other CAM vendors | Upstream ships CAM "Adaptive" (constant-engagement clearing). Inherited: stays enabled by default, isolated behind a flag (default on). Counsel reviews before 1.0. Fork code adds no new constant-engagement algorithms without FTO clearance. |
+| R3 | Constant-engagement / adaptive clearing toolpaths (Phase 11) | Celeritive (VoluMill; EP 2 681 683 B1 granted 2020), and other CAM vendors | FreeCAD ships CAM "Adaptive" (constant-engagement clearing); it is FreeCAD's, not distributed by this project. Add-ons and contributions add no new constant-engagement algorithms without FTO clearance. |
 | R4 | Subdivision/freeform and conversion to B-rep (Phase 6) | Autodesk (acquired T-Splines 2011). Core T-spline patent US 7,274,364 expired 2024; later related patents (e.g., US 9,269,189, trim-free T-spline conversion) may be active | Catmull–Clark only (1978). No T-junctions/local knot refinement. Conversion: regular faces → bicubic B-spline patches; extraordinary vertices via methods published ≥20 years ago (cite source in code comments). FTO before release. |
 | R5 | Topological naming (§4.3) | Dassault, PTC, Siemens hold patents on persistent naming | Base implementation on OCCT `TNaming`/OCAF and academic methods published before 2005 (e.g., Chen & Hoffmann 1995; Kripac 1997). Record prior-art references in `docs/prior-art/`. FTO. |
 | R6 | Generative design workflow (Phase 12) | Autodesk and others hold patents on generative-design workflows (multi-outcome generation, exploration UIs) | Limit to density-based SIMP (Bendsøe 1989; Sigmund 2001 published code) and plain parameter sweeps with a results table. No automated multi-solver outcome generation or outcome-exploration UI modeled on commercial products. FTO. |
@@ -679,22 +705,22 @@ Not legal advice. This register identifies risks and design-arounds; it does not
 | ID | Area | Potential claimant / basis | Required mitigation |
 |---|---|---|---|
 | R16 | Third-party names in UI/docs (DWG, Fanuc, Haas, Mach3/4, SketchUp, SolidWorks, Fusion 360, KiCad) | Mark owners | Nominative use only ("opens .dwg files", "Fanuc-compatible post"). No logos. No "certified"/"TrustedDWG"/"RealDWG" claims. Non-affiliation statement in README and About dialog. No competitor names in feature names. |
-| R17 | Product name, logo | FreeCAD Project Association (FreeCAD logo registered in Benelux; claims rights over commercial use of name and logo); other mark holders | Rebrand fully (§2). Trademark clearance (USPTO, EUIPO, WIPO) for the new name. Use "FreeCAD" only factually ("based on FreeCAD"), no logo. |
-| R21 | Feature names | Vendors | Reserved-term list (do not use as feature/command names): Push/Pull, Press Pull, Follow Me, Hole Wizard, Pack and Go, Rollback Bar, Smart Dimension, SmartMates, Design Table, Configurations (as a feature name), Toolbox, Weldments, FeatureManager, ViewCube, Adaptive Clearing, Dynamic Milling, VoluMill, T-Splines, Live Rules, Synchronous. CI check greps fork-added UI strings for these terms; inherited upstream strings are listed in `docs/inherited-conflicts.md`, not renamed. |
+| R17 | Product name, logo | FreeCAD Project Association (FreeCAD logo registered in Benelux; claims rights over commercial use of name and logo); other mark holders | Own add-on names (§2). Trademark clearance (USPTO, EUIPO, WIPO) for them. Use "FreeCAD" only factually ("an add-on for FreeCAD"), no logo. |
+| R21 | Feature names | Vendors | Reserved-term list (do not use as feature/command names): Push/Pull, Press Pull, Follow Me, Hole Wizard, Pack and Go, Rollback Bar, Smart Dimension, SmartMates, Design Table, Configurations (as a feature name), Toolbox, Weldments, FeatureManager, ViewCube, Adaptive Clearing, Dynamic Milling, VoluMill, T-Splines, Live Rules, Synchronous. CI check greps add-on UI strings for these terms; FreeCAD's own strings are FreeCAD's. |
 
-### 12.3a Fork-specific risks
+### 12.3a Add-on and contribution risks
 
 | ID | Area | Basis | Required mitigation |
 |---|---|---|---|
-| R22 | Inherited upstream features | Upstream features were not reviewed against this register | Phase 0: check every upstream workbench and command against R1–R21; record conflicts in `docs/inherited-conflicts.md` and isolate behind flags defaulting to on (do not disable). Repeat for each upstream merge (diff of new commands/UI strings). |
-| R23 | License mixing | LGPL-2.1-or-later fork with Apache-2.0, LGPL-3.0, GPL components | Follow §1 linkage rules; CI dependency-license check; GPL programs only as external executables; no GPL-only source copied in. |
+| R22 | Dependence on FreeCAD features | Add-ons call FreeCAD features this project does not control or review | An add-on that builds on a FreeCAD feature named in R1–R21 does not extend the exposed technique. FreeCAD's own features are FreeCAD's responsibility; this project no longer flags or ships them. |
+| R23 | License mixing | LGPL-2.1-or-later add-ons with Apache-2.0, LGPL-3.0, GPL components | Follow §1 linkage rules; CI dependency-license check; GPL programs only as external executables; no GPL-only source copied in. Upstream PRs use FreeCAD's license. |
 
 ### 12.4 Process requirements
 
 1. FTO opinion from patent counsel before 1.0, covering R1–R10 and any later feature that implements a named technique from a commercial product.
 2. `docs/prior-art/`: for each algorithm with patent exposure, publication references with dates and the source the implementation follows.
 3. `docs/patent-watch.md`: tracked patents, expected expiry, status; review quarterly.
-4. Every feature with patent exposure is isolated behind a compile-time and runtime flag so it can be removed in a patch release if a claim is made.
+4. Every add-on feature with patent exposure can be switched off (preference or separate module) so it can be removed in a patch release if a claim is made.
 5. Defensive publication: publish design notes for original techniques (hotkey context engine, construction generators) to establish prior art.
 6. `LEGAL.md`: claim/takedown contact address, feature-disable steps, release process.
 
@@ -704,9 +730,51 @@ Not legal advice. This register identifies risks and design-arounds; it does not
 
 1. Read this document, `SURVEY.md`, and the phase's `docs/gaps/phase-N.md` before writing code.
 2. Run the §5.0 audit before implementing a phase. Do not reimplement Present items. Before writing any feature, check the source tree for an existing upstream implementation and follow the reuse rule (top of this document): build on what exists, and write down why when you cannot.
-3. Place code per §4.2. New workbenches over core patches. Mark upstream-file edits with `FORK:` comments.
+3. Place code per §4.2: in an add-on, without modifying FreeCAD's code. Change FreeCAD only when an add-on cannot provide the functionality or is measurably too slow; record why in the gap document, keep the change to the minimal hook, and submit it upstream.
 4. Do not copy code from GPL-only projects, commercial software, or unlicensed sources. Cite prior art for algorithms with patent exposure in `docs/prior-art/` (§12.4).
-5. No network access in fork-added code (§1). Never disable or remove inherited upstream features; record conflicts in `docs/inherited-conflicts.md`. No new dependency without the license check (§3.2).
+5. No network access in add-on code (§1). Never patch, disable or replace FreeCAD features from an add-on. No new dependency without the license check (§3.2).
 6. Every shipped data entry has `source` and `data_license` (§9).
 7. Each command defines its hotkey context layer (§8.4).
-8. Keep upstream tests passing; add tests for every new feature; meet phase exit criteria before moving on.
+8. Add tests for every new feature and run them in stock FreeCAD; upstream PRs pass FreeCAD's CI; meet phase exit criteria before moving on.
+9. Keep §14 (summary of additions) current: every feature added, and whether it is an add-on or a FreeCAD change.
+
+---
+
+## 14. Summary of Additions
+
+What this project has added so far (as of 2026-10-12), and how. All of it was built inside this repository's FreeCAD fork; the **Delivery** column says whether it is an add-on (no change to FreeCAD's code) or a change to FreeCAD's code, and **Plan** what happens to it under the add-on strategy (§4.5). Update this table with every addition (§13 rule 9).
+
+### Changes to FreeCAD's code
+
+| Addition | Where (fork) | Delivery | Plan |
+|---|---|---|---|
+| Context-layered hotkeys: engine, tool and task-dialog context, context layers ahead of Qt shortcuts (Phase 0) | `src/Gui/Hotkeys/`; hooks in `Command.cpp`, `Control.cpp`, `ToolHandler.cpp/.h`, `ShortcutManager.cpp`, `MainWindow.cpp`, `CommandStd.cpp`, `Workbench.cpp`; `tests/src/Gui/Hotkeys/` | FreeCAD change | UX add-on for workspace and task-dialog contexts; per-tool context needs a FreeCAD hook (no Python signal when a tool handler starts or ends): minimal upstream PR |
+| Command palette, radial menu, heads-up hotkey strip (Phase 0) | `src/Gui/Hotkeys/HotkeyCommands.cpp`, `MainWindow.cpp` | FreeCAD change | UX add-on (Qt from Python); no FreeCAD change needed |
+| Rebranding: product name, app id, maintainer URL | `src/Main/Main*.cpp`, `branding/`, `cMake/CADApp/`, top `CMakeLists.txt` | FreeCAD change | Retired |
+| Feature flags for FreeCAD features with risk exposure: NaviCube (R1), CAM Adaptive (R3) | `src/App/Fork/`, `App/Application.cpp`, `src/Ext/freecad/fork_features.py`, `Gui/View3DInventorViewer.cpp`, `Mod/CAM/InitGui.py`, `Mod/CAM/Path/GuiInit.py` | FreeCAD change | Retired: FreeCAD's features are FreeCAD's (§12 R22) |
+| Network features behind runtime flags: downloads, BIM library, tutorial and SHP downloads, online Help, MTConnect import | `Gui/DownloadManager.cpp`, `Mod/BIM/ArchCommands.py`, `bimcommands/BimLibrary.py`, `bimcommands/BimTutorial.py`, `importers/importSHP.py`, `Mod/Help/Help.py`, `Mod/CAM/Machine/ui/mtconnect_import_dialog.py`; `docs/inherited-conflicts.md` | FreeCAD change | Retired |
+| Construction workbench in the build | `src/Mod/CMakeLists.txt` (`BUILD_CONSTRUCTION`) | FreeCAD change | Retired: installed as an add-on instead |
+| Fork CI checks (network APIs, reserved terms, data licences, SPDX headers, dependencies) | `tools/fork/`, `.github/workflows/fork_checks.yml` | Repository tooling | Kept as add-on CI checks |
+
+### Add-ons (no change to FreeCAD's code)
+
+The Construction workbench (`src/Mod/Construction/`, Phases 5–5.2) uses only FreeCAD's public Python API and none of the changes above, so it moves into the Construction add-on as is (after the Phase 5.3 rollback).
+
+| Addition | Phase | Delivery | Plan |
+|---|---|---|---|
+| Material, hardware, joint, area-material, rule-set and fastening-schedule libraries (JSON with source and licence), user overrides, region per document, library editor with CSV import/export | 5 | Add-on | Construction add-on; link items to Material cards (5.3 #7) |
+| Cabinets (frameless base, wall, tall, sink, blind corner; carcass joints, drawers, shelves, edge banding, shaker doors) and cabinet runs with fillers and appliance gaps | 5 | Add-on | Construction add-on |
+| Member (lumber along an edge, roll, end cuts) | 5 | Add-on | Rebuild on `Arch_Structure` (5.3 #1) |
+| Wall, floor, gable roof, mono-pitch roof and deck framing; corner studs, openings, blocking, beams on posts | 5 | Add-on | Construction add-on (deck guards onto `Arch_Fence`, 5.3 #5) |
+| Stairs (straight and with landing, guards) | 5 | Add-on | Rebuild on `Arch_Stairs` (5.3 #2) |
+| Slab and strip footing; garage template on a slab | 5 | Add-on | Rebuild on `BIM_Slab` (5.3 #3) |
+| Sheathing with joints on the framing; coverings (roofing, wrap, siding, insulation) by area | 5 | Add-on | Construction add-on |
+| Shed template (per-wall openings, gable or mono-pitch roof, floor or slab) | 5, 5.2 | Add-on | Construction add-on |
+| Joinery (housing, mortise and tenon, loose tenon, half lap, bridle, box joint, dovetail, miter, dowels, screws, holes) and fastening schedules with hardware counts | 5, 5.1 | Add-on | Construction add-on |
+| Builds: Board, Board Between, Panel, Joint (J), Align, Move Part (drag with snapping), Edit panels; templates end table, dining table, workbench, bookcase (parametric, keeping hand edits) | 5.1, 5.2 | Add-on | Construction add-on |
+| Room: measured walls, openings and appliance gaps to wall framing and cabinet runs meeting at corners | 5.2 | Add-on | Construction add-on |
+| Cut list with operations and costs, lumber buying plan, panel-saw sheet layout, hardware list, part labels, CSV export | 5 | Add-on | Construction add-on; sheet layouts as `Arch_Panel_Sheet` (5.3 #4) |
+| Drawings (TechDraw pages at standard scales, dimensions, section, member tags), build sequence pages | 5 | Add-on | Construction add-on (uses TechDraw) |
+| Advisory checks (beams, joists, rafters, headers, stairs, guards, cabinets and furniture anchoring, joinery, wood movement, foundation) with the disclaimer | 5, 5.1 | Add-on | Construction add-on; jurisdiction rule sets next (5.5) |
+| IFC types on construction objects (exported by BIM) | 5 | Add-on | Construction add-on |
+| Tutorials (tested examples) and the Tutorials command | 5.7 | Add-on | Construction add-on; use `Help.show` (5.3 #8) |
