@@ -1,5 +1,5 @@
 {
-  "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp fastening schedules (design doc §5.3). EXAMPLE schedule from conventional framing practice; building codes publish their own fastening schedules, which differ by jurisdiction and are not copied here. Copy this item to your user library under a new id with your adopted schedule and set preference Mod/Construction/FasteningSchedule to it. Rules: receiver / inserted are member-name patterns (fnmatch); per_joint = fixed count; spacing and edge (mm) = count along the contact.",
+  "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp fastening schedules (design doc §5.3). EXAMPLE schedule from conventional framing practice; building codes publish their own fastening schedules, which differ by jurisdiction and are not copied here. Copy this item to your user library under a new id with your adopted schedule and set preference Mod/Construction/FasteningSchedule to it. Rules: receiver / inserted are member-name patterns (fnmatch); per_joint = fixed count; spacing and edge (mm) = count along the contact. Receiver 'each': per_joint fasteners on every member named like inserted (rafters: 3 toe-nails at each bearing; ceiling joists: 3 at each heel; gable studs: 2 at each end; stair stringers: one hanger at the top). Rafter-to-plate uplift connectors are not counted.",
   "source": "Generic example from conventional framing practice; not copied from any code or standard",
   "data_license": "CC0-1.0",
   "items": [
@@ -42,7 +42,11 @@
         {"receiver": "Guard rail", "inserted": "Baluster", "fastener": "hardware.deck_screw", "per_joint": 2},
         {"receiver": "Rim joist", "inserted": "Baluster", "fastener": "hardware.deck_screw", "per_joint": 2},
         {"receiver": "Joist", "inserted": "Baluster", "fastener": "hardware.deck_screw", "per_joint": 2},
-        {"receiver": "Joist", "inserted": "Decking", "fastener": "hardware.deck_screw", "per_joint": 2}
+        {"receiver": "Joist", "inserted": "Decking", "fastener": "hardware.deck_screw", "per_joint": 2},
+        {"receiver": "each", "inserted": "Rafter", "fastener": "hardware.nail_framing", "per_joint": 6},
+        {"receiver": "each", "inserted": "Ceiling joist", "fastener": "hardware.nail_framing", "per_joint": 6},
+        {"receiver": "each", "inserted": "Gable stud", "fastener": "hardware.nail_framing", "per_joint": 4},
+        {"receiver": "each", "inserted": "Stringer", "fastener": "hardware.stringer_hanger", "per_joint": 1}
       ]
     }
   ]

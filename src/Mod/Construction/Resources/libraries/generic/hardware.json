@@ -21,6 +21,7 @@
     {"id": "hardware.biscuit_20", "category": "hardware", "region": "generic", "name": "Biscuit, No. 20"},
     {"id": "hardware.figure8", "category": "hardware", "region": "generic", "name": "Figure-8 tabletop fastener, with screws"},
     {"id": "hardware.z_clip", "category": "hardware", "region": "generic", "name": "Z-clip tabletop fastener, with screw"},
+    {"id": "hardware.stringer_hanger", "category": "hardware", "region": "generic", "name": "Stair stringer hanger or bracket at the top (to the design for your stair)"},
     {"id": "hardware.edge_banding", "category": "hardware", "region": "generic", "name": "Edge banding, metres"}
   ]
 }

@@ -1815,6 +1815,18 @@ class TestFastening(unittest.TestCase):
             },
         )
 
+    def test_roofs_and_stairs_per_piece(self):
+        # 14 rafters x 6, 7 ceiling joists x 6, 8 gable studs x 4.
+        roof = Framing.GableRoof()
+        self.assertEqual(
+            Framing.fasteners(roof, self.schedule()), {"hardware.nail_framing": 84 + 42 + 32}
+        )
+        self.assertEqual(
+            Framing.fasteners(Framing.ShedRoof(), self.schedule()), {"hardware.nail_framing": 42}
+        )
+        stair = Framing.fasteners(Framing.Stair(), self.schedule())
+        self.assertEqual(stair["hardware.stringer_hanger"], 3)
+
     def test_wall_with_door_uses_the_schedule(self):
         wall = Framing.Wall(length=4800, openings=Framing.parse_openings("door 900x2100 @ 700"))
         nails = Framing.fasteners(wall, self.schedule())["hardware.nail_framing"]
