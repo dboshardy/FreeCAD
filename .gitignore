@@ -2,6 +2,9 @@
 .*
 !*.gitattributes
 !*.gitignore
+!/.claude/
+/.claude/*
+!/.claude/settings.json
 !/.clang-format
 !/.clang-tidy
 !/.git-blame-ignore-revs
