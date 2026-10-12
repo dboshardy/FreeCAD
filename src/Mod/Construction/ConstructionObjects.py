@@ -29,13 +29,14 @@ DEFAULT_MATERIALS = {
 }
 MATERIAL_TIPS = {
     "CarcassMaterial": "Sides, bottom, top, shelves, fronts, plinth, fillers",
-    "BackMaterial": "Back panel and drawer bottoms",
+    "BackMaterial": "Back panel, drawer bottoms and shaker door panels",
     "DrawerMaterial": "Drawer box sides, fronts and backs",
 }
 # Cabinet part role -> material property; anything else uses CarcassMaterial.
 ROLE_MATERIAL = {
     "back": "BackMaterial",
     "drawer_bottom": "BackMaterial",
+    "door_panel": "BackMaterial",
     "drawer_box": "DrawerMaterial",
 }
 
@@ -68,6 +69,8 @@ PROPERTIES = [
     ("Fronts", "fronts", ENUM, "Fronts", "Doors, a drawer bank, or one drawer over doors"),
     ("Doors", "doors", INTEGER, "Fronts", "0 = one door up to 600 mm wide, else two"),
     ("FrontGap", "door_gap", LENGTH, "Fronts", "Gap between fronts; half of it at outer edges"),
+    ("DoorStyle", "door_style", ENUM, "Fronts", "slab, or shaker: frame and a thin panel"),
+    ("FrameWidth", "frame_width", LENGTH, "Fronts", "Shaker door stiles and rails"),
     ("Drawers", "drawers", INTEGER, "Drawers", "Drawers in a drawer bank"),
     ("DrawerFrontHeight", "drawer_front_height", LENGTH, "Drawers", "Top drawer over doors"),
     ("SlideClearance", "drawer_side_clearance", LENGTH, "Drawers", "Per side; see slide data"),
@@ -98,6 +101,7 @@ PROPERTIES = [
 CHOICES = {
     "Kind": Cabinet.KINDS,
     "Fronts": Cabinet.FRONTS,
+    "DoorStyle": Cabinet.DOOR_STYLES,
     "FillerSide": Cabinet.FILLER_SIDES,
     "BlindSide": Cabinet.BLIND_SIDES,
     "OpenSides": Framing.OPEN_SIDES,

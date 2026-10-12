@@ -30,6 +30,11 @@ Front styles:
 | `drawer_over_doors` | One drawer of **DrawerFrontHeight**, doors below |
 | `false_front_over_doors` | A fixed front without a drawer box (sinks), doors below |
 
+**DoorStyle** `shaker` makes each door a frame of stiles and rails
+(**FrameWidth** wide, doweled) around a thin panel of the **BackMaterial**,
+housed 10 mm into grooves; the hinges go on the stile at the side. Drawer
+fronts stay slabs.
+
 Drawer boxes are sized from the slide clearances: **SlideClearance** per side
 (take it from your slide maker's data), **DrawerHeightClearance** and
 **DrawerRearClearance**. Box depth is rounded down to the 50 mm steps slides are
