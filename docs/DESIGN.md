@@ -9,7 +9,7 @@ Working name: `CADApp` (placeholder; final name required before first public rel
 
 **Strategy: fork of FreeCAD.** The application is a fork of FreeCAD (LGPL-2.1-or-later), rebranded, with the construction module, context-hotkey UX, and the gaps listed per phase added on top. See `SURVEY.md` for the reuse analysis.
 
-Implement phase by phase. Do not start a phase until the previous phase's exit criteria pass. Feature lists in each phase are the **target spec**; much of it already exists upstream. Every phase from 1 onward starts with an audit (§5.0).
+Implement phase by phase. Do not start a phase until the previous phase's exit criteria pass. Each phase's **Upstream baseline** names what FreeCAD already provides (checked against the source tree 2026-10-12); its **Target scope** lists only what upstream lacks or covers partially. Every phase from 1 onward starts with an audit (§5.0) to confirm both.
 
 **Inherited-feature rule:** features implemented upstream stay enabled by default. Do not disable or remove them. Where an inherited feature conflicts with this document (§1 network rule, §12 risk register), record the conflict in `docs/inherited-conflicts.md` and isolate it behind a compile/runtime flag that defaults to **on**, so it can be removed later if required.
 
@@ -68,14 +68,11 @@ Implement phase by phase. Do not start a phase until the previous phase's exit c
 | Purpose | Component | License | Phase |
 |---|---|---|---|
 | 1D stock optimization | OR-Tools (CP-SAT) | Apache-2.0 | 5 |
-| Rectangular sheet nesting | libnest2d | LGPL-3.0 | 5, 11 |
-| 2D polygon ops / true-shape nesting | Clipper2 + in-house no-fit-polygon | Boost | 5, 11 |
-| Mesh booleans | Manifold | Apache-2.0 | 6 |
 | Subdivision freeform | OpenSubdiv (license to verify, §12) or in-house Catmull–Clark | — | 6 |
 | Photoreal rendering | Cycles | Apache-2.0 | 9 |
 | Topology optimization | In-house SIMP (Eigen) | — | 12 |
 
-Rule: add a dependency only after verifying its license against §1 and recording it in `THIRD_PARTY_LICENSES`.
+Rule: add a dependency only after verifying its license against §1 and recording it in `THIRD_PARTY_LICENSES`. Not added because upstream covers them: sheet nesting (guillotine layout in-house, true-shape via BIM `Arch_Nest`) and mesh booleans (Mesh workbench).
 
 ---
 
@@ -136,97 +133,80 @@ Every change to an upstream file carries a `// FORK:` (C++) or `# FORK:` (Python
 ---
 
 ### Phase 1 — 2D Sketcher & Constraint Solver
-**Upstream baseline (verify in audit)**: Sketcher workbench (PlaneGCS): geometric and dimensional constraints, DOF/constraint-state display, on-view parameters, Dimension tool, offset/scale/rotate/move, continuous trim (1.0); text in sketch (upcoming upstream 26.3).
+**Upstream baseline**: Sketcher workbench (PlaneGCS). Sketch on planes and faces (map, reorient), external geometry, projection, intersection, carbon copy, merge and mirror sketches. Entities: point, line, polyline, rectangle (corner, center, 3-point), square, triangle to octagon and regular polygon, circle (center, 3-point), arc (center, 3-point), ellipse, arcs of ellipse, hyperbola and parabola, B-splines (control points, interpolation, periodic), slot, arc slot, fillet, chamfer, text. Construction toggle. Editing: trim, extend, split, offset, symmetry (mirror), translate, rotate, scale, copy, rectangular array, join curves. Constraints: coincident (including concentric), point on object, horizontal, vertical, parallel, perpendicular, tangent, equal, symmetric, block, lock, distance (including arc length), horizontal/vertical distance, radius, diameter, angle, Snell's law; driving/reference toggle; Dimension tool. Autoconstraints while drawing, on-view parameters (inline numeric entry), DOF and constraint-state colors, selection of conflicting, redundant and malformed constraints, dragging under-defined geometry. DXF into sketches via Draft import and Draft_Draft2Sketch.
 
-**Known gaps**: Inference-snapping UX and indicators, conflict diagnosis with suggested removal, hotkey context layers. Confirm via audit.
+**Known gaps**: listed below; hotkey context layers (§8).
 
 **Target scope**
-- Sketch on plane, face, or construction plane; sketch-on-sketch reference projection.
-- Entities: point, line, centerline, polyline, rectangle (2-point, 3-point, center), parallelogram, polygon (inscribed/circumscribed, N sides), circle (center, 2-point, 3-point, tangent), arc (3-point, center, tangent), ellipse, elliptical arc, parabola, conic, spline (fit-point and control-point), slot (straight, center, arc), fillet, chamfer, text (TrueType fonts → curves), point patterns.
-- Construction geometry toggle.
-- Editing: trim, extend, split, offset (with chain selection), mirror, move, rotate, scale, copy, linear pattern, circular pattern, stretch, break, join.
-- Geometric constraints: coincident, collinear, parallel, perpendicular, tangent, curvature-continuous (G2), horizontal, vertical, equal, symmetric, concentric, midpoint, fix, point-on-curve, pierce.
-- Dimensional constraints: linear, horizontal, vertical, aligned, radius, diameter, angle, arc length, driving vs. driven (reference).
-- Auto-constraint inference while drawing (snap to endpoints, midpoints, centers, intersections, tangents, horizontal/vertical alignment, extensions) with visual indicators; toggle per inference type.
-- Solver: degree-of-freedom display, color-coded constraint state (under/fully/over-defined, conflicting), conflict diagnosis with suggested constraint to remove, drag of under-defined geometry.
-- Inline numeric entry while drawing (length/angle fields, Tab to cycle).
-- Project/include/intersect 3D edges into sketch.
+- Circle tangent to existing curves; stretch.
+- Constraints: collinear (as one constraint), curvature-continuous (G2), pierce.
+- Inference indicators while drawing (endpoint, midpoint, center, intersection, tangent, alignment, extension) with a toggle per inference type.
+- Conflict diagnosis that suggests the constraint to remove.
 - Sketch profile detection (closed regions, nested loops) with region highlight.
-- Import DXF into sketch.
 
 **Exit criteria**: Fully constrain a 100-entity sketch; solver resolves in <50 ms; dimension edits propagate; conflict dialog identifies the offending constraint.
 
 ---
 
 ### Phase 2 — Parametric Part Modeling
-**Upstream baseline (verify in audit)**: PartDesign (pad/pocket/revolution/groove/loft/sweep/helix/hole with thread tables/fillet/chamfer/draft/thickness/patterns/boolean/datums), Part workbench, Spreadsheet + expressions, VarSets, topological naming fixes (1.0), Measure, transparent previews and draggers (1.1).
+**Upstream baseline**: PartDesign: body, datum planes/lines/points, coordinate systems, shape binders; pad and pocket (length, two lengths, symmetric, up to face/shape, through all, taper angle), revolution, groove, additive/subtractive loft, pipe (sweep) and helix, primitives; hole (counterbore, countersink, counterdrill; ISO metric, UNC/UNF/UNEF, NPT, BSP; cosmetic and modeled threads); fillet, chamfer (distance, two distances, distance-angle), draft, thickness (shell), boolean, defeaturing; mirrored, linear, polar, path, point, scaled and multi-transform patterns; clone; tip (roll back), move feature in tree, suppress (`Suppressed`), rename, groups; transparent previews and draggers (1.1). Part workbench: multi-body, extrude, revolve, loft, sweep, offset, thickness, mirror, booleans, slice, link arrays. Spreadsheet, expressions, VarSets, CSV import. Topological naming (1.0). Material workbench (density, appearance). Measure: distance, angle, length, area, radius, diameter, position, center of mass, mass properties. Part section and section cut. Dynamic properties for custom fields.
 
-**Known gaps**: Variants UI (upstream uses spreadsheet configuration tables), emboss/wrap, wall-thickness check, timeline view. Hole/thread table data provenance under §12 R13.
+**Known gaps**: listed below. Hole/thread table data provenance under §12 R13.
 
 **Target scope**
-- Feature history tree (model browser) + horizontal timeline; history marker (drag to roll back); reorder by drag with dependency validation; suppress/unsuppress; rename; group into folders; edit feature in place.
-- Topological naming implementation (§4.3).
-- Construction geometry: planes (offset, angle, 3-point, normal-to-curve, midplane, tangent), axes, points, coordinate systems.
-- Solid features:
-  - Extrude: blind, symmetric, two-sided, to next, to face/body, through all; draft angle; thin-wall; operations new body / join / cut / intersect.
-  - Revolve, sweep (path, guide rails, twist, orientation options), loft (profiles, rails, centerline, tangency conditions), helix/coil, rib, web.
-  - Hole tool: simple, counterbore, countersink, tapped, clearance, pipe threads; ISO metric and UTS size tables (data sourcing per §12 R13); cosmetic and modeled threads.
-  - Fillet (constant, variable, face, full-round, setback), chamfer (distance, distance-angle, two-distance), shell, draft, thicken, emboss/deboss, wrap, split body, combine (boolean), move/copy body, scale body, mirror, linear/circular/curve-driven/sketch-driven/fill patterns, pattern of features/faces/bodies.
-- Multi-body parts.
-- Parameters: user parameters table, expressions referencing feature dimensions, units-aware; equation editor; global variables; link to external parameter file (CSV/JSON).
-- Variants (multiple configurations of one part): per-variant parameter values, suppression states, and properties; tabular editor; spreadsheet import/export.
-- Materials (physical): density, appearance assignment; mass properties (mass, volume, area, center of mass, moments of inertia).
-- Inspection: measure (distance, angle, radius, area, min distance), section view (planar, multiple planes), draft analysis, curvature/zebra analysis, interference check, wall-thickness check.
-- Custom properties (part number, description, material, vendor) for BOMs.
+- Horizontal timeline view with a draggable history marker; dependency check when reordering.
+- Thin-wall extrude; rib and web.
+- Fillet: variable radius, face, full-round and setback (PartDesign).
+- Emboss/deboss and wrap.
+- Fill pattern; patterns of bodies inside PartDesign.
+- Parameters linked to an external JSON file.
+- Variants (multiple configurations of one part): per-variant parameter values, suppression states and properties in a tabular editor, over upstream's spreadsheet configuration tables.
+- Inspection: draft analysis, curvature/zebra analysis, interference check, wall-thickness check.
 
 **Exit criteria**: Build a 30-feature bracket driven by 5 parameters; change any parameter and all features rebuild without broken references; reorder/suppress works; mass properties match analytic values within 1e-6 relative.
 
 ---
 
 ### Phase 3 — 2D Drafting & Engineering Drawings
-**Upstream baseline (verify in audit)**: TechDraw (views, sections, details, dimensions, hatching, GD&T annotations, weld symbols, PDF/SVG/DXF export); Draft workbench (2D drafting, layers, DXF).
+**Upstream baseline**: TechDraw: ASME and ISO templates with fillable title-block fields, multiple pages; views, projection groups (first/third angle), section and complex (offset, aligned) section, detail, broken view, clip group (crop), axonometric views, Arch/BIM section views, Draft views, spreadsheet tables, hidden lines and smooth/seam edge display, shaded views; dimensions (length, horizontal, vertical, angle, 3-point angle, radius, diameter, area, extent, chain, coordinate/ordinate, chamfer, arc length, axonometric), tolerances and ISO 286 hole/shaft fits, dimension repair, balloons, leaders, rich text, symbols, weld and surface-finish symbols, center lines and marks, cosmetic geometry, hatching; associative updates; export PDF, SVG, DXF; print. Draft workbench: 2D drafting with layers and layer manager, line styles and colors, annotation style editor, hatching, snaps (endpoint, midpoint, center, intersection, perpendicular, parallel, extension, angle, grid, ortho), working planes, text, labels, dimensions, arrays, DXF/DWG (LibreDWG ≤ R2004 export).
 
-**Known gaps**: Model/paper space and xrefs, drafting standard presets, auto-ballooning, associative cut-list tables, DWG export limited by LibreDWG (≤R2004).
+**Known gaps**: listed below; DWG export limited by LibreDWG (≤R2004).
 
 **Target scope**
-- Standalone 2D drafting workspace (no 3D required): all Phase 1 entities plus layers, line types, line weights, colors, blocks/symbols, hatching, xrefs, model/paper space, viewports, snaps, polar/ortho tracking, object snap overrides.
-- Drawings from 3D: sheet sizes (ANSI A–E, ISO A4–A0, custom), sheet templates, title blocks with property-linked fields, multiple sheets.
-- View types: base/standard, projected (first/third angle), auxiliary, section (full, half, offset, aligned), detail, broken, break-out, crop, exploded (from assemblies), isometric.
-- Hidden-line removal, tangent edge display options, shaded views.
-- Annotation: dimensions (linear, ordinate, baseline, chain, angular, radial, diameter, chamfer, arc length), auto-dimension, model-dimension import, tolerances (±, limits, fits ISO 286), GD&T feature control frames and datums (ASME Y14.5 / ISO 1101 symbols), surface finish, weld symbols, notes, leaders, balloons (auto-balloon), centerlines/center marks, revision tables, hole tables, BOM tables, cut-list tables.
-- Associativity: drawing updates on model change; dangling annotation detection.
-- Dimension/drafting standards: ANSI, ISO, DIN, JIS presets; editable style manager.
-- Export: PDF (vector), DXF, DWG, SVG, PNG; print with scale.
+- Standalone 2D drafting: blocks/symbol library, xrefs, model/paper space with viewports, polar tracking, object snap overrides.
+- View types: auxiliary, half section, break-out; exploded views from assemblies placed on drawings.
+- Annotation: auto-dimension, model-dimension import, GD&T feature control frames and datums drawn originally (§12 R13), auto-balloon, associative revision, hole, BOM and cut-list tables.
+- Dangling annotation detection.
+- Drafting standard presets beyond ASME/ISO (DIN, JIS) in an editable style manager.
+- Export PNG.
 
 **Exit criteria**: Produce a 3-view + section + detail drawing of the Phase 2 bracket with GD&T; change model; drawing updates; PDF/DXF output opens in third-party viewers.
 
 ---
 
 ### Phase 4 — Assemblies
-**Upstream baseline (verify in audit)**: Assembly workbench with OndselSolver: grounding, joints, exploded views, BOM.
+**Upstream baseline**: Assembly workbench with OndselSolver: insert components (internal and external files, links), new part in the assembly, sub-assemblies; joints fixed, revolute, cylindrical, slider, ball, distance, angle, parallel, perpendicular, rigid group, gears, gear-belt, belt, rack-pinion, screw, with limits; grounding; DOF display and selection of conflicting, redundant and malformed joints; dragging; exploded views; simulation (driving joints over time); BOM (spreadsheet, CSV export); `.asmt` export. Part link arrays (linear, polar, path, point) for component patterns; shape binders for references across parts.
 
-**Known gaps**: Motion study with video export, interference/clearance detection, large-assembly mode, standard parts library (Fasteners add-on is GPL-2.0 and cannot be merged; build with sourced data per §12 R13).
+**Known gaps**: listed below. The Fasteners add-on is GPL-2.0 and cannot be merged; build the parts library with data sourced per §12 R13.
 
 **Target scope**
-- Insert components (internal/external files), in-context part creation, sub-assemblies, flexible sub-assemblies.
-- Top-down design: reference geometry across components, skeleton/master-sketch layout parts, external reference management (lock/break).
-- Joints/mates: rigid, revolute, slider, cylindrical, pin-slot, planar, ball, coincident, concentric, distance, angle, tangent, parallel, perpendicular, limits, gear, rack-pinion, screw, cam, belt/chain path, width/symmetric.
-- Assembly solver with DOF display and over-constraint diagnosis; drag to move under-constrained parts.
-- Ground/fix, component patterns (linear, circular, feature-driven), mirror components.
+- Flexible sub-assemblies; skeleton/master-sketch layout parts; external reference management (lock/break).
+- Joints: pin-slot, planar, tangent, cam, width/symmetric.
+- Mirror components.
 - Interference/clearance detection, hole alignment check.
-- Exploded views with step sequencing and trail lines; animate explode.
-- Motion study: drive joints by value/time, contact, collision detection, motion animation export (video).
-- Standard parts library: fasteners (bolts, screws, nuts, washers, pins), bearings; parametric generation by size; dimensional data sourced per §12 R13.
-- Large-assembly mode: lightweight loading, LOD, instancing, display simplification.
-- BOM: indented/flattened, quantity rollup, custom columns, export CSV/XLSX.
-- Component replacement, collect project (copy a document and all referenced files to a folder or archive).
+- Exploded views: trail lines, animated explode.
+- Motion: contact and collision detection, animation export to video.
+- Standard parts library: fasteners (bolts, screws, nuts, washers, pins), bearings; parametric by size.
+- Large-assembly mode: lightweight loading, LOD, display simplification.
+- BOM: indented view, custom columns, XLSX export.
+- Component replacement; collect project (copy a document and all referenced files to a folder or archive).
 
 **Exit criteria**: 500-component assembly loads in <10 s on reference hardware; 4-bar linkage animates; BOM exports correctly.
 
 ---
 
 ### Phase 5 — Construction & Woodworking Module
-**Upstream baseline (verify in audit)**: BIM workbench (walls, windows, doors, structural members with profiles, stairs, roofs, spaces, schedules, native IFC); Woodworking add-on (MIT: cabinets, dowels, drilling, cut lists) may be incorporated with credit.
+**Upstream baseline**: BIM workbench: walls (multi-material), windows, doors, slabs, levels, buildings, sites, spaces (rooms with areas), roofs, stairs, structural members, beams and columns with steel profiles (`Presets/profiles.csv`), rebar, trusses (`Arch_Truss`), frames, fences, panels with thickness and sheet cut layouts (`Arch_Panel`, `Arch_Panel_Sheet`), true-shape nesting (`Arch_Nest`), materials and multi-materials, schedules, reports, quantities, native IFC import/export. TechDraw and Spreadsheet for drawings and tables. The Woodworking add-on (MIT, not in tree) was reviewed and not incorporated (`docs/gaps/phase-5.md`).
 
 **Known gaps**: Primary differentiator. Framing generators, member/joinery model, region-switchable material libraries, 1D/2D cut optimization, framing drawings, build sequences. Implement as `src/Mod/Construction/`, building on BIM objects where possible so IFC export works.
 
@@ -237,8 +217,8 @@ Every change to an upstream file carries a `// FORK:` (C++) or `# FORK:` (Python
 - Engineered lumber: LVL, glulam, I-joists (generic profiles, user-extendable).
 - Sheet goods: plywood, OSB, MDF, particleboard, drywall, cement board; US 4×8 ft and metric 1220×2440 / 1200×2400 mm; thickness lists.
 - Hardwood stock (S4S, rough with board-foot calc).
-- Steel: studs/track, angle, channel, tube, I/W-beams (public standard dimensions).
-- Masonry/concrete: CMU, brick, concrete (poured volume), rebar.
+- Light-gauge steel studs and track (structural steel shapes come from BIM's profiles).
+- Masonry/concrete: CMU, brick, concrete (poured volume); rebar is BIM's.
 - Roofing, siding, insulation, membranes (area-based materials).
 - Hardware: hinges, drawer slides, shelf pins, connectors, joist hangers, anchors, fasteners (generic, user-extendable).
 - Per-material: actual dimensions, grain direction, density, cost (user price table), supplier SKU field.
@@ -246,7 +226,7 @@ Every change to an upstream file carries a `// FORK:` (C++) or `# FORK:` (Python
 
 **5.2 Structural members**
 - "Member" object: extruded profile along a path with material, grain orientation, end cuts (square, miter, bevel, compound, birdsmouth, plumb/seat), notches, holes.
-- Sheet object: panel with thickness, edge banding, grain.
+- Sheet parts: edge banding and grain on panels (BIM's `Arch_Panel` provides panels with thickness).
 
 **5.3 Joinery** (parametric, applied between members)
 - Butt, miter, lap, half-lap, dado, rabbet, groove, mortise-and-tenon, bridle, dovetail (through, half-blind), box/finger, dowel, biscuit, pocket screw, domino-style loose tenon, scarf.
@@ -255,15 +235,14 @@ Every change to an upstream file carries a `// FORK:` (C++) or `# FORK:` (Python
 **5.4 Generators** (parametric, editable after creation, produce members/sheets)
 - Wall framing: length, height, stud spacing (16"/24" OC or 400/600 mm), plates (single/double), openings (door/window with header sizing input, king/jack/cripple studs, sills), corners (3-stud, California), T-intersections, blocking rows.
 - Floor framing: joists, rim/band, blocking/bridging, beams, posts, openings.
-- Roof framing: gable, hip, shed, gambrel; rafters, ridge, collar ties, ceiling joists, overhangs, fascia; truss layout (common, scissor, attic) as members or placeholders.
+- Roof framing: gable, hip, shed, gambrel; rafters, ridge, collar ties, ceiling joists, overhangs, fascia. Trusses: BIM's `Arch_Truss`.
 - Stairs: total rise/run, rise/tread rules (configurable limits), stringers, treads, risers, landings, railings.
 - Decks: ledger, joists, beams, posts, footings, decking boards with gap, railings.
 - Foundations: slab, strip footing, pier/post footings, block wall; concrete volume.
 - Sheathing/cladding layers: auto-cover walls/roofs with sheet goods, show seams, cut openings.
 - Cabinets: frameless (32 mm system) and face-frame; base, wall, tall, drawer bank, corner; carcass construction options (dado/rabbet/butt/confirmat), back type, toe kick, doors (slab, shaker/frame-and-panel), drawers (box construction, slide clearance rules), shelves (fixed/adjustable), face frames; run layout along a wall with fillers.
 - Furniture primitives: tables, shelving units, workbenches (templates).
-- Building elements: walls (multi-layer assemblies), doors, windows, openings, floors/levels, rooms with area calc, roofs.
-- Templates: sheds (gable/lean-to/gambrel), garage, small house shell, kitchen cabinet run, bookcase, workbench.
+- Templates: sheds (gable/lean-to/gambrel), garage, kitchen cabinet run, bookcase, workbench. Building elements (walls, doors, windows, levels, rooms, roofs) and house shells are BIM's.
 
 **5.5 Analysis (advisory)**
 - Beam span/deflection checks from mechanics (simply supported, cantilever, continuous) using user-supplied design values; L/360-style limit selectable.
@@ -275,7 +254,7 @@ Every change to an upstream file carries a `// FORK:` (C++) or `# FORK:` (Python
 - BOM / purchase list: groups by material and stock length; quantities, cost total.
 - Cut list: per part, with dimensions, angles, grain, edge banding, part labels.
 - 1D stock optimization: optimal cuts from stock lengths with kerf, minimize waste/cost.
-- 2D sheet nesting: rectangular (guillotine) for panel saw; true-shape for CNC (shares Phase 11 engine), grain constraints, kerf, labels.
+- 2D sheet layout: rectangular (guillotine) for the panel saw, with grain constraints, kerf, labels. True-shape nesting: BIM's `Arch_Nest`.
 - Framing plans/elevations (auto-generated drawing views with member tags).
 - Step-by-step build sequence views (assembly order, exploded per step).
 - Export: CSV/XLSX, PDF shop drawings, labels (printable).
@@ -325,62 +304,61 @@ Every change to an upstream file carries a `// FORK:` (C++) or `# FORK:` (Python
 ---
 
 ### Phase 6 — Direct, Surface, Mesh & Freeform Modeling
-**Upstream baseline (verify in audit)**: Part and Surface workbenches (OCCT surfacing), Mesh/MeshPart (repair, mesh-to-shape), Part defeaturing.
+**Upstream baseline**: Part: extrude, revolve, loft, sweep, ruled surface, offset (3D and 2D), thickness, make face/solid, shape builder, section and cross-sections, projection on surface, curve networks, helix and spiral primitives, defeaturing, refine. Surface workbench: filling (G0/G1/G2 boundary patches), sections, curve-network surfaces, extend face, blend curve, curve on mesh, cut. Mesh/MeshPart: import, evaluate and repair (fill holes, normals, components, self-intersections), decimate, remesh (Gmsh), smoothing, booleans (union, intersection, difference), cut/trim/split, cross-sections, segmentation, curvature, flatten; mesh to shape (faceted; BIM `Arch_MeshToShape` for planar). Reverse Engineering: approximate plane, cylinder, sphere, B-spline surface from points or meshes. Inspection: deviation of shapes and meshes from a reference. Draft workbench: 3D wires and B-splines.
 
-**Known gaps**: Direct face editing, quick-modeling draw-and-pull mode, subdivision freeform, Manifold mesh booleans.
+**Known gaps**: listed below.
 
 **Target scope**
 - Direct editing (history-free or as features in history): face drag/offset (inference-driven "draw and pull" workflow for quick massing), move/rotate face, replace face, delete face (heal), resize fillet, make faces coplanar/concentric. Direct edits act only on faces the user selects; geometric relationships are kept only when the user explicitly selects or defines them. No automatic detection/maintenance of face relationships during edits (§12 R2).
 - Quick-modeling mode: draw shapes on faces, pull regions into solids, inference snapping (on-axis, parallel, perpendicular, on-face), groups/components with instance editing, tape-measure guides, follow-path.
-- Surface modeling: extrude, revolve, sweep, loft, boundary/patch, ruled, offset, fill (G0/G1/G2), extend, trim, untrim, knit/stitch, thicken to solid, surface from mesh.
-- Curve tools: 3D sketch, projected/composite/intersection curves, helix, spiral, curve through points, isocurve.
+- Surfaces: untrim; isocurves.
 - Freeform: subdivision-surface modeling (Catmull–Clark cage), edit vertices/edges/faces, crease, insert edge loop, bridge, symmetry, convert to B-rep. No T-junction local refinement; conversion methods restricted per §12 R4.
-- Mesh: import/repair (holes, normals, self-intersections), decimate, remesh, smooth, mesh boolean, mesh section to sketch, mesh-to-B-rep (planar/prismatic and faceted).
-- Analysis: curvature combs, zebra, draft, deviation.
+- Mesh: section to sketch; mesh to prismatic B-rep (fitted planes and cylinders joined into a solid).
+- Analysis: curvature combs on surfaces, zebra, draft.
 
 **Exit criteria**: Model a shell-style enclosure with G2 blend surfaces; convert a subdivision model to a valid closed solid; repair an STL and convert to solid.
 
 ---
 
 ### Phase 7 — Sheet Metal, Structural Frames, Molds, Advanced Parts
-**Upstream baseline (verify in audit)**: SheetMetal add-on (LGPL-2.1 per its release notes; verify LICENSE before merging): flanges, bends, unfold to DXF/SVG, K-factor tables.
+**Upstream baseline**: Not in tree: the SheetMetal add-on (LGPL-2.1 per its release notes; verify LICENSE before merging) provides flanges, bends, unfold to DXF/SVG, K-factor tables. In tree: BIM structure, beams and columns along sketch paths with standard and custom profiles (`Arch_Structure`, `BIM_Beam`, `Arch_StructuresFromSelection`, `Arch_Frame`); App links, PartDesign sub-shape binders and clones (derived/linked parts); Part mirror.
 
-**Known gaps**: Merge or depend on SheetMetal after license check; structural frames tool with cut list; mold tools.
+**Known gaps**: listed below.
 
 **Target scope**
-- Sheet metal: base flange/tab, edge flange, miter flange, contour flange, hem, jog, sketched bend, lofted bend, corner relief/closures, forming tools, unfold/refold, flat pattern with bend table/K-factor/bend deduction, flat pattern export DXF, bend lines on drawings, convert solid to sheet metal.
-- Structural frames: sketch-path-based profile insertion (standard and custom profiles), trim/extend between members, end caps, gussets, cut list with lengths and angles, weld beads (cosmetic).
+- Sheet metal: merge or depend on the SheetMetal add-on after the license check; then fill its gaps against: base flange/tab, edge, miter and contour flanges, hem, jog, sketched and lofted bends, corner relief/closures, forming tools, unfold/refold, flat pattern with bend table/K-factor/bend deduction and DXF export, bend lines on drawings, convert solid to sheet metal.
+- Structural frames: trim/extend between members, end caps, gussets, cut list with lengths and angles, weld beads (cosmetic).
 - Mold tools: parting line, parting surface, shut-off surfaces, core/cavity split, draft and undercut analysis.
-- Advanced: multi-body to assembly, derived/linked parts, part mirror, library features (reusable parametric feature sets with insertion references).
+- Multi-body to assembly; library features (reusable parametric feature sets with insertion references).
 
 **Exit criteria**: Sheet-metal enclosure flattens with correct flat length per K-factor; frame cut list matches geometry.
 
 ---
 
 ### Phase 8 — Data Management, Interop, Automation
-**Upstream baseline (verify in audit)**: STEP/IGES/BREP/STL/OBJ/DXF import/export, IFC, Python API, macros and recorder, headless `FreeCADCmd`.
+**Upstream baseline**: Import/export: STEP (with colors, STEPZ), IGES, BREP, STL, OBJ, PLY, OFF, AMF, 3MF, glTF, COLLADA .dae, 3DS (import), DXF and DWG (LibreDWG), SVG, IFC and IFC-JSON (IfcOpenShell), OpenSCAD, JT (import), point clouds, CSV and XLSX (spreadsheet import); PDF and SVG from TechDraw. Python API over every command, macro recorder, FeaturePython (script-defined parametric features), headless `FreeCADCmd`, C++ and Python module system, Addon Manager.
 
-**Known gaps**: Local version history and vault, plugin permissions sandbox, local-only plugin install (Phase 0), headless CLI rebrand. Audit glTF/3MF/COLLADA coverage.
+**Known gaps**: listed below; headless CLI rebrand.
 
 **Target scope**
 - Local version history per file (snapshots, diff of parameters/feature tree, restore); branching/merge of feature trees for single-user workflows.
 - Project vault: file references, where-used, rename/move with reference repair, revision states (WIP/released), part numbering schemes.
-- Full import/export: STEP AP203/214/242 (with PMI where feasible), IGES, STL, 3MF, OBJ, glTF, COLLADA .dae, FBX (via Assimp), DXF/DWG (LibreDWG), SVG, PDF, IFC (IfcOpenShell), XLSX/CSV for BOM/parameters.
-- Scripting: full Python API mirroring command set; macro recorder; script-defined features (custom parametric features in history); headless batch mode (CLI) for conversion/BOM generation.
-- Plugin SDK (C++ and Python), plugin manager installing from local files/folders only, sandboxed plugin permissions.
+- Export: STEP AP242 with PMI where feasible, FBX (via Assimp), XLSX for BOM and parameters.
+- Headless batch commands for conversion and BOM generation.
+- Plugin installs from local files/folders only, sandboxed plugin permissions.
 
 **Exit criteria**: Round-trip STEP preserves solids and colors; IFC export of shed opens in a BIM viewer; macro replays recorded session.
 
 ---
 
 ### Phase 9 — Visualization & Rendering
-**Upstream baseline (verify in audit)**: Material workbench and appearance system (1.0); no built-in photoreal renderer.
+**Upstream baseline**: Material workbench and appearance system (1.0) with appearance and pattern material cards; texture mapping of an image onto the view (`Std_TextureMapping`); clipping planes; no built-in photoreal renderer.
 
-**Known gaps**: Cycles integration as `src/Mod/Render/`; PBR viewport upgrades; CC0 appearance library.
+**Known gaps**: listed below.
 
 **Target scope**
 - Real-time viewport upgrades: PBR materials, environment lighting (HDRI), shadows, ambient occlusion, section caps, ground plane/reflections.
-- Appearance library (all textures and HDRIs CC0 or original, §12 R15) (woods with grain mapping aligned to member grain direction, metals, plastics, glass, paint, concrete), decals, texture mapping (planar/box/cylindrical/UV).
+- Appearance library (all textures and HDRIs CC0 or original, §12 R15) (woods with grain mapping aligned to member grain direction, metals, plastics, glass, paint, concrete), decals, per-object texture mapping (planar/box/cylindrical/UV).
 - Photoreal render: Cycles/OSPRay backend; CPU + GPU; progressive and final; denoising; cameras (DOF, FOV), lighting (sun position by location/date/time, area/point/spot), turntable and walkthrough animation, render queue.
 - Output: PNG/EXR images, MP4 video.
 
@@ -389,38 +367,38 @@ Every change to an upstream file carries a `// FORK:` (C++) or `# FORK:` (Python
 ---
 
 ### Phase 10 — Simulation (FEA) & Advanced Motion
-**Upstream baseline (verify in audit)**: FEM workbench: CalculiX/Elmer/other external solvers, Gmsh/Netgen meshing, result post-processing.
+**Upstream baseline**: FEM workbench: analysis container; solvers CalculiX, Elmer, Mystran, Z88 (external), solver control and run; materials (solid, fluid, reinforced, nonlinear mechanical; isotropic); constraints fixed, displacement, plane rotation, contact, tie, spring, rigid body, transform; loads force, pressure, self weight, centrifugal, bearing, gear, pulley, heat flux, temperature, body heat source and electromagnetic loads; beam and shell elements (1D/2D section geometry); meshing with Netgen and Gmsh (regions, boundary layers, groups, transfinite); CalculiX analysis types static, frequency, buckling, thermomechanical, electromagnetic, with geometric nonlinearity; post-processing pipelines with von Mises, principal stress, displacement and strain, clip, cut, contours, warp (deformed shape), glyphs, data along a line and at a point (probes), section print (reaction forces), linearized stresses.
 
-**Known gaps**: Orthotropic wood presets, fast 1D frame solver for construction checks, report export, UX alignment.
+**Known gaps**: listed below.
 
 **Target scope**
-- Pre-processing: study manager, material properties (isotropic and orthotropic for wood), fixtures (fixed, pinned, roller, frictionless), loads (force, pressure, gravity, torque, remote, bearing), contacts (bonded, no-penetration, friction), connectors (bolt, spring, pin), mesh controls (Netgen; local refinement), mesh quality report.
-- Analysis types: linear static, modal (frequency), buckling, thermal (steady/transient), basic nonlinear (geometric), drop/impact (later), fatigue (later).
-- Beam/frame analysis for structural members (fast 1D solver) — used by Phase 5 for framing checks.
-- Solver bridge to CalculiX (external process); job queue; progress/cancel.
-- Post-processing: stress (von Mises, principal), displacement, strain, factor of safety, deformed shape animation, probes, section plots, reports (PDF/HTML).
-- Advanced motion: rigid-body dynamics with forces, springs, dampers, gravity; reaction-force output for FEA load transfer.
+- Study manager; orthotropic wood material presets; torque and remote loads; bolt and pin connectors; mesh quality report.
+- Analysis types: drop/impact (later), fatigue (later).
+- Fast 1D beam/frame solver for structural members, used by Phase 5 for framing checks.
+- Job queue with progress and cancel.
+- Factor of safety results, deformed-shape animation, reports (PDF/HTML).
+- Rigid-body dynamics with forces, springs, dampers and gravity; reaction forces handed to FEA as loads.
 
 **Exit criteria**: Cantilever beam results within 2% of analytic deflection/stress; modal frequencies of a plate within 3% of reference.
 
 ---
 
 ### Phase 11 — CAM
-**Upstream baseline (verify in audit)**: CAM workbench: profile, pocket, drilling, engrave, V-carve, surface/waterline (OpenCAMLib), simulator, post-processors, new tool library (1.1). Adaptive operation present and enabled (inherited; §12 R3).
+**Upstream baseline**: CAM workbench: jobs with stock, work coordinate systems and fixtures; tool bits and tool libraries with import/export (1.1), tool controllers; operations facing, profile, pocket, adaptive (inherited, enabled; §12 R3), slot, drilling (peck), tapping, helix (bore), thread milling, deburr (chamfer), engrave, V-carve, 3D surface and waterline (OpenCAMLib); dressups tags, ramp entry, lead-in/out, dogbone, boundary, Z-correct, axis map, drag knife; simulators (stock removal), CAMotics bridge, inspect (G-code viewer), sanity check; Python post-processors for Grbl, LinuxCNC, Fanuc, Mach3/4, Heidenhain, Centroid, Marlin, OpenSBP and more, including a generic sheet-cutting post. True-shape nesting: BIM `Arch_Nest`.
 
-**Known gaps**: Nesting, construction-part→CNC automation, laser/plasma cutting operations (audit), setup sheets.
+**Known gaps**: listed below.
 
 **Target scope**
-- Setups: machine type (3-axis router/mill, lathe, laser/plasma/waterjet; 3+2 and 4/5-axis later), stock definition, work coordinate system, fixtures.
-- Tool library: end mills, ball, bull, V-bit, drills, chamfer, engraving, surfacing; feeds/speeds calculator by material; user-extendable; import/export.
-- 2D toolpaths: facing, contour/profile (with tabs, ramps, lead-in/out, multiple depths), pocket, trochoidal clearing, offset clearing with corner arc smoothing and feed reduction (constant-engagement clearing only after §12 R3 clearance), slot, drill/peck/bore/tap, chamfer, engraving, V-carve, thread milling.
-- 3D toolpaths: roughing (offset/trochoidal), parallel, contour/waterline, scallop, pencil, spiral, radial, rest machining.
+- Setups: lathe and laser/plasma/waterjet machine types; 3+2 and 4/5-axis later.
+- Feeds/speeds calculator by material.
+- 2D: offset clearing with corner arc smoothing and feed reduction (constant-engagement clearing only after §12 R3 clearance).
+- 3D toolpaths: offset roughing, scallop, pencil, spiral, radial, rest machining.
 - Lathe: facing, turning, grooving, threading, parting.
 - Cutting (laser/plasma/waterjet): kerf compensation, pierce points, lead-ins, common-line cutting.
-- Nesting: true-shape nesting of parts on sheets (shared with Phase 5); part labels; remnant tracking.
+- Nesting: part labels and remnant tracking on top of `Arch_Nest`.
 - Construction integration: auto-generate CNC toolpaths for cabinet parts (shelf-pin holes, dadoes, profile cuts) from Phase 5 parts.
-- Simulation: stock removal simulation, gouge and collision detection (tool, holder), cycle-time estimate.
-- Post-processors: scriptable post engine (Python/JS); stock posts for Grbl, LinuxCNC, and generic dialects labeled "Fanuc-compatible", "Haas-compatible", "Mach3/4-compatible" (nominative use only, §12 R16); G-code editor/viewer.
+- Simulation: gouge and collision detection (tool, holder), cycle-time estimate.
+- Post-processor naming: label vendor dialects "Fanuc-compatible", "Haas-compatible", "Mach3/4-compatible" (nominative use only, §12 R16); add a Haas-compatible post.
 - Setup sheets (PDF/HTML).
 
 **Exit criteria**: Cabinet side panel → nested sheet → toolpaths → G-code; simulation shows no gouges; G-code runs in a reference simulator (e.g., CAMotics) matching geometry.
@@ -467,11 +445,10 @@ Scope, depth (full PCB tool vs. interop with an external open-source ECAD tool),
 - Radial menu on right-drag: 8 context-dependent commands, user-configurable.
 - Inline value entry: typing a number during any drag/draw sets the active dimension.
 - Live preview for every feature before commit.
-- Model browser: search/filter, isolate, hide/show, color by status (OK/warning/error).
+- Model browser (upstream tree view has search, hide/show and error icons): isolate, color by status (OK/warning/error).
 - Error panel listing rebuild errors with "go to feature" and suggested repair.
 - Measurement always available (no command interruption).
 - Accessibility: full keyboard navigation, scalable UI (100–300%), high-contrast theme, screen-reader labels on panels.
-- Localization-ready strings (English first).
 - First-run tutorial and searchable help (original content).
 
 ---
