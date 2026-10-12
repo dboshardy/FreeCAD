@@ -36,6 +36,12 @@
         {"receiver": "Ledger", "inserted": "Joist", "fastener": "hardware.joist_hanger", "per_joint": 1},
         {"receiver": "Beam", "inserted": "Joist", "fastener": "hardware.nail_framing", "per_joint": 1},
         {"receiver": "Beam", "inserted": "Beam", "fastener": "hardware.nail_framing", "spacing": 400, "edge": 100},
+        {"receiver": "Rim joist", "inserted": "Guard post", "fastener": "hardware.carriage_bolt", "per_joint": 2},
+        {"receiver": "Joist", "inserted": "Guard post", "fastener": "hardware.carriage_bolt", "per_joint": 2},
+        {"receiver": "Guard rail", "inserted": "Guard post", "fastener": "hardware.deck_screw", "per_joint": 2},
+        {"receiver": "Guard rail", "inserted": "Baluster", "fastener": "hardware.deck_screw", "per_joint": 2},
+        {"receiver": "Rim joist", "inserted": "Baluster", "fastener": "hardware.deck_screw", "per_joint": 2},
+        {"receiver": "Joist", "inserted": "Baluster", "fastener": "hardware.deck_screw", "per_joint": 2},
         {"receiver": "Joist", "inserted": "Decking", "fastener": "hardware.deck_screw", "per_joint": 2}
       ]
     }

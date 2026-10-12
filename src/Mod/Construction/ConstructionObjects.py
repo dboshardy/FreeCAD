@@ -95,6 +95,7 @@ CHOICES = {
     "BlindSide": Cabinet.BLIND_SIDES,
     "OpenSides": Framing.OPEN_SIDES,
     "RoofType": Shed.ROOFS,
+    "Guards": ("auto", "yes", "no"),
 }
 
 
@@ -1007,12 +1008,24 @@ class DeckFeature(FramingFeature):
         (INTEGER, "BlockingRows", "Rows of blocking between the joists", _d.blocking_rows),
         _length("FootingSize", "Side of a square post footing, for the concrete", _d.footing[0]),
         _length("FootingDepth", "Depth of a post footing, for the concrete", _d.footing[1]),
+        (
+            ENUM,
+            "Guards",
+            "Guards on the open sides: auto = when the deck is higher than the rule set's "
+            "guard_min_rise_mm",
+            "auto",
+        ),
+        _length("GuardHeight", "Top of the guard rail above the decking", _d.guard_height),
+        _length("GuardPostSpacing", "Largest distance between guard posts", _d.guard_post_spacing),
+        _length("BalusterGap", "Largest clear gap between balusters", _d.max_baluster_gap),
     ]
     MATERIALS = [
         ("JoistMaterial", "joist", "lumber.metric.45x195", "Joists, ledger and rim"),
         ("BeamMaterial", "beam", "lumber.metric.45x195", "One beam ply"),
         ("PostMaterial", "post", "lumber.metric.95x95", "Posts"),
         ("DeckingMaterial", "decking", "lumber.metric.28x120", "Decking boards"),
+        ("RailMaterial", "rail", "lumber.metric.45x70", "Guard rails"),
+        ("BalusterMaterial", "baluster", "lumber.metric.45x45", "Balusters"),
     ]
 
     def model(self, obj):
@@ -1033,7 +1046,19 @@ class DeckFeature(FramingFeature):
             attached=bool(obj.Attached),
             blocking_rows=int(obj.BlockingRows),
             footing=(float(obj.FootingSize.Value), float(obj.FootingDepth.Value)),
+            guards=self.guards(obj),
+            guard_height=float(obj.GuardHeight.Value),
+            guard_post_spacing=float(obj.GuardPostSpacing.Value),
+            rail=lumber_section(obj.RailMaterial),
+            baluster=lumber_section(obj.BalusterMaterial),
+            max_baluster_gap=float(obj.BalusterGap.Value),
         )
+
+    def guards(self, obj):
+        if obj.Guards != "auto":
+            return obj.Guards == "yes"
+        rise = rule_set().get("guard_min_rise_mm")
+        return rise is not None and float(obj.Height.Value) > rise
 
     def concrete(self, obj):
         """[(what, m³)] of concrete to buy."""

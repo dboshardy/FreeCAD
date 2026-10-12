@@ -402,13 +402,35 @@ def deck(deck, rules, joist_values=None, beam_values=None, load_kpa=0.0):
         )
     )
     rise = rules.get("guard_min_rise_mm")
-    if rise is not None and deck.height > rise:
+    if deck.guards:
+        height_min = rules.get("guard_height_min_mm")
+        gap_max = rules.get("guard_opening_max_mm")
+        ok_height = height_min is None or deck.guard_height >= height_min - 1e-6
+        ok_gap = gap_max is None or deck.max_baluster_gap <= gap_max + 1e-6
+        out.append(
+            (
+                "Guards",
+                OK if ok_height and ok_gap else WARNING,
+                f"height {deck.guard_height:.0f} mm (rule min {height_min or 0:g}), baluster gap "
+                f"up to {deck.max_baluster_gap:.0f} mm (rule max {gap_max or 0:g})",
+            )
+        )
+        out.append(
+            (
+                "Guard posts",
+                REQUIRED,
+                "bolt the posts through the framing (the bolts are in the hardware list) and fix "
+                f"the {deck.guard_corners()} corner posts with brackets or blocking, to a detail "
+                "that resists the guard load where you build",
+            )
+        )
+    elif rise is not None and deck.height > rise:
         out.append(
             (
                 "Guards",
                 REQUIRED,
                 f"deck {deck.height:.0f} mm above grade (rule: above "
-                f"{rise:g} mm); not generated, add them",
+                f"{rise:g} mm); turn Guards on, or add them",
             )
         )
     return out

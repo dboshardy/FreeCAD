@@ -407,7 +407,7 @@ class TestConstructionApp(unittest.TestCase):
         # A cut through the centre line keeps the volume; the stock is long point
         # to long point: 2400 + 95/2 (tan 45 + tan 30).
         self.assertAlmostEqual(member.Shape.Volume, volume, delta=1)
-        (_, part), = member.Proxy.parts(member)
+        ((_, part),) = member.Proxy.parts(member)
         expected = 2400 + 47.5 * (1 + math.tan(math.radians(30)))
         self.assertAlmostEqual(part.cut_size()[0], expected, places=6)
         self.assertEqual(part.operations, ("end cut 45°", "end cut 30°"))
@@ -435,6 +435,18 @@ class TestConstructionApp(unittest.TestCase):
         self.assertEqual(captions, ["Step 1: Leg", "Step 2: Apron", "Step 3: Top"])
         shed = CO.make_shed(self.doc)
         self.assertLessEqual(len(CO.make_build_steps(shed).Views), CO.STEP_LIMIT)
+
+    def test_deck_guards_auto(self):
+        deck = CO.make_deck(self.doc)
+        names = {p.name for _, p in deck.Proxy.parts(deck)}
+        self.assertNotIn("Guard post", names)  # 600 mm: below the rule's 750
+        deck.Height = 1200
+        self.doc.recompute()
+        self.assertBuilt(deck)
+        names = {p.name for _, p in deck.Proxy.parts(deck)}
+        self.assertTrue({"Guard post", "Guard rail", "Baluster"} <= names)
+        fasteners = deck.Proxy.fasteners(deck, CO.fastening_schedule())
+        self.assertEqual(fasteners["hardware.guard_corner_bracket"], 2)
 
     def test_drawing(self):
         shed = CO.make_shed(self.doc)

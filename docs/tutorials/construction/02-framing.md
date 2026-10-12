@@ -206,6 +206,14 @@ along the house and **Projection** out from it.
 - **Decking** boards across the joists with **DeckingGap** between them, joints
   over joists and staggered between rows; the outer board ends within half a
   board of the rim face.
+- **Guards** on the open sides when the deck is higher than the rule set's
+  `guard_min_rise_mm` (**Guards** `auto`; or `yes` / `no`): posts bolted
+  through the framing, a top rail **GuardHeight** above the decking, balusters
+  with no clear gap wider than **BalusterGap**. The corner posts stand off the
+  framing's corner: the hardware list has a bracket for each, and the checks
+  ask you to detail the posts for the guard load where you build.
+- Set **Attached** off for a freestanding deck: a rim and a second beam
+  replace the ledger.
 
 ```pycon
 >>> deck = Framing.Deck(length=3600, projection=3000, height=600)
