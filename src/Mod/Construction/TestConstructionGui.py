@@ -76,6 +76,26 @@ class TestConstructionGui(unittest.TestCase):
         ]:
             self.assertIn(name, registered)
 
+    def test_tutorials_open_in_a_tab(self):
+        from PySide6 import QtCore, QtWidgets
+
+        mdi = FreeCADGui.getMainWindow().findChild(QtWidgets.QMdiArea)
+        FreeCADGui.runCommand("Construction_Tutorials")
+        process_events()
+        tab = next(w for w in mdi.subWindowList() if w.windowTitle() == "Construction tutorials")
+        try:
+            browser = tab.widget()
+            text = browser.toPlainText()
+            self.assertIn("Construction Workbench Tutorials", text)
+            self.assertNotIn("](", text)  # rendered, not raw Markdown
+            self.assertNotIn("SPDX", text)  # the licence comment stays hidden
+            # Following a link to another tutorial stays in the tab.
+            link = QtCore.QUrl("01-cabinets.md")
+            browser.setSource(browser.source().resolved(link))
+            self.assertIn("Tutorial 1: Cabinets", browser.toPlainText())
+        finally:
+            tab.close()
+
     def test_tools_menu_has_core_ux_commands(self):
         menus = FreeCADGui.getMainWindow().menuBar().actions()
         tools = next(a.menu() for a in menus if a.text().replace("&", "") == "Tools")

@@ -192,6 +192,33 @@ class DrawingCommand:
         doc.commitTransaction()
 
 
+def show_tutorials(index):
+    """Opens the tutorials' Markdown in a tab of the main window: Qt renders
+    it and follows the links between tutorials (no web engine needed; web
+    links open in the desktop browser). Returns the tab."""
+    import re
+
+    from PySide import QtCore, QtWidgets
+
+    class Browser(QtWidgets.QTextBrowser):
+        def loadResource(self, kind, url):
+            path = url.toLocalFile()
+            if not path.endswith(".md"):
+                return super().loadResource(kind, url)
+            with open(path, encoding="utf8") as f:  # Qt would show the licence comments
+                return re.sub(r"<!--.*?-->", "", f.read(), flags=re.S)
+
+    browser = Browser()
+    browser.setOpenExternalLinks(True)
+    browser.setSource(QtCore.QUrl.fromLocalFile(index))
+    mdi = FreeCADGui.getMainWindow().findChild(QtWidgets.QMdiArea)
+    tab = mdi.addSubWindow(browser)
+    tab.setWindowTitle(translate("Construction", "Construction tutorials"))
+    tab.show()
+    mdi.setActiveSubWindow(tab)
+    return tab
+
+
 class TutorialsCommand:
     def GetResources(self):
         return {
@@ -204,16 +231,14 @@ class TutorialsCommand:
     def Activated(self):
         import os
 
-        import Help
-
         here = os.path.dirname(os.path.abspath(__file__))
         for folder in (
             os.path.join(here, "Tutorials"),  # installed
             os.path.join(here, "..", "..", "..", "docs", "tutorials", "construction"),  # source
         ):
-            index = os.path.join(folder, "README.md")
+            index = os.path.normpath(os.path.join(folder, "README.md"))
             if os.path.exists(index):
-                Help.show(os.path.normpath(index))
+                show_tutorials(index)
                 return
         FreeCAD.Console.PrintError("Construction tutorials not found\n")
 
