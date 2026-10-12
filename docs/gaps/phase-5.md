@@ -95,7 +95,7 @@ advisory checks. Nothing here certifies building-code compliance:
 
 | # | Item | Status | Where / notes |
 |---|---|---|---|
-| 5.5.1 | Beam span / deflection (simple, cantilever, continuous) | Partial | `Checks.beam` (simply supported): headers (`HeaderLoad` kN/m), floor joists rim to rim (`FloorLoad` kPa, span/360), rafters on plan (`RoofLoad` kPa, span/240); plus birdsmouth depth, ridge depth vs. plumb cut, rafter ties. All need user design values (Fb, E) and loads, otherwise "not checked". No cantilever / continuous |
+| 5.5.1 | Beam span / deflection (simple, cantilever, continuous) | Partial | `Checks.beam` (simply supported): headers (`HeaderLoad` kN/m), floor joists rim to rim (`FloorLoad` kPa, span/360), rafters on plan (`RoofLoad` kPa, span/240); plus birdsmouth depth, ridge depth vs. plumb cut, rafter ties. All need user design values (Fb, E) and loads, otherwise "not checked". Cantilevers (deck joists past the beam; deflection limit on twice the overhang) and continuous two-span beams (`Checks.SUPPORTS`) are covered. No other continuous |
 | 5.5.2 | Rise/run, headroom, guardrail rule sets | Partial | Rule set framework (`Checks.py`, library category `rule_set`, preference `Mod/Construction/RuleSet`); shipped `rules.generic-example` covers stud spacing, stud slenderness (l/d), header deflection limit, cabinets needing wall anchors. Stairs: riser max, tread min, comfort rule 2R + T (Blondel), equal risers, stringer throat, handrail and guards "required" by rise / riser count; headroom not checked |
 
 ## 5.6 Outputs
