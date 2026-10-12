@@ -266,6 +266,19 @@ class TestConstructionApp(unittest.TestCase):
         self.assertIn("Concrete", column_a)
         self.assertTrue(any("Deck post footings" in c for c in column_a))
 
+    def test_slab(self):
+        slab = CO.make_slab(self.doc)
+        self.assertBuilt(slab)
+        self.assertAlmostEqual(slab.Shape.Volume / 1e9, 4.05, places=6)
+        self.assertEqual(slab.Shape.BoundBox.ZMin, -450)
+        slab.Thickness = 0  # a strip footing alone
+        self.doc.recompute()
+        self.assertBuilt(slab)
+        self.assertAlmostEqual(slab.Shape.Volume / 1e9, 5.4e6 * 450 / 1e9, places=6)
+        cut = CO.write_cut_list(self.doc)
+        column_a = [cut.getContents(f"A{r}").lstrip("'") for r in range(1, 50)]
+        self.assertTrue(any("Slab and footings" in c for c in column_a))
+
     def test_shed_roof(self):
         roof = CO.make_shed_roof(self.doc)
         self.assertBuilt(roof)

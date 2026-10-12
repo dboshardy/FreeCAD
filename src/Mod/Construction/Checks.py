@@ -436,6 +436,20 @@ def deck(deck, rules, joist_values=None, beam_values=None, load_kpa=0.0):
     return out
 
 
+def slab(slab, rules):
+    """Checks a Framing.Slab: its design is the user's."""
+    what = "slab and thickened edge" if slab.thickness else "strip footing"
+    return [
+        (
+            "Foundation design",
+            REQUIRED,
+            f"size the {what}, its reinforcement and the base under it for your soil, "
+            f"frost depth and loads ({slab.concrete_m3():.2f} m³ of concrete counted at "
+            f"{slab.edge_width:g} x {slab.edge_depth:g} mm edges); reinforcement is not generated",
+        )
+    ]
+
+
 def cabinet(cabinet, rules):
     """Checks a Cabinet.Cabinet. Returns [(check, status, detail)]."""
     if cabinet.kind in rules.get("anchor_cabinet_kinds", ()):

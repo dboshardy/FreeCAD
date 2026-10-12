@@ -805,6 +805,18 @@ FreeCADGui.addCommand(
         ),
     ),
 )
+FreeCADGui.addCommand(
+    "Construction_Slab",
+    FramingCommand(
+        "make_slab",
+        QT_TRANSLATE_NOOP("Construction_Slab", "Slab"),
+        QT_TRANSLATE_NOOP(
+            "Construction_Slab",
+            "Creates a concrete slab on grade with a thickened edge, or a strip footing "
+            "(Thickness 0); counted as concrete in the cut list",
+        ),
+    ),
+)
 FreeCADGui.addCommand("Construction_Sheathing", SheathingCommand())
 FreeCADGui.addCommand(
     "Construction_Deck",

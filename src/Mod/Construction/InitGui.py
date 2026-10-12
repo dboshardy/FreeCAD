@@ -18,6 +18,7 @@ class ConstructionWorkbench(Workbench):
             "Construction_BaseRun",
             "Construction_WallRun",
             "Construction_Member",
+            "Construction_Slab",
             "Construction_WallFrame",
             "Construction_FloorFrame",
             "Construction_GableRoof",

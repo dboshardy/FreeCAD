@@ -1314,6 +1314,49 @@ def parse_openings(text):
     return out
 
 
+@dataclass
+class Slab:
+    """Concrete slab on grade with a thickened edge, or with thickness 0 a
+    strip footing alone around the perimeter. x along the length, y along the
+    width from (0, 0); z = 0 at the top of the slab. Sizes and reinforcement
+    are for the user's design (soil, frost depth, loads)."""
+
+    length: float = 6000.0
+    width: float = 3600.0
+    thickness: float = 100.0  # 0 = no slab: a strip footing only
+    edge_width: float = 300.0  # thickened edge or strip footing
+    edge_depth: float = 450.0  # top of the slab to the bottom of the edge
+
+    def validate(self):
+        for name in ("length", "width", "edge_width", "edge_depth"):
+            if getattr(self, name) <= 0:
+                raise ValueError(f"{name} must be positive")
+        if self.thickness < 0:
+            raise ValueError("thickness must not be negative")
+        if self.edge_depth < self.thickness:
+            raise ValueError("edge depth must be at least the slab thickness")
+        if 2 * self.edge_width >= min(self.length, self.width):
+            raise ValueError("edges too wide for the slab")
+
+    def boxes(self):
+        """[(name, (dx, dy, dz), (x, y, z) of the low corner)]."""
+        self.validate()
+        L, W, t, e, d = self.length, self.width, self.thickness, self.edge_width, self.edge_depth
+        out = [("Slab", (L, W, t), (0.0, 0.0, -t))] if t > 0 else []
+        h = d - t  # the edge below the slab
+        if h > 0:
+            out += [
+                ("Edge", (L, e, h), (0.0, 0.0, -d)),
+                ("Edge", (L, e, h), (0.0, W - e, -d)),
+                ("Edge", (e, W - 2 * e, h), (0.0, e, -d)),
+                ("Edge", (e, W - 2 * e, h), (L - e, e, -d)),
+            ]
+        return out
+
+    def concrete_m3(self):
+        return sum(dx * dy * dz for _, (dx, dy, dz), _ in self.boxes()) / 1e9
+
+
 def parse_numbers(text):
     """'1500, 3000' -> [1500.0, 3000.0]."""
     try:

@@ -678,6 +678,14 @@ class TestFraming(unittest.TestCase):
 
 
 class TestFloor(unittest.TestCase):
+    def test_slab(self):
+        slab = Framing.Slab()  # 6000 x 3600 x 100, edges 300 wide, 450 deep
+        # Slab 2.16 m³; edges 350 below it around a 5400 x 3000 inside: 5.4 m² x 0.35.
+        self.assertAlmostEqual(slab.concrete_m3(), 2.16 + 1.89)
+        self.assertEqual(Checks.slab(slab, {})[0][1], Checks.REQUIRED)
+        with self.assertRaises(ValueError):
+            Framing.Slab(edge_depth=50).boxes()
+
     def test_floor_platform(self):
         floor = Framing.Floor(length=3658, width=3048, spacing=406.4, joist=(38.1, 184.15))
         pieces = floor.pieces()

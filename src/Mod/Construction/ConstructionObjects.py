@@ -1115,6 +1115,48 @@ def make_gable_roof(doc=None, name="GableRoof"):
     return _make_framing(GableRoofFeature, name, doc)
 
 
+class SlabFeature(FramingFeature):
+    """Concrete slab on grade with a thickened edge, or a strip footing alone
+    (Framing.Slab); counted as concrete, not in the cut list."""
+
+    IFC_TYPE = "Footing"
+    GROUP = "Slab"
+    _d = Framing.Slab()
+    PROPERTIES = [
+        _length("Length", "Along local X", _d.length),
+        _length("Width", "Along local Y", _d.width),
+        _length("Thickness", "Slab thickness; 0 = a strip footing only", _d.thickness),
+        _length("EdgeWidth", "Thickened edge or strip footing width", _d.edge_width),
+        _length("EdgeDepth", "Top of the slab to the bottom of the edge", _d.edge_depth),
+    ]
+
+    def model(self, obj):
+        return Framing.Slab(
+            *(float(getattr(obj, p).Value) for _, p, _, _ in self.PROPERTIES)
+        )
+
+    def parts(self, obj):
+        return []
+
+    def solids(self, obj):
+        return [
+            Part.makeBox(*size, FreeCAD.Vector(*pos)) for _, size, pos in self.model(obj).boxes()
+        ]
+
+    def fasteners(self, obj, schedule):
+        return {}
+
+    def concrete(self, obj):
+        return [("Slab and footings", self.model(obj).concrete_m3())]
+
+    def checks(self, obj, rules):
+        return Checks.slab(self.model(obj), rules)
+
+
+def make_slab(doc=None, name="Slab"):
+    return _make_framing(SlabFeature, name, doc)
+
+
 DEFAULT_SHEATHING = "sheet.metric.plywood.12"
 FLOOR_SHEATHING = "sheet.metric.plywood.18"
 
