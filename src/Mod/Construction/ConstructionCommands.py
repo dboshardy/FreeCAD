@@ -853,6 +853,18 @@ FreeCADGui.addCommand(
         ),
     ),
 )
+FreeCADGui.addCommand(
+    "Construction_Garage",
+    FramingCommand(
+        "make_garage",
+        QT_TRANSLATE_NOOP("Construction_Garage", "Garage"),
+        QT_TRANSLATE_NOOP(
+            "Construction_Garage",
+            "Creates a single garage template: walls on a slab, a 2400 mm door, gable roof; "
+            "edit it like the shed",
+        ),
+    ),
+)
 FreeCADGui.addCommand("Construction_CutList", CutListCommand())
 FreeCADGui.addCommand("Construction_Check", CheckCommand())
 FreeCADGui.addCommand("Construction_Drawing", DrawingCommand())

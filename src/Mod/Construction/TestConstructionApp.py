@@ -279,6 +279,16 @@ class TestConstructionApp(unittest.TestCase):
         column_a = [cut.getContents(f"A{r}").lstrip("'") for r in range(1, 50)]
         self.assertTrue(any("Slab and footings" in c for c in column_a))
 
+    def test_garage(self):
+        garage = CO.make_garage(self.doc)
+        self.assertBuilt(garage)
+        self.assertEqual(garage.Shape.BoundBox.ZMin, -450)  # the slab's edge
+        checks = [c for c, _, _ in garage.Proxy.checks(garage, CO.rule_set())]
+        self.assertIn("Slab: Foundation design", checks)
+        self.assertIn("Slab: Bottom plates", checks)
+        self.assertFalse([c for c in checks if c.startswith("Floor")])
+        self.assertEqual([w for w, _ in garage.Proxy.concrete(garage)], ["Slab"])
+
     def test_shed_roof(self):
         roof = CO.make_shed_roof(self.doc)
         self.assertBuilt(roof)

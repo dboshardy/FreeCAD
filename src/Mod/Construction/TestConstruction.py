@@ -1209,6 +1209,17 @@ class TestShedOptions(unittest.TestCase):
         with self.assertRaises(ValueError):
             Shed.parse_openings("roof: window 600x600 @ 100 sill 100")
 
+    def test_garage_on_slab(self):
+        garage = Shed.Shed(**Shed.GARAGE)
+        parts = {c.name: c for c in garage.components()}
+        self.assertNotIn("Floor", parts)
+        self.assertEqual(parts["Front wall"].origin[2], 0.0)  # on the slab's top
+        (door,) = parts["Front wall"].model.openings
+        self.assertEqual((door.x, door.width), (600.0, 2400.0))  # centred in 3600
+        slab = garage.slab_model()
+        self.assertEqual((slab.length, slab.width), (3600.0, 6000.0))
+        self.assertIsNone(Shed.Shed().slab_model())
+
 
 class TestStair(unittest.TestCase):
     def test_equal_risers_and_run(self):

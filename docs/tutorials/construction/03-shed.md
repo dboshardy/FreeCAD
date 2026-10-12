@@ -134,9 +134,32 @@ Print them, or switch to the TechDraw workbench and use **Export Page as PDF**.
 With nothing selected, the drawing shows every construction object in the
 document.
 
+## On a slab, and a garage
+
+Set **Foundation** to `slab` and the floor platform gives way to a concrete
+slab with a thickened edge (**SlabThickness**, **SlabEdgeWidth**,
+**SlabEdgeDepth**); the walls stand on its top. The cut list counts the
+concrete, and **Check** lists the foundation design and the bottom plates on
+concrete (treated lumber on a damp-proof course, anchored to the slab) as
+required.
+
+**Garage** makes the same object as a single garage: 3600 mm wide at the
+door, 6000 mm deep, on a slab, with a 2400 × 2100 mm door. Its door header
+is an LVL and carries the rafters: give **HeaderLoad** from your load
+calculation to have it checked.
+
+```pycon
+>>> import Shed
+>>> garage = Shed.Shed(**Shed.GARAGE)
+>>> [c.name for c in garage.components()]
+['Front wall', 'Back wall', 'Left wall', 'Right wall', 'Roof']
+>>> round(garage.slab_model().concrete_m3(), 2)
+4.05
+```
+
 ## Not in the template yet
 
-- Foundation (skids, piers), trim. (Roofing: set **RoofCovering**, tutorial 4.)
+- Skids and piers, trim. (Roofing: set **RoofCovering**, tutorial 4.)
 
 Add those yourself with **Member** and **Sheathing**, or as ordinary FreeCAD
 parts.

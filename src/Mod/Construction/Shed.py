@@ -5,8 +5,11 @@ wall), gable roof with the ridge along the front and gable studs over the side
 walls, sheathing on floor, walls, gable ends and roof.
 
 World coordinates: x along the front wall, y from the front wall's outer face
-to the back, z up from the bottom of the floor joists. The front and back walls
-run the full length; the side walls (gable ends) fit between them.
+to the back, z up from the bottom of the floor joists (on a slab: from the
+top of the slab). The front and back walls run the full length; the side
+walls (gable ends) fit between them.
+
+A garage is a shed on a slab with a wide door (GARAGE).
 """
 
 import re
@@ -18,6 +21,7 @@ import Sheathing
 
 WALLS = ("front", "back", "left", "right")
 ROOFS = ("gable", "shed")
+FOUNDATIONS = ("floor", "slab")
 
 
 @dataclass
@@ -55,9 +59,21 @@ class Shed:
     # None: one door of door_width x door_height centred in the front wall.
     openings: tuple = None
     roof: str = "gable"  # or "shed": mono-pitch, low at the front, the back wall taller
+    # "floor": a framed floor platform; "slab": walls on a concrete slab (top at
+    # z = 0) with a thickened edge, slab = (thickness, edge width, edge depth).
+    foundation: str = "floor"
+    slab: tuple = (100.0, 300.0, 450.0)
+
+    def slab_model(self):
+        """The Framing.Slab under a shed on a slab, else None."""
+        if self.foundation != "slab":
+            return None
+        return Framing.Slab(self.length, self.width, *self.slab)
 
     def validate(self):
         d = self.stud[1]
+        if self.foundation not in FOUNDATIONS:
+            raise ValueError(f"foundation must be one of {', '.join(FOUNDATIONS)}")
         if self.width <= 2 * d + 2 * self.stud[0]:
             raise ValueError("shed too narrow for its walls")
         if self.door_width >= self.length - 2 * d:
@@ -94,7 +110,8 @@ class Shed:
         self.validate()
         d = self.stud[1]
         L, W, H = self.length, self.width, self.wall_height
-        z_walls = self.joist[1] + self.floor_sheet
+        on_slab = self.foundation == "slab"
+        z_walls = 0.0 if on_slab else self.joist[1] + self.floor_sheet
         rise = self.shed_roof().rise() if self.roof == "shed" else 0.0
 
         def wall(length, openings=(), corners=(0.0, 0.0), height=H):
@@ -111,19 +128,15 @@ class Shed:
 
         side = W - 2 * d
         wrap = d + self.wall_sheet  # side sheathing covers the front/back wall ends
-        return [
-            Component(
-                "Floor",
-                Framing.Floor(
-                    length=L,
-                    width=W,
-                    spacing=self.joist_spacing,
-                    joist=self.joist,
-                    max_piece=self.max_piece,
-                ),
-                (0.0, 0.0, 0.0),
-                0.0,
-            ),
+        floor = Framing.Floor(
+            length=L,
+            width=W,
+            spacing=self.joist_spacing,
+            joist=self.joist,
+            max_piece=self.max_piece,
+        )
+        floors = [] if on_slab else [Component("Floor", floor, (0.0, 0.0, 0.0), 0.0)]
+        return floors + [
             # Front and back walls run through; the side walls butt against them,
             # so each end gets a corner stud backing the inside corner.
             Component(
@@ -184,6 +197,17 @@ class Shed:
             "tie": self.tie,
             "gable_stud": self.stud,
         }
+
+
+# A single garage: 3.6 m wide at the door, 6 m deep, a 2400 x 2100 door, on a
+# slab. The door header carries the rafters: choose it for your loads.
+GARAGE = {
+    "length": 3600.0,
+    "width": 6000.0,
+    "door_width": 2400.0,
+    "door_height": 2100.0,
+    "foundation": "slab",
+}
 
 
 def sheathing_surfaces(component):
