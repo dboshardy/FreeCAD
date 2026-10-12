@@ -1041,6 +1041,21 @@ def to_world(box, component):
     return [min(xs), min(ys), lo[2] + oz], [max(xs), max(ys), hi[2] + oz]
 
 
+class TestSheathingOnFraming(unittest.TestCase):
+    def test_joints_on_framing(self):
+        # 1220 sheets on studs at 600: cut to 1200 so every joint is on a stud.
+        wall = Sheathing.surfaces(Framing.Wall(length=3600, spacing=600))[0]
+        self.assertEqual(
+            [p[2] for p in Sheathing.cover_surface(wall, (2440, 1220))], [1200, 1200, 1200]
+        )
+        # 2440 sheets on joists at 400: end joints at 2400; staggered rows start at 1200.
+        floor = Sheathing.surfaces(Framing.Floor())[0]
+        joists = set(floor.supports)
+        for u, v, du, dv in Sheathing.cover_surface(floor, (2440, 1220)):
+            end = u + du
+            self.assertTrue(end in joists or abs(end - 3600) < 1e-6, (u, du))
+
+
 class TestShed(unittest.TestCase):
     """Phase 5 exit test: a 3.6 x 3.0 m gable shed, quantities against a hand count."""
 
