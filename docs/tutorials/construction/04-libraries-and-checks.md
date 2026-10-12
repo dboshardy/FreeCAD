@@ -79,9 +79,12 @@ from the nominal size when the item has one, as US lumber is sold).
 ```
 
 Area materials (`"category": "area_material"`: shingles, underlayment, house
-wrap) are bought by coverage: `coverage_m2` per bundle or roll and a `waste`
-allowance. Set a **Covering** on a Sheathing object, or **RoofCovering** and
-**WallCovering** on a shed, and the cut list adds a **Coverings** section:
+wrap, siding, cladding, insulation) are bought by coverage: `coverage_m2` per
+bundle, box, plank or roll and a `waste` allowance. Set a **Covering** on a
+Sheathing object, or **RoofCovering**, **WallCovering** (wrap),
+**WallCladding** and **WallInsulation** on a shed, and the cut list adds a
+**Coverings** section. Insulation is counted on the whole wall area less the
+openings (the studs are not taken off, so it errs high):
 
 ```pycon
 >>> CutList.covering_units(items["area.roofing.asphalt_shingles"], 30)  # 30 m² + 15 %

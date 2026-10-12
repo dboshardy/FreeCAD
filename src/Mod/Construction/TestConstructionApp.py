@@ -222,6 +222,8 @@ class TestConstructionApp(unittest.TestCase):
         CO.set_document_region(self.doc, "all")
         shed = CO.make_shed(self.doc)
         shed.RoofCovering = "area.roofing.asphalt_shingles"
+        shed.WallCladding = "area.siding.vinyl"
+        shed.WallInsulation = "area.insulation.batt"
         saved = CO._items
         try:
             CO._items = {**saved}
@@ -238,6 +240,8 @@ class TestConstructionApp(unittest.TestCase):
         # Two roof slopes of 3600 x 2012: 14.5 m² + 15 % at 3.1 m² -> 6 bundles, 25 each.
         self.assertEqual(cut.getContents(f"G{shingles}"), "6")
         self.assertEqual(cut.get(f"J{shingles}"), 150)
+        self.assertIn("Vinyl siding, box of 2 squares (200 sq ft)", rows)
+        self.assertTrue(any(name.startswith("Insulation batts") for name in rows))
         total = rows["Total cost"]
         self.assertIn("without a price", cut.getContents(f"B{total}"))
 
