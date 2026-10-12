@@ -382,6 +382,36 @@ class TestConstructionApp(unittest.TestCase):
         self.doc.recompute()
         self.assertBuilt(shed)
 
+    def test_corner_joints_solids(self):
+        build = CO.make_build(self.doc)
+        ply = "sheet.metric.plywood.18"
+        CO.add_panel(build, "Side", ply, 400, 200, (0, 0, 0), "y", "x")
+        CO.add_panel(build, "Front", ply, 500, 200, (0, 0, 0), "x", "y")
+        whole = 400 * 200 * 18 + 500 * 200 * 18 - 18 * 18 * 200  # the corner once
+        for joint in ("joint.miter", "joint.box_joint", "joint.dovetail"):
+            build.Proxy.set_joint(build, 2, "Side", "Front", joint)
+            self.doc.recompute()
+            self.assertBuilt(build)
+            # Each joint shares the overlapping corner between the two boards.
+            self.assertAlmostEqual(build.Shape.Volume, whole, delta=1, msg=joint)
+            a, b = build.Shape.childShapes()
+            self.assertLess(a.common(b).Volume, 1, joint)
+
+    def test_member_end_cuts(self):
+        member = CO.make_member(doc=self.doc)  # 45 x 95 stud, 2400 long
+        volume = member.Shape.Volume
+        member.StartCut = 45
+        member.EndCut = 30
+        self.doc.recompute()
+        self.assertBuilt(member)
+        # A cut through the centre line keeps the volume; the stock is long point
+        # to long point: 2400 + 95/2 (tan 45 + tan 30).
+        self.assertAlmostEqual(member.Shape.Volume, volume, delta=1)
+        (_, part), = member.Proxy.parts(member)
+        expected = 2400 + 47.5 * (1 + math.tan(math.radians(30)))
+        self.assertAlmostEqual(part.cut_size()[0], expected, places=6)
+        self.assertEqual(part.operations, ("end cut 45°", "end cut 30°"))
+
     def test_drawing(self):
         shed = CO.make_shed(self.doc)
         page = CO.make_drawing([shed], self.doc)

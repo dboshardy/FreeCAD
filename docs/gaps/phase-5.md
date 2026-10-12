@@ -65,14 +65,14 @@ advisory checks. Nothing here certifies building-code compliance:
 
 | # | Item | Status | Where / notes |
 |---|---|---|---|
-| 5.2.1 | Member: profile along a path, material, grain, end cuts | Partial | `Construction_Member` (`Member.py`, `MemberFeature`): lumber section along a linked straight edge (follows sketch edits) or Start/End points; Roll about its axis; grain along the length. Square end cuts only: no miter, bevel, birdsmouth, notches, holes |
+| 5.2.1 | Member: profile along a path, material, grain, end cuts | Partial | `Construction_Member` (`Member.py`, `MemberFeature`): lumber section along a linked straight edge (follows sketch edits) or Start/End points; Roll about its axis; grain along the length. End cuts at an angle across the depth at either end (`StartCut`, `EndCut`: miters, plumb cuts), stock counted long point to long point, listed as operations. No compound (bevel and miter) cuts, notches or holes on single members (builds have them through joints) |
 | 5.2.2 | Sheet object: panel with thickness, edge banding, grain | Partial | Upstream `ArchPanel`; no edge banding / grain |
 
 ## 5.3 Joinery
 
 | # | Item | Status | Where / notes |
 |---|---|---|---|
-| 5.3.1 | Joint types (butt … scarf) | Partial | `Joinery.py` for every construction object: contact detection between axis-aligned parts, housings (dado, groove, rabbet, housed end), half laps, fastened joints, matched by part-name rules. Used by framing so far. Missing: mortise and tenon, dovetail, box joint, miter, scarf; cabinets not yet on joinery; joints between separate objects |
+| 5.3.1 | Joint types (butt … scarf) | Partial | `Joinery.py` for every construction object and the joint library: butt (screws, nails, confirmat, pocket screws, dowels, biscuits, glue), housing (dado, groove, rabbet), mortise and tenon, loose tenon, half lap, bridle, box joint, dovetail (drawn as square fingers, listed as dovetails), miter (triangular cuts), with modelled holes for dowels and screws; cabinets and builds choose joints from the library. Missing: scarf joints, joints between separate objects |
 | 5.3.2 | Fastener placement rules, hardware BOM | Partial | Fastening schedules as library data (`fastening.generic-example`, preference `Mod/Construction/FasteningSchedule`): walls (studs, plates, kings, jacks, headers, cripples, sills), floors (rims), decks (joist hangers at the ledger, rim nails, beam nails, deck screws) counted into the cut list's Hardware. Rafters, stairs and joints between objects not counted |
 
 ## 5.4 Generators

@@ -18,6 +18,11 @@ class Part:
     pos: tuple  # (x, y, z) of the minimum corner
     grain: str | None = None  # axis the grain runs along: "x", "y", "z" or None
     operations: tuple = ()  # shop work for the cut list, e.g. "mortise 80 x 7 x 25 deep"
+    # A pocket that is not its whole box: ("triangle", a, ca, b, cb) is the
+    # prism along the third axis whose cross-section is the triangle of the
+    # box's (a, b) rectangle with its right angle at the corner (ca, cb)
+    # (0 = the low side, 1 = the high side): a miter's waste.
+    profile: tuple = ()
 
     def lo(self, k):
         return self.pos[k]
