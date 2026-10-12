@@ -20,6 +20,7 @@
     {"id": "hardware.confirmat_7x50", "category": "hardware", "region": "generic", "name": "Confirmat screw, 7 x 50 mm"},
     {"id": "hardware.biscuit_20", "category": "hardware", "region": "generic", "name": "Biscuit, No. 20"},
     {"id": "hardware.figure8", "category": "hardware", "region": "generic", "name": "Figure-8 tabletop fastener, with screws"},
-    {"id": "hardware.z_clip", "category": "hardware", "region": "generic", "name": "Z-clip tabletop fastener, with screw"}
+    {"id": "hardware.z_clip", "category": "hardware", "region": "generic", "name": "Z-clip tabletop fastener, with screw"},
+    {"id": "hardware.edge_banding", "category": "hardware", "region": "generic", "name": "Edge banding, metres"}
   ]
 }

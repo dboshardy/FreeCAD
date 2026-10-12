@@ -180,6 +180,7 @@ pair per drawer and two pins at each end of a shelf. For the 800 mm cabinet:
 4 Concealed hinge, 35 mm cup, full overlay
 12 Confirmat screw, 7 x 50 mm
 1 Drawer slide pair, side mount, full extension, 550 mm
+9.9 Edge banding, metres
 4 Shelf pin, 5 mm
 ```
 
@@ -187,9 +188,17 @@ The joints also add shop work to the cut list's **Operations** column, such
 as the hinge cups in each door:
 
 ```pycon
->>> sorted({text for _, text in joined.operations})
+>>> sorted({text for _, text in joined.operations if not text.startswith("edge band")})
 ['1 confirmat hole', '2 hinge cups, 35 mm', '2 shelf pin holes, 5 mm', '4 confirmat holes']
+>>> [p.operations for p in joined.boxes if p.name == "Door 1"]
+[('2 hinge cups, 35 mm', 'edge band 397', 'edge band 397', 'edge band 614', 'edge band 614')]
 ```
+
+**EdgeBanding** (on by default) bands the edges that show: the fronts all
+round and the front edges of the sides, bottom, top and shelves. Each banded
+edge is an operation in the cut list, and the hardware list gets the banding
+in metres: 9.0 m of edges plus 50 mm per edge to trim flush. Parts are cut to
+their finished size; with thick banding, take its thickness off the panel.
 
 ## 5. Materials
 

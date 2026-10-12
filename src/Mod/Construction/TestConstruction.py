@@ -362,6 +362,21 @@ class TestHardware(unittest.TestCase):
         bottom = next(p for p in dado.joined(items).boxes if p.name == "Bottom")
         self.assertEqual(bottom.size[0], dado.inner_width() + 2 * 6)  # 6 mm into each side
 
+    def test_edge_banding(self):
+        items = Library.load()
+        c = Cabinet.Cabinet()  # 600 base, one door, one shelf
+        joined = c.joined(items)
+        door = next(p for p in joined.boxes if p.name == "Door")
+        self.assertEqual(door.operations.count("edge band 597"), 2)
+        self.assertEqual(door.operations.count("edge band 767"), 2)
+        # Sides 2 x 770, bottom 564, shelf 562, door 2 x 597 + 2 x 767 = 5394 mm,
+        # 8 edges + 50 mm each to trim = 5794 -> 5.8 m.
+        self.assertEqual(joined.fasteners["hardware.edge_banding"], 5.8)
+        stretcher = next(p for p in joined.boxes if p.name == "Front stretcher")
+        self.assertFalse([op for op in stretcher.operations if op.startswith("edge band")])
+        bare = Cabinet.Cabinet(edge_banding=False).joined(items)
+        self.assertNotIn("hardware.edge_banding", bare.fasteners)
+
     def test_run_joins_each_cabinet(self):
         items = Library.load()
         run = Cabinet.Run(Cabinet.Cabinet(), length=1200, widths=[600, 600])
