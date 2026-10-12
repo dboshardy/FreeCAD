@@ -223,6 +223,7 @@ set's `guard_min_rise_mm`, and checks the joists and beam when you enter
 >>> for check, status, _ in Checks.deck(Framing.Deck(height=1200), rules):
 ...     print(f"{check}: {status}")
 Joists: not checked
+Joist cantilever: not checked
 Beam: not checked
 Ledger attachment: required
 Footings: required
