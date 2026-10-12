@@ -279,6 +279,14 @@ class TestConstructionApp(unittest.TestCase):
         column_a = [cut.getContents(f"A{r}").lstrip("'") for r in range(1, 50)]
         self.assertTrue(any("Slab and footings" in c for c in column_a))
 
+    def test_shaker_cabinet(self):
+        cabinet = CO.make_cabinet("base", self.doc)
+        cabinet.DoorStyle = "shaker"
+        self.doc.recompute()
+        self.assertBuilt(cabinet)
+        names = [p.name for _, p in cabinet.Proxy.parts(cabinet)]
+        self.assertIn("Door panel", names)
+
     def test_garage(self):
         garage = CO.make_garage(self.doc)
         self.assertBuilt(garage)

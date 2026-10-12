@@ -377,6 +377,23 @@ class TestHardware(unittest.TestCase):
         bare = Cabinet.Cabinet(edge_banding=False).joined(items)
         self.assertNotIn("hardware.edge_banding", bare.fasteners)
 
+    def test_shaker_doors(self):
+        items = Library.load()
+        c = Cabinet.Cabinet(door_style="shaker")  # 600 base: one 597 x 767 door
+        joined = c.joined(items)
+        door = {p.name: p for p in joined.boxes if p.name.startswith("Door")}
+        self.assertEqual(sorted(door), ["Door panel", "Door rail", "Door stile"])
+        rail, panel = door["Door rail"], door["Door panel"]
+        self.assertEqual(rail.size[0], 597 - 2 * 60)  # between the stiles, doweled
+        # The panel is housed 10 mm into the rails and stiles.
+        self.assertEqual((panel.size[0], panel.size[2]), (477 + 20, 647 + 20))
+        self.assertEqual(panel.size[1], c.back_thickness)
+        hw = dict(CutList.hardware(items, fasteners=joined.fasteners))
+        self.assertEqual(hw[items["hardware.hinge"]["name"]], 2)  # on the stile
+        self.assertNotIn("edge band", " ".join(rail.operations))
+        with self.assertRaises(ValueError):  # 247 mm door, 2 x 120 frame + groove
+            Cabinet.Cabinet(door_style="shaker", width=250, frame_width=120).parts()
+
     def test_run_joins_each_cabinet(self):
         items = Library.load()
         run = Cabinet.Run(Cabinet.Cabinet(), length=1200, widths=[600, 600])

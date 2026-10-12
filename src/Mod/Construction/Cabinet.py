@@ -23,6 +23,7 @@ BLIND_SIDES = ("left", "right")
 SLIDE_STEP = 50.0  # drawer slides are sold in 50 mm length steps
 MIN_SLIDE = 250.0
 MIN_DRAWER_BOX_HEIGHT = 60.0
+DOOR_STYLES = ("slab", "shaker")
 BANDED_ALL_ROUND = ("door", "drawer_front", "blind_panel")
 BANDING_TRIM = 50.0  # extra per edge, trimmed flush after gluing
 
@@ -61,6 +62,11 @@ class Cabinet:
     # Edge banding on the edges that show: fronts all round, the front edges
     # of the sides, bottom, top and shelves.
     edge_banding: bool = True
+    # Doors: "slab" (one panel) or "shaker" (stiles and rails doweled together,
+    # a thin panel, of the back's thickness, housed in grooves).
+    door_style: str = "slab"
+    frame_width: float = 60.0  # shaker stiles and rails
+    panel_groove: float = 10.0  # depth of the shaker panel's grooves
 
     # ------------------------------------------------------------- derived
 
@@ -146,6 +152,17 @@ class Cabinet:
             raise ValueError("shelves and doors must not be negative")
         if self.fronts == "drawers" and self.drawers < 1:
             raise ValueError("a drawer bank needs at least one drawer")
+        if self.door_style not in DOOR_STYLES:
+            raise ValueError(f"door style must be one of {', '.join(DOOR_STYLES)}")
+        if self.door_style == "shaker":
+            if self.frame_width <= self.panel_groove or self.panel_groove <= 0:
+                raise ValueError("shaker frames need a groove narrower than the frame")
+            if self.back_thickness >= self.thickness:
+                raise ValueError("shaker panel (the back's thickness) must be thinner than the door")
+            heights = [h - l - self.door_gap for r, l, h in self.slots() if r == "door"]
+            short = min([self.door_width()] + heights)
+            if short <= 2 * self.frame_width + self.panel_groove:
+                raise ValueError("doors too small for the shaker frame")
         if self.blind_side not in BLIND_SIDES:
             raise ValueError("blind side must be left or right")
         if self.blind_width < 0:
@@ -244,17 +261,26 @@ class Cabinet:
             for part in ("Left side", "Right side", "Bottom", "Top", "Back stretcher")
         ]
         n, hinge = self.door_count(), "joint.concealed_hinge"
+        # "Door 1*": a slab door, or the stile of a shaker door that meets the side.
         if n == 1:  # hung from the side away from a blind panel
             rows.append(
                 (
                     "Right side" if self.blind_width and self.blind_side == "left" else "Left side",
-                    "Door",
+                    "Door*",
                     hinge,
                     "",
                 )
             )
         else:
-            rows += [("Left side", "Door 1", hinge, ""), ("Right side", f"Door {n}", hinge, "")]
+            rows += [("Left side", "Door 1*", hinge, ""), ("Right side", f"Door {n}*", hinge, "")]
+        if self.door_style == "shaker":
+            # Panel into the rails first, so its corners sit in the stiles' grooves.
+            groove = f"depth={self.panel_groove:g}"
+            rows += [
+                ("Door*rail", "Door*panel", "joint.dado", groove),
+                ("Door*stile", "Door*panel", "joint.dado", groove),
+                ("Door*stile", "Door*rail", "joint.dowel", ""),
+            ]
         pins = f"gap={self.shelf_clearance:g}"
         rows += [
             (side, "Shelf *", "joint.shelf_pins", pins) for side in ("Left side", "Right side")
@@ -298,7 +324,7 @@ class Cabinet:
         for i in range(n):
             label = "Door" if n == 1 else f"Door {i + 1}"
             pos = (x0 + gap / 2 + i * (dw + gap), -t, low + gap / 2)
-            out.append(Part(label, "door", (dw, t, front_h), pos, "z"))
+            out += self._door(label, (dw, t, front_h), pos)
         if b:
             # Blind panel: flush with the cabinet's blind edge, half a gap to the doors.
             x = 0.0 if self.blind_side == "left" else self.width - b + gap / 2
@@ -321,6 +347,27 @@ class Cabinet:
             pos = (t + self.shelf_clearance, self.shelf_setback, z)
             out.append(Part(f"Shelf {i + 1}", "shelf", size, pos, "x"))
         return out
+
+    def _door(self, label, size, pos):
+        """A slab door, or a shaker door's stiles, rails and panel (named
+        "<label> stile" ...)."""
+        if self.door_style == "slab":
+            return [Part(label, "door", size, pos, "z")]
+        (w, t, h), (x, y, z), s = size, pos, self.frame_width
+        pt = self.back_thickness
+        return [
+            Part(f"{label} stile", "door_frame", (s, t, h), (x, y, z), "z"),
+            Part(f"{label} stile", "door_frame", (s, t, h), (x + w - s, y, z), "z"),
+            Part(f"{label} rail", "door_frame", (w - 2 * s, t, s), (x + s, y, z), "x"),
+            Part(f"{label} rail", "door_frame", (w - 2 * s, t, s), (x + s, y, z + h - s), "x"),
+            Part(
+                f"{label} panel",
+                "door_panel",
+                (w - 2 * s, pt, h - 2 * s),
+                (x + s, y + (t - pt) / 2, z + s),
+                "z",
+            ),
+        ]
 
     def _drawer_parts(self, label, low, high):
         t, gap, tb, td = self.thickness, self.door_gap, self.back_thickness, self.drawer_thickness
