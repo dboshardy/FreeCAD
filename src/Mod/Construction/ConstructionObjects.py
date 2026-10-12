@@ -2110,6 +2110,12 @@ def _page(doc, name, title):
             "title": title,
             "part_material": "Timber and sheet goods: see the cut list",
             "document_type": "Construction drawing",
+            # The template's sample entries: left for the user to fill in.
+            "creator": "",
+            "approval_person": "",
+            "general_tolerances": "",
+            "revision_index": "",
+            "sheet_number": "",
         }
     )
     template.EditableTexts = texts
@@ -2129,8 +2135,14 @@ def make_drawing(objects, doc=None):
     page = _page(doc, "FramingDrawing", title)
     group = doc.addObject("TechDraw::DrawProjGroup", "FramingViews")
     page.addView(group)
+    group.X, group.Y = 170, 160  # left of centre: the tags stand to its right
     group.Source = list(objects)
-    group.ScaleType = "Automatic"
+    # A set scale, not "Automatic" (which TechDraw settles only once the page
+    # is shown): front and right side by side, top above, on an A3 sheet.
+    box = _bound_box(objects)
+    group.ScaleType = "Custom"
+    group.Scale = fit_scale([(box.XLength + box.YLength, box.ZLength + box.YLength)], [(300, 200)])
+    _set_scale_text(page, group.Scale)
     group.addProjection("Front")
     group.Anchor.Direction = FreeCAD.Vector(0, -1, 0)  # looking at the front (y = 0) face
     group.Anchor.RotationVector = FreeCAD.Vector(1, 0, 0)
@@ -2148,6 +2160,242 @@ def make_drawing(objects, doc=None):
     table_page.addView(table)
     doc.recompute()
     _add_tags(page, group.Anchor, objects)
+    _add_overall_dimensions(page, group.Anchor)
+    _section_page(doc, objects, group.Anchor, title)
+    doc.recompute()
+    return page
+
+
+SCALES = (1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000)
+
+
+def _set_scale_text(page, scale):
+    """The title block's scale field, e.g. "1 : 50"."""
+    texts = page.Template.EditableTexts
+    texts["scale"] = f"1 : {round(1 / scale):d}"
+    page.Template.EditableTexts = texts
+
+
+def fit_scale(sizes, room):
+    """The largest standard drawing scale 1:n at which every (width, height)
+    in sizes (mm) fits its (width, height) in room (mm)."""
+    for n in SCALES:
+        if all(w / n <= rw and h / n <= rh for (w, h), (rw, rh) in zip(sizes, room)):
+            return 1.0 / n
+    return 1.0 / SCALES[-1]
+
+
+def _bound_box(objects):
+    box = objects[0].Shape.BoundBox
+    for obj in objects[1:]:
+        box.add(obj.Shape.BoundBox)
+    return box
+
+
+def _view_vertices(view, wait=10.0):
+    """[(index, x, y)] of a TechDraw view's vertices (unscaled view coordinates).
+    With the GUI up, TechDraw finds the lines in a background thread: wait up
+    to `wait` seconds for them."""
+    if FreeCAD.GuiUp:
+        import time
+
+        from PySide import QtGui
+
+        end = time.time() + wait
+        while time.time() < end and not _vertex_count(view):
+            QtGui.QApplication.processEvents()
+            time.sleep(0.05)
+    out, i = [], 0
+    while True:
+        try:
+            p = view.getVertexByIndex(i).Point
+        except Exception:  # past the last vertex
+            return out
+        out.append((i, p.x, p.y))
+        i += 1
+
+
+def _vertex_count(view):
+    try:
+        view.getVertexByIndex(0)
+        return 1
+    except Exception:  # no lines yet
+        return 0
+
+
+def _add_overall_dimensions(page, view):
+    """Overall width and height dimensions on a view, between its extreme vertices."""
+    points = _view_vertices(view)
+    if len(points) < 2:
+        return []
+    doc = page.Document
+    out = []
+    for name, kind, low, high in (
+        (
+            "OverallWidth",
+            "DistanceX",
+            min(points, key=lambda q: (q[1], q[2])),
+            max(points, key=lambda q: (q[1], -q[2])),
+        ),
+        (
+            "OverallHeight",
+            "DistanceY",
+            min(points, key=lambda q: (q[2], -q[1])),
+            max(points, key=lambda q: (q[2], q[1])),
+        ),
+    ):
+        dim = doc.addObject("TechDraw::DrawViewDimension", name)
+        dim.Type = kind
+        dim.MeasureType = "Projected"
+        dim.FormatSpec = "%.0f"  # whole millimetres
+        dim.References2D = [(view, f"Vertex{low[0]}"), (view, f"Vertex{high[0]}")]
+        page.addView(dim)
+        # Beside the view, 16 mm clear of it on paper (X, Y in page millimetres).
+        xs, ys = [q[1] for q in points], [q[2] for q in points]
+        clear = 16 / view.getScale()
+        if kind == "DistanceX":
+            dim.X, dim.Y = (min(xs) + max(xs)) / 2 * view.getScale(), (
+                min(ys) - clear
+            ) * view.getScale()
+        else:
+            dim.X, dim.Y = (min(xs) - clear) * view.getScale(), (
+                min(ys) + max(ys)
+            ) / 2 * view.getScale()
+        out.append(dim)
+    return out
+
+
+def _section_page(doc, objects, base, title):
+    """A page with section A-A across the middle of the objects, seen from
+    the right, with its overall dimensions."""
+    page = _page(doc, "FramingSection", title + ": section A-A")
+    box = _bound_box(objects)
+    section = doc.addObject("TechDraw::DrawViewSection", "SectionA")
+    section.BaseView = base
+    section.Source = list(objects)
+    section.SectionNormal = FreeCAD.Vector(1, 0, 0)
+    section.Direction = FreeCAD.Vector(1, 0, 0)
+    section.XDirection = FreeCAD.Vector(0, 1, 0)
+    section.SectionOrigin = box.Center
+    section.SectionSymbol = "A"
+    # A set scale ("Automatic" makes a section view recompute forever here).
+    section.ScaleType = "Custom"
+    section.Scale = fit_scale([(box.YLength, box.ZLength)], [(330, 220)])
+    _set_scale_text(page, section.Scale)
+    page.addView(section)
+    section.X, section.Y = 200, 150
+    doc.recompute()
+    _add_overall_dimensions(page, section)
+    return page
+
+
+def write_part_labels(doc):
+    """Spreadsheet 'PartLabels': one row per piece to cut (not grouped), for
+    printing labels: tag (the cut list row), object, part, size, material,
+    grain and operations."""
+    every = construction_objects(doc)
+    pairs = [(obj, mp) for obj in every for mp in obj.Proxy.parts(obj)]
+    tags = CutList.row_numbers(mp for _, mp in pairs)
+    sheet = _sheet(doc, "PartLabels")
+    header = [
+        "Tag",
+        "Object",
+        "Part",
+        "Length",
+        "Width",
+        "Thickness",
+        "Material",
+        "Grain",
+        "Operations",
+    ]
+    _write_row(sheet, 1, header)
+    lib = items()
+    for r, ((obj, (material, part)), tag) in enumerate(zip(pairs, tags), start=2):
+        length, width, thick = (round(v, 1) for v in part.cut_size())
+        name = lib.get(material, {}).get("name", material)
+        grain = "yes" if part.grain else "no"
+        ops = "; ".join(part.operations)
+        _write_row(sheet, r, [tag, obj.Label, part.name, length, width, thick, name, grain, ops])
+    doc.recompute()
+    return sheet
+
+
+def export_csv(doc, folder):
+    """Writes the cut list and the part labels as CSV files into folder;
+    returns their paths."""
+    write_cut_list(doc)
+    write_part_labels(doc)
+    paths = []
+    for name in ("CutList", "PartLabels"):
+        path = os.path.join(folder, f"{doc.Name}-{name}.csv")
+        doc.getObject(name).exportFile(path)
+        paths.append(path)
+    return paths
+
+
+STEP_LIMIT = 8  # build-sequence pages hold this many steps
+
+
+def build_steps(parts, lows=None):
+    """Assembly order of named parts: parts grouped by name without its
+    number ("Leg 3" -> "Leg"), groups ordered bottom up (by their lowest part:
+    lows[i], else the part's own z), at most STEP_LIMIT steps (neighbouring
+    groups merged). Returns [(step names, part indices)]."""
+    lows = lows or [p.pos[2] for p in parts]
+    import re
+
+    groups = {}
+    for i, p in enumerate(parts):
+        stem = re.sub(r"\s*\d+$", "", p.name)
+        groups.setdefault(stem, []).append(i)
+    order = sorted(groups, key=lambda s: (round(min(lows[i] for i in groups[s]), 1), s))
+    per = -(-len(order) // STEP_LIMIT)  # groups per step
+    steps = []
+    for k in range(0, len(order), per):
+        names = order[k : k + per]
+        steps.append((names, [i for s in names for i in groups[s]]))
+    return steps
+
+
+def make_build_steps(obj):
+    """Build-sequence views of a construction object: a page of iso views,
+    each step adding the next groups of parts (build_steps), with the
+    cumulative shapes in a hidden group 'BuildSteps'."""
+    doc = obj.Document
+    parts = [p for _, p in obj.Proxy.parts(obj)]
+    solids = obj.Proxy.solids(obj)
+    steps = build_steps(parts, [solid.BoundBox.ZMin for solid in solids])
+    group = doc.getObject(f"{obj.Name}Steps") or doc.addObject(
+        "App::DocumentObjectGroup", f"{obj.Name}Steps"
+    )
+    for child in list(group.Group):
+        doc.removeObject(child.Name)
+    page = _page(doc, f"{obj.Name}Sequence", f"{obj.Label}: build sequence")
+    shown = []
+    columns = 4
+    box = obj.Shape.BoundBox  # an iso view spans about the box's diagonal
+    diagonal = (box.XLength**2 + box.YLength**2 + box.ZLength**2) ** 0.5
+    scale = fit_scale([(diagonal, diagonal)], [(85, 85)])
+    for n, (names, indices) in enumerate(steps, start=1):
+        shown += indices
+        step = doc.addObject("Part::Feature", f"{obj.Name}Step{n}")
+        shapes = [solids[i].copy() for i in shown]
+        compound = Part.makeCompound(shapes)
+        compound.Placement = obj.Placement.multiply(compound.Placement)
+        step.Shape = compound
+        step.Label = f"Step {n}: {', '.join(names)}"
+        group.addObject(step)
+        if FreeCAD.GuiUp:
+            step.ViewObject.Visibility = False
+        view = doc.addObject("TechDraw::DrawViewPart", f"{obj.Name}StepView{n}")
+        view.Source = [step]
+        view.Direction = FreeCAD.Vector(1, -1, 1)
+        view.ScaleType = "Custom"
+        view.Scale = scale  # one scale for every step
+        view.Caption = step.Label
+        page.addView(view)  # addView places the view; the grid position comes after
+        view.X = 60 + ((n - 1) % columns) * 95
+        view.Y = 220 - ((n - 1) // columns) * 110
     doc.recompute()
     return page
 
@@ -2190,7 +2438,8 @@ def _add_tags(page, view, objects):
     right = max(c.x for c in corners)
     top, bottom = max(c.y for c in corners), min(c.y for c in corners)
     per_column = TAGS_PER_COLUMN
-    gap = (top - bottom) * TAG_GAP
+    # At least 14 mm apart on paper, so the bubbles do not overlap.
+    gap = max((top - bottom) * TAG_GAP, 14 / view.getScale())
     rows = min(per_column, len(nearest))
     first = (top + bottom) / 2 + (rows - 1) * gap / 2  # column centred on the view
     origins = sorted(

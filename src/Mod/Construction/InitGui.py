@@ -42,6 +42,8 @@ class ConstructionWorkbench(Workbench):
             "Construction_CutList",
             "Construction_Check",
             "Construction_Drawing",
+            "Construction_BuildSteps",
+            "Construction_ExportCSV",
             "Construction_Region",
         ]
         self.appendToolbar("Construction", commands)

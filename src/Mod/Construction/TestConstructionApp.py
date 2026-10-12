@@ -412,6 +412,30 @@ class TestConstructionApp(unittest.TestCase):
         self.assertAlmostEqual(part.cut_size()[0], expected, places=6)
         self.assertEqual(part.operations, ("end cut 45°", "end cut 30°"))
 
+    def test_drawing_dimensions_section_labels_steps(self):
+        import os
+        import tempfile
+
+        table = CO.make_end_table(self.doc)
+        CO.make_drawing([table], self.doc)
+        width = self.doc.getObject("OverallWidth")
+        self.assertAlmostEqual(width.getRawValue(), 500, delta=0.01)  # the top
+        self.assertAlmostEqual(self.doc.getObject("OverallHeight").getRawValue(), 600, delta=0.01)
+        section = self.doc.getObject("SectionA")
+        self.assertNotIn("Invalid", section.State)
+        self.assertGreater(len(section.getVisibleEdges()), 0)
+        labels = CO.write_part_labels(self.doc)
+        rows = [labels.getContents(f"C{r}") for r in range(2, 20) if labels.getContents(f"C{r}")]
+        self.assertEqual(len(rows), 9)  # one per piece: 4 legs, 4 aprons, the top
+        paths = CO.export_csv(self.doc, tempfile.mkdtemp())
+        for path in paths:
+            self.assertTrue(os.path.getsize(path) > 0, path)
+        page = CO.make_build_steps(table)
+        captions = [v.Caption for v in page.Views]
+        self.assertEqual(captions, ["Step 1: Leg", "Step 2: Apron", "Step 3: Top"])
+        shed = CO.make_shed(self.doc)
+        self.assertLessEqual(len(CO.make_build_steps(shed).Views), CO.STEP_LIMIT)
+
     def test_drawing(self):
         shed = CO.make_shed(self.doc)
         page = CO.make_drawing([shed], self.doc)

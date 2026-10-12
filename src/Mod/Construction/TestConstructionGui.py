@@ -56,6 +56,8 @@ class TestConstructionGui(unittest.TestCase):
             "Construction_BoardBetween",
             "Construction_Panel",
             "Construction_Edit",
+            "Construction_BuildSteps",
+            "Construction_ExportCSV",
             "Construction_Room",
             "Construction_Joint",
             "Construction_Align",

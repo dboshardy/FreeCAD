@@ -120,6 +120,15 @@ shed and click **Drawing**. You get two A3 pages (TechDraw):
   numbered tag on each kind of framing member in the front view. The numbers
   match the **Tag** column of the cut list.
 - **FramingCutList**: the cut list as a table.
+- **FramingSection**: section A-A across the middle of the shed, seen from the
+  right.
+
+The pages are drawn at a standard scale that fits the sheet (shown in the
+title block) with the overall width and height dimensioned.
+
+**Build Sequence** makes one more page: the shed built up step by step, floor
+first and roof last. **Export Cut List (CSV)** writes the cut list and a label
+row for every piece (with its tag) for a spreadsheet or a label printer.
 
 Print them, or switch to the TechDraw workbench and use **Export Page as PDF**.
 With nothing selected, the drawing shows every construction object in the
