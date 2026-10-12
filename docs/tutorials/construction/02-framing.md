@@ -109,6 +109,18 @@ joist.
 [('Joist', 10), ('Rim joist', 2)]
 ```
 
+On a concrete floor, click **Slab** instead: a slab on grade (**Thickness**,
+top at the object's origin) with a thickened edge (**EdgeWidth**,
+**EdgeDepth** from the top of the slab). Set **Thickness** to 0 for a strip
+footing alone. The cut list's **Concrete** section counts it; **Check** lists
+the foundation design (soil, frost depth, reinforcement) as required, since
+none of it is generated.
+
+```pycon
+>>> round(Framing.Slab(length=6000, width=3600).concrete_m3(), 2)
+4.05
+```
+
 ## 4. A gable roof
 
 Click **Gable Roof**. Its origin sits on the top of the wall plates; the ridge
