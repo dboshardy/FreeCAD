@@ -269,6 +269,7 @@ Every change to an upstream file carries a `// FORK:` (C++) or `# FORK:` (Python
 - Beam span/deflection checks from mechanics (simply supported, cantilever, continuous) using user-supplied design values; L/360-style limit selectable.
 - Rise/run, headroom, guardrail height checks against user-configurable rule sets.
 - No embedded copyrighted code tables (§2).
+- **Jurisdiction safety rule sets** (decision 2026-10-11; after the other Phase 5 gaps): shipped only from public-domain or openly licensed sources, every value verified against the official text and cited by clause in the warning it raises: UK Approved Document K (stairs, ramps, guarding; Open Government Licence), US OSHA 29 CFR 1910 Subpart D (walking-working surfaces; workplaces), US 16 CFR 1261 (clothing storage unit tip-over; anchoring), US HUD 24 CFR 3280 (manufactured homes: stairs, egress, structural minimums). A per-document rule-set chooser; new checks the sets need (headroom, stair pitch, guard and window-guard rules, egress). Structural capacity still needs user design values and loads (design values and load standards are copyrighted; clear-wood handbook values are not design values). Every check stays advisory and never states code compliance.
 
 **5.6 Outputs**
 - BOM / purchase list: groups by material and stock length; quantities, cost total.
