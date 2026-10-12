@@ -87,6 +87,13 @@ PROPERTIES = [
         "Front width hidden by the meeting run; 0 = none",
     ),
     ("BlindSide", "blind_side", ENUM, "Corner", "Side of the blind panel"),
+    (
+        "EdgeBanding",
+        "edge_banding",
+        "App::PropertyBool",
+        "Materials",
+        "Band the fronts all round and the front edges of the carcass and shelves",
+    ),
 ]
 CHOICES = {
     "Kind": Cabinet.KINDS,

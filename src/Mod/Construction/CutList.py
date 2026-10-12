@@ -266,7 +266,7 @@ def hardware(items, anchored_cabinets=0, fasteners=None):
         hardware_id, _, length = key.partition("@")
         name = items.get(hardware_id, {}).get("name", hardware_id)
         counter[f"{name}, {length} mm" if length else name] += count
-    return sorted(counter.items())
+    return [(name, round(qty, 2)) for name, qty in sorted(counter.items())]  # metres add up in floats
 
 
 @dataclass

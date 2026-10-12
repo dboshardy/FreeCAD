@@ -23,6 +23,8 @@ BLIND_SIDES = ("left", "right")
 SLIDE_STEP = 50.0  # drawer slides are sold in 50 mm length steps
 MIN_SLIDE = 250.0
 MIN_DRAWER_BOX_HEIGHT = 60.0
+BANDED_ALL_ROUND = ("door", "drawer_front", "blind_panel")
+BANDING_TRIM = 50.0  # extra per edge, trimmed flush after gluing
 
 
 @dataclass
@@ -56,6 +58,9 @@ class Cabinet:
     blind_side: str = "left"
     # Library joint preset joining the sides to the bottom, top and stretchers.
     carcass_joint: str = "joint.confirmat"
+    # Edge banding on the edges that show: fronts all round, the front edges
+    # of the sides, bottom, top and shelves.
+    edge_banding: bool = True
 
     # ------------------------------------------------------------- derived
 
@@ -260,7 +265,29 @@ class Cabinet:
 
     def joined(self, items):
         """Joinery.Result of parts() with joint_rows(); items: the library."""
-        return Joinery.apply(self.parts(), Build.rules(self.joint_rows(), items))
+        result = Joinery.apply(self.parts(), Build.rules(self.joint_rows(), items))
+        total = 0.0
+        for i, part in enumerate(result.boxes):
+            edges = self.banded_edges(part)
+            ops = tuple(f"edge band {round(e, 1):g}" for e in edges)
+            result.boxes[i] = replace(part, operations=part.operations + ops)
+            result.operations += [(i, op) for op in ops]
+            total += sum(e + BANDING_TRIM for e in edges)
+        if total:
+            # Whole decimetres: banding comes off a roll.
+            metres = math.ceil(total / 100 - 1e-9) / 10
+            result.fasteners["hardware.edge_banding"] = metres
+        return result
+
+    def banded_edges(self, part):
+        """Lengths of a part's edges that get edge banding."""
+        if not self.edge_banding:
+            return []
+        if part.role in BANDED_ALL_ROUND:
+            return [part.size[0]] * 2 + [part.size[2]] * 2
+        if part.role == "shelf" or (part.role == "carcass" and part.size[1] == self.carcass_depth()):
+            return [max(part.size[0], part.size[2])]  # the front edge
+        return []
 
     def _door_parts(self, low, high):
         t, gap, k = self.thickness, self.door_gap, self.plinth_height
