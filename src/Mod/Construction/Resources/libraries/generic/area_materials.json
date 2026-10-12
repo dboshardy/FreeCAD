@@ -1,12 +1,17 @@
 {
   "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp construction library (design doc §9, 5.1.8). Area materials bought by coverage: coverage_m2 per unit (bundle, roll), waste = allowance added to the area (cuts, overlaps, ridges). Coverage varies by product: check the package and override by id in your user library.",
-  "source": "Common package coverages (asphalt shingles sold 3 bundles per 100 sq ft square; underlayment rolls of 4 and 10 squares; house wrap 9 ft x 100 ft); original compilation of facts",
+  "source": "Common package coverages (asphalt shingles sold 3 bundles per 100 sq ft square; underlayment rolls of 4 and 10 squares; house wrap 9 ft x 100 ft; vinyl siding in boxes of 2 squares; lap siding coverage = plank length x exposure; insulation by the package's stated area); original compilation of facts",
   "data_license": "CC0-1.0",
   "defaults": {"category": "area_material", "region": "generic", "waste": 0.1},
   "items": [
     {"id": "area.roofing.asphalt_shingles", "name": "Asphalt shingles, bundle", "coverage_m2": 3.1, "waste": 0.15},
     {"id": "area.roofing.felt_15", "name": "Roofing felt underlayment, roll (4 squares)", "coverage_m2": 37.2},
     {"id": "area.roofing.synthetic_underlayment", "name": "Synthetic roofing underlayment, roll (10 squares)", "coverage_m2": 92.9},
-    {"id": "area.wall.house_wrap", "name": "House wrap, roll 9 ft x 100 ft", "coverage_m2": 83.6, "waste": 0.15}
+    {"id": "area.wall.house_wrap", "name": "House wrap, roll 9 ft x 100 ft", "coverage_m2": 83.6, "waste": 0.15},
+    {"id": "area.siding.vinyl", "name": "Vinyl siding, box of 2 squares (200 sq ft)", "coverage_m2": 18.58},
+    {"id": "area.siding.fiber_cement_lap", "name": "Fiber cement lap siding, 12 ft plank at 7 in exposure", "coverage_m2": 0.65, "waste": 0.15},
+    {"id": "area.siding.timber_cladding", "name": "Timber cladding, m² of face (boards bought by face area)", "coverage_m2": 1.0, "waste": 0.15},
+    {"id": "area.insulation.batt", "name": "Insulation batts, bag (e.g. 40 sq ft; wall area, framing not deducted)", "coverage_m2": 3.72, "waste": 0.05},
+    {"id": "area.insulation.roll", "name": "Insulation roll, 1.2 x 6 m (wall area, framing not deducted)", "coverage_m2": 7.2, "waste": 0.05}
   ]
 }

@@ -1251,6 +1251,8 @@ class ShedFeature:
     COVERINGS = [  # property, sheathing it goes on, tip
         ("RoofCovering", ("Roof sheathing",), "Roofing over the roof sheathing"),
         ("WallCovering", ("Wall sheathing", "Gable sheathing"), "Wrap or cladding on the walls"),
+        ("WallCladding", ("Wall sheathing", "Gable sheathing"), "Siding or cladding over the wrap"),
+        ("WallInsulation", ("Wall sheathing",), "Insulation between the wall studs"),
     ]
     SHEETS = [  # property, components it covers, default
         ("FloorSheet", ("Floor",), FLOOR_SHEATHING),
