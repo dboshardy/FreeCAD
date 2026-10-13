@@ -777,4 +777,5 @@ The Construction workbench (Phases 5–5.2) uses only FreeCAD's public Python AP
 | Drawings (TechDraw pages at standard scales, dimensions, section, member tags), build sequence pages | 5 | Add-on | Construction add-on (uses TechDraw) |
 | Advisory checks (beams, joists, rafters, headers, stairs, guards, cabinets and furniture anchoring, joinery, wood movement, foundation) with the disclaimer | 5, 5.1 | Add-on | Construction add-on; jurisdiction rule sets next (5.5) |
 | IFC types on construction objects (exported by BIM) | 5 | Add-on | Construction add-on |
+| Tangent circle, stretch, conflict diagnosis, closed-region highlight on Sketcher objects | 1 | Add-on | `addons/sketch/` (`docs/gaps/phase-1.md`); G2 constraint and per-type inference indicators need FreeCAD changes, not done |
 | Tutorials (tested examples) and the Tutorials command | 5.7 | Add-on | Construction add-on; use `Help.show` (5.3 #8) |
