@@ -153,7 +153,7 @@ writes:
 |---|---|
 | Spreadsheet **CutList** | Every part grouped by size: material, length (along the grain), width, thickness, grain, quantity. Below: sheets per material, lumber boards, hardware |
 | Spreadsheet **SheetLayout** | Each part's sheet number and position for the panel saw |
-| **SheetLayoutView** | A flat drawing of the sheets with the parts on them |
+| Group **SheetLayoutView** | One BIM panel sheet (Arch_Panel_Sheet) per sheet, holding the placed parts; draw it with TechDraw |
 
 Parts with visible grain keep it along the sheet length; hidden parts (top
 stretchers, plinth rail) may be turned to save material. The layout respects

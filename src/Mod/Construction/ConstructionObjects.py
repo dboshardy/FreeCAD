@@ -2282,14 +2282,24 @@ def write_cut_list(doc):
 
 def _write_sheet_layouts(doc, groups, lib, label, kerf):
     """Lays out sheet materials. groups: [(cut rows, materials, trim, label suffix)].
-    Returns [(material, suffix, sheets, share used)]."""
+    Each sheet is a BIM panel sheet (Arch_Panel_Sheet) holding its placed parts,
+    in the group 'SheetLayoutView'. Returns [(material, suffix, sheets, share used)]."""
     layout = _sheet(doc, "SheetLayout")
     _write_row(
         layout,
         1,
         ["Material", "Sheet", "Part", "X (mm)", "Y (mm)", "Across (mm)", "Along (mm)", "Rotated"],
     )
-    shapes, offset, row, out = [], 0.0, 2, []
+    import Arch
+
+    group = doc.getObject("SheetLayoutView") or doc.addObject(
+        "App::DocumentObjectGroup", "SheetLayoutView"
+    )
+    for old in list(group.Group):  # lay out afresh: drop the earlier sheets and their parts
+        for piece in getattr(old, "Group", []):
+            doc.removeObject(piece.Name)
+        doc.removeObject(old.Name)
+    offset, row, out = 0.0, 2, []
     for rows, material, trim, suffix in (
         (rows, m, trim, suffix) for rows, materials, trim, suffix in groups for m in materials
     ):
@@ -2306,8 +2316,7 @@ def _write_sheet_layouts(doc, groups, lib, label, kerf):
         used = sum(p.w * p.h for placed in sheets for p in placed)
         out.append((material, suffix, len(sheets), used / (len(sheets) * sheet_w * sheet_h)))
         for number, placed in enumerate(sheets, start=1):
-            outline = Part.makePlane(sheet_w, sheet_h, FreeCAD.Vector(offset, 0, 0)).OuterWire
-            shapes.append(outline)
+            panels = []
             for p in placed:
                 rotated = "yes" if p.rotated else "no"
                 _write_row(
@@ -2315,11 +2324,18 @@ def _write_sheet_layouts(doc, groups, lib, label, kerf):
                     row,
                     [label(material) + suffix, number, p.name, p.x, p.y, p.w, p.h, rotated],
                 )
-                shapes.append(Part.makePlane(p.w, p.h, FreeCAD.Vector(offset + p.x, p.y, 0)))
+                # The sheet's coordinates are centred on the sheet.
+                corner = FreeCAD.Vector(p.x - sheet_w / 2, p.y - sheet_h / 2, 0)
+                piece = doc.addObject("Part::Feature", "SheetPart")
+                piece.Label = p.name
+                piece.Shape = Part.makePlane(p.w, p.h, corner).OuterWire
+                panels.append(piece)
                 row += 1
+            sheet = Arch.makePanelSheet(panels, f"{label(material)}{suffix} sheet {number}")
+            sheet.Width, sheet.Height = sheet_w, sheet_h
+            sheet.Placement.Base = FreeCAD.Vector(offset + sheet_w / 2, sheet_h / 2, 0)
+            group.addObject(sheet)
             offset += sheet_w + 200.0  # sheets side by side, 200 mm apart
-    view = doc.getObject("SheetLayoutView") or doc.addObject("Part::Feature", "SheetLayoutView")
-    view.Shape = Part.makeCompound(shapes)
     return out
 
 
