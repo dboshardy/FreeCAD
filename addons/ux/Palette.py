@@ -1,15 +1,21 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Command palette: fuzzy search over every registered command."""
 
+import re
+
 
 def search(entries, query):
     """entries: [(name, text)]. Every query word must appear in name or text; prefix matches first."""
     words = query.lower().split()
     hits = []
     for name, text in entries:
-        hay = f"{text} {name}".lower().replace("&", "")
+        label = text.lower().replace("&", "")
+        hay = f"{label} {name.lower()}"
         if all(w in hay for w in words):
-            hits.append((not hay.startswith(words[0]) if words else False, text.lower(), name, text))
+            # most query words as whole words of the label, then a label that starts with the query
+            tokens = set(re.findall(r"[a-z0-9]+", label))
+            rank = (-sum(w in tokens for w in words), not (words and label.startswith(words[0])))
+            hits.append((rank, label, name, text))
     hits.sort()
     return [(n, t) for _, _, n, t in hits]
 
