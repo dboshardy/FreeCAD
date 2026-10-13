@@ -762,6 +762,10 @@ class Stair:
     post: tuple = (70.0, 70.0)
     baluster: tuple = (45.0, 45.0)
     max_baluster_gap: float = 100.0  # clear gap between balusters and posts
+    # Read from an Arch_Stairs (BIM): its riser count and tread depth win over the
+    # rise split and the tread boards; 0 = derive them from the fields above.
+    n_risers: int = 0
+    tread_run: float = 0.0
 
     def sections(self):
         return {
@@ -773,18 +777,28 @@ class Stair:
         }
 
     def risers(self):
-        return math.ceil(self.total_rise / self.max_riser - 1e-9)
+        return self.n_risers or math.ceil(self.total_rise / self.max_riser - 1e-9)
 
     def riser(self):
         return self.total_rise / self.risers()
 
     def run(self):
         """Horizontal depth of one tread, riser face to riser face."""
+        if self.tread_run:
+            return self.tread_run
         boards = self.tread_boards * self.tread[1] + (self.tread_boards - 1) * self.tread_gap
         return boards - self.nosing
 
     def total_run(self):
         return (self.risers() - 1) * self.run()
+
+    def boards_for_run(self):
+        """Whole tread boards that cover the run plus nosing (the last one is
+        ripped when they overshoot; ripping is not tracked)."""
+        if not self.tread_run:
+            return self.tread_boards
+        bd, gap = self.tread[1], self.tread_gap
+        return max(1, math.ceil((self.tread_run + self.nosing + gap) / (bd + gap) - 1e-9))
 
     def angle(self):
         return math.degrees(math.atan2(self.riser(), self.run()))
@@ -863,7 +877,7 @@ class Stair:
         out = []
         for i in range(1, self.risers()):
             front = (i - 1) * t - self.nosing
-            for j in range(self.tread_boards):
+            for j in range(self.boards_for_run()):
                 y = front + j * (bd + self.tread_gap) + bd / 2
                 z = i * r - tt / 2
                 out.append(Piece("Tread", (0.0, y, z), (self.width, y, z), 90.0, "tread"))

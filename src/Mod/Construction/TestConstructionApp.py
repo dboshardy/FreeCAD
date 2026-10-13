@@ -326,12 +326,26 @@ class TestConstructionApp(unittest.TestCase):
         self.assertAlmostEqual(roof.HighWallRise.Value, roof.Proxy.model(roof).rise())
         self.assertBuilt(CO.make_sheathing(roof, self.doc))
 
+    def test_stair_is_an_arch_stairs_with_the_same_lumber(self):
+        from collections import Counter
+
+        stair = CO.make_stair(self.doc)
+        self.assertEqual(stair.Stairs.Proxy.Type, "Stairs")
+        ref = CO.Framing.Stair(max_riser=CO.rule_set()["stair_riser_max_mm"])
+        model = stair.Proxy.model(stair)
+        self.assertEqual((model.risers(), model.run(), model.boards_for_run()), (14, 271, 2))
+        self.assertEqual(
+            Counter(p.name for p, _ in CO.framing_pieces(model)),
+            Counter(p.name for p, _ in CO.framing_pieces(ref)),
+        )
+        self.assertGreater(stair.Shape.Volume, 0)
+
     def test_stair_landing(self):
         stair = CO.make_stair(self.doc)
-        stair.LandingAfter = 7
+        stair.Stairs.Landings = "At center"
         self.doc.recompute()
         self.assertBuilt(stair)
-        self.assertGreater(stair.Shape.BoundBox.YLength, 13 * 271)  # 12 runs + landing
+        self.assertGreaterEqual(stair.Shape.BoundBox.XLength, 13 * 271)  # Arch_Stairs runs along X
 
     def test_parametric_template(self):
         table = CO.make_end_table(self.doc)
