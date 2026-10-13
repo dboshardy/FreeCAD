@@ -145,11 +145,6 @@ std::vector<std::string> reload()
     return out;
 }
 
-std::vector<Binding> stripBindings()
-{
-    return engine().innermostLayer(currentContext());
-}
-
 void toolStarted(const void* owner)
 {
     tools.start(owner, invoking);

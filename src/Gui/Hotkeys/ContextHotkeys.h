@@ -43,13 +43,4 @@ bool handleKey(QKeyEvent* event);
 /// Re-reads <UserAppData>/Hotkeys.json. Returns one line per conflict.
 std::vector<std::string> reload();
 
-/// Bindings of the innermost active layer in the current context.
-std::vector<Binding> stripBindings();
-
-/// Registers Std_CommandPalette, Std_RadialMenu, Std_HotkeysReload (HotkeyCommands.cpp).
-void createCommands();
-
-/// Adds the heads-up hotkey strip to the status bar (HotkeyCommands.cpp).
-void addHotkeyStrip(MainWindow* mw);
-
 }  // namespace Gui::Hotkeys

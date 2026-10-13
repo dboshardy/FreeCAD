@@ -119,3 +119,17 @@ class TestSuggest(unittest.TestCase):
     def test_strip_next_text(self):
         self.assertEqual(Strip.next_text(["Pad", "Pocket"]), "Next: Alt+1 Pad  Alt+2 Pocket")
         self.assertEqual(Strip.next_text([]), "")
+
+
+import os
+
+
+class TestProfile(unittest.TestCase):
+    def test_design_doc_profile_parses_without_conflicts(self):
+        path = os.path.join(os.path.dirname(os.path.abspath(Hotkeys.__file__)), "profiles", "design-doc-keymap.json")
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        bindings = Hotkeys.parse(text)
+        self.assertGreater(len(bindings), 15)
+        self.assertEqual(Hotkeys.conflicts(bindings), [])
+        self.assertTrue(Hotkeys.parse_radial(text)["SketcherWorkbench"])

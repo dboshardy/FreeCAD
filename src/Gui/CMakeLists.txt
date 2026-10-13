@@ -429,7 +429,6 @@ SET(Command_CPP_SRCS
     CommandPyImp.cpp
     ShortcutManager.cpp
     Hotkeys/ContextHotkeys.cpp  # FORK: context-layered hotkeys
-    Hotkeys/HotkeyCommands.cpp  # FORK: palette, radial menu, hotkey strip
     CommandCompleter.cpp
     CommandActionPy.cpp
 )
