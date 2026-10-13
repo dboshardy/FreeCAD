@@ -92,6 +92,16 @@ widget), `src/Gui/InputHint*` (per-tool hints in the status bar),
 | Remap a hotkey | Global: upstream dialog. Context layers: edit `Hotkeys.json` + `Std_HotkeysReload` |
 | Command palette finds any registered command | Met in the app: the palette's completer lists registered commands (`TestCoreUx`) |
 
+## 0.1-0.6 Fork items: retired (2026-10-13)
+
+Sections 0.1-0.5 and the C++ rows of 0.6 audited the rebranded fork (branding, flags for NaviCube, CAM Adaptive and
+network features, installers). Under the add-on strategy (DESIGN §4.5) they are retired: branding, `src/App/Fork`,
+`fork_features.py`, the flag sites in FreeCAD files, `docs/inherited-conflicts.md` and the C++ palette, radial menu,
+strip and keymap import/export were reverted or deleted; the tree differs from upstream only by the context-layer
+engine and its tool hooks (`src/Gui/Hotkeys/`, five hook lines in `Command.cpp`, `Control.cpp`, `ToolHandler.*`,
+`ShortcutManager.cpp`), which stay until FreeCAD has a tool signal. The build is unbranded FreeCAD, so it shares the user
+directory with a stock install (FreeCAD offers to migrate its configuration on first start).
+
 ## 0.7 UX add-on (`addons/ux/`, 2026-10-13)
 
 Python rewrite of the fork's C++ UX (§4.5); the C++ palette, radial menu, strip and keymap import/export are
@@ -107,7 +117,7 @@ suites (`TestConstruction` 135, `TestConstructionApp` 32, `TestConstructionGui` 
 | Profile import/export (JSON), remapping UI with search and conflicts | Present | `Remap.py` (`UX_Hotkeys`). Covers the UX layers only, not upstream's global shortcuts |
 | Heads-up hotkey strip | Present | `Strip.py` (`UX_HotkeyStrip`): status-bar label, innermost layer first. No `F1` toggle (upstream `F1` is What's This) |
 | Next-tool suggestions | Present | `Suggest.py`: rules keyed by the type of the last created object (sketch gives Pad, Pocket, ...), shown in the strip, run with `Alt+1`..`Alt+5`. No local usage statistics |
-| Radial menu | Present, by command | `Radial.py` (`UX_RadialMenu`): up to 8 commands per workbench from `UxHotkeys.json` (`radial`), opened by command or hotkey. Right-drag opening is a decision, not a gap: FreeCAD's navigation styles use the right button |
+| Radial menu | Present, by command | `Radial.py` (`UX_RadialMenu`): up to 8 commands per workbench from `UxHotkeys.json` (`radial`), opened by command or hotkey (`Ctrl+Space` in the opt-in profile). Right-drag opening is a decision, not a gap: FreeCAD's navigation styles use the right button |
 | Command (active-tool) layer | Missing | Needs a Python signal from tool handlers: proposal in `docs/upstream/tool-context-hook.md`, not submitted. The C++ engine and tool hooks stay in `src/Gui/Hotkeys/` and the tool hooks until then |
 | Inline value entry | Not built | Sketcher has on-view parameters (FreeCAD's). A generic typed-value framework needs the tool hook above to know the active dimension |
 | Default keymaps (§8.2-8.4) | Opt-in profile | `addons/ux/profiles/design-doc-keymap.json` (§8.2-8.3 keys that map to one FreeCAD command); FreeCAD's keymaps stay the default (0.6.10) |

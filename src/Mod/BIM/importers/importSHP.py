@@ -134,10 +134,7 @@ def checkShapeFileLibrary():
         url = (
             "https://raw.githubusercontent.com/GeospatialPython/pyshp/refs/tags/2.4.1/shapefile.py"
         )
-        # FORK: network feature behind a runtime flag (docs/inherited-conflicts.md)
-        from freecad import fork_features
-
-        if FreeCAD.GuiUp and fork_features.is_enabled("BIMShapefileDownload"):
+        if FreeCAD.GuiUp:
             import urllib.request
             import FreeCADGui
             from PySide import QtGui
