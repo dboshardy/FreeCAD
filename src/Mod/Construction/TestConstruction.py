@@ -2022,10 +2022,11 @@ class TestModulesImport(unittest.TestCase):
         import types
 
         stubs = {}
-        for name in ("FreeCAD", "FreeCADGui", "Part"):
+        for name in ("FreeCAD", "FreeCADGui", "Part", "ArchStructure"):
             module = types.ModuleType(name)
             stubs[name] = module
         stubs["FreeCAD"].GuiUp = False
+        stubs["ArchStructure"]._Structure = object  # BIM's base class of members
         stubs["FreeCAD"].Qt = types.SimpleNamespace(
             translate=lambda c, t: t, QT_TRANSLATE_NOOP=lambda c, t: t
         )

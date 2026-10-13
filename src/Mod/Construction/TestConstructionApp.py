@@ -73,6 +73,29 @@ class TestConstructionApp(unittest.TestCase):
         self.doc.recompute()
         self.assertAlmostEqual(member.Shape.BoundBox.XLength, 2000)
 
+    def test_member_is_a_bim_structure(self):
+        member = CO.make_member(doc=self.doc)
+        self.assertEqual(member.Proxy.Type, "Structure")  # Arch_Structure on a BIM profile
+        self.assertEqual(member.Base.Proxy.Type, "Profile")
+        self.assertEqual(member.IfcType, "Beam")
+        self.assertAlmostEqual(member.Shape.Volume, 45 * 95 * 2400, delta=1)
+
+    def test_member_roll_and_rolled_cut(self):
+        import Draft
+
+        line = Draft.make_line(FreeCAD.Vector(0, 0, 0), FreeCAD.Vector(3000, 0, 0))
+        member = CO.make_member((line, ["Edge1"]), self.doc)
+        box = member.Shape.BoundBox  # depth stands on edge
+        self.assertAlmostEqual(box.YLength, 45, places=6)
+        self.assertAlmostEqual(box.ZLength, 95, places=6)
+        member.BaseRotation = 90  # laid flat
+        member.StartCut = 45
+        self.doc.recompute()
+        box = member.Shape.BoundBox
+        self.assertAlmostEqual(box.YLength, 95, places=6)
+        self.assertAlmostEqual(box.ZLength, 45, places=6)
+        self.assertAlmostEqual(box.XLength, 3000 + 47.5, places=6)  # long point reaches past the end
+
     def test_cut_list_and_checks(self):
         CO.make_cabinet("tall", self.doc)
         CO.make_shed(self.doc)

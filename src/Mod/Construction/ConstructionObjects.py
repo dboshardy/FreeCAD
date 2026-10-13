@@ -6,6 +6,7 @@ import math
 import os
 from dataclasses import replace
 
+import ArchStructure
 import FreeCAD
 import Part
 
@@ -482,53 +483,47 @@ def make_cabinet_run(preset="base", doc=None, name=None):
     return _make(CabinetRunFeature, preset, name or preset.capitalize() + "Run", doc)
 
 
-class MemberFeature:
-    """Lumber member along a line: a linked straight edge (Base), or Start to End."""
+class MemberFeature(ArchStructure._Structure):
+    """Lumber member: an Arch_Structure (BIM) whose profile is a BIM rectangle
+    profile of the lumber section and whose extrusion path is a line (Tool).
+    Added on top of the BIM object: library lumber size, angled end cuts and
+    the cut-list, check and fastener hooks of construction objects."""
 
-    IFC_TYPE = "Member"
+    IFC_TYPE = "Beam"
 
     def __init__(self, obj):
-        obj.Proxy = self
-        self.setProperties(obj)
+        super().__init__(obj)
+        self.setConstructionProperties(obj)
 
-    def setProperties(self, obj):
-        add_ifc_type(obj, self)
-        props = [
-            ("App::PropertyLinkSub", "Base", "Line or straight edge to follow; empty = Start/End"),
-            ("App::PropertyVector", "Start", "Start point when Base is empty"),
-            ("App::PropertyVector", "End", "End point when Base is empty"),
-            ("App::PropertyAngle", "Roll", "Turns the profile about the member axis (90 = flat)"),
+    def setConstructionProperties(self, obj):
+        for ptype, prop, tip in (
             (
                 "App::PropertyAngle",
                 "StartCut",
                 "End cut at the start, degrees from square, across the depth (45 = miter)",
             ),
             ("App::PropertyAngle", "EndCut", "End cut at the end, degrees from square"),
-        ]
-        for ptype, prop, tip in props:
+        ):
             if prop not in obj.PropertiesList:
                 obj.addProperty(ptype, prop, "Member", tip)
-        if obj.Start == obj.End:
-            obj.End = FreeCAD.Vector(0, 0, 2400)  # a stud
-        add_library_choice(obj, "Material", Library.LUMBER, DEFAULT_LUMBER, "Member", "Lumber size")
+        add_library_choice(obj, "Lumber", Library.LUMBER, DEFAULT_LUMBER, "Member", "Lumber size")
 
     def onDocumentRestored(self, obj):
-        self.setProperties(obj)
+        super().onDocumentRestored(obj)
+        self.setConstructionProperties(obj)
 
     def endpoints(self, obj):
-        if obj.Base:
-            source, subs = obj.Base
-            edge = source.Shape.getElement(subs[0]) if subs else source.Shape.Edges[0]
-            if edge.Curve.TypeId != "Part::GeomLine":
-                raise ValueError("members follow straight edges only")
-            return tuple(edge.Vertexes[0].Point), tuple(edge.Vertexes[-1].Point)
-        return tuple(obj.Start), tuple(obj.End)
+        ((line, subs),) = obj.Tool
+        edge = line.Shape.getElement(subs[0]) if subs else line.Shape.Edges[0]
+        if edge.Curve.TypeId != "Part::GeomLine":
+            raise ValueError("members follow straight edges only")
+        return tuple(edge.Vertexes[0].Point), tuple(edge.Vertexes[-1].Point)
 
     def parts(self, obj):
         start, end = self.endpoints(obj)
         cuts = (obj.StartCut.Value, obj.EndCut.Value)
-        section = lumber_section(obj.Material)
-        return [(obj.Material, member_part(obj.Label, start, end, section, cuts))]
+        section = lumber_section(obj.Lumber)
+        return [(obj.Lumber, member_part(obj.Label, start, end, section, cuts))]
 
     def checks(self, obj, rules):
         return []
@@ -540,32 +535,60 @@ class MemberFeature:
         return {}
 
     def solids(self, obj):
-        start, end = self.endpoints(obj)
-        cuts = (obj.StartCut.Value, obj.EndCut.Value)
-        return [member_box(start, end, obj.Roll.Value, lumber_section(obj.Material), cuts)]
+        return [obj.Shape]
 
     def execute(self, obj):
-        set_shape(obj, self.solids(obj))
-
-    def dumps(self):
-        return None
-
-    def loads(self, state):
-        return None
+        w, h = lumber_section(obj.Lumber)
+        profile = obj.Base
+        if (profile.Width.Value, profile.Height.Value) != (w, h):
+            profile.Width, profile.Height = w, h
+            profile.recompute()
+        start, end = self.endpoints(obj)
+        cuts = (obj.StartCut.Value, obj.EndCut.Value)
+        # A cut through the centre line leaves the stock long point to long point.
+        obj.ToolOffsetFirst, obj.ToolOffsetLast = (Member.end_extension(h, a) for a in cuts)
+        super().execute(obj)
+        if not any(cuts) or obj.Shape.isNull():
+            return
+        length, x, y, z = Member.frame(start, end, -obj.BaseRotation.Value)
+        V = FreeCAD.Vector
+        big = 4 * (length + h + w)
+        shape = obj.Shape
+        for angle, point, outward in ((cuts[0], start, -1), (cuts[1], end, 1)):
+            if not angle:
+                continue
+            a = math.radians(angle)
+            normal = V(*z) * (outward * math.cos(a)) - V(*y) * (outward * math.sin(a))
+            waste = Part.makeBox(big, big, big, V(-big / 2, -big / 2, 0))
+            waste.Placement = FreeCAD.Placement(V(*point), FreeCAD.Rotation(V(0, 0, 1), normal))
+            shape = shape.cut(waste)
+        obj.Shape = shape
 
 
 DEFAULT_LUMBER = "lumber.metric.45x95"
 
 
 def make_member(base=None, doc=None, name="Member"):
-    """base: (object, "EdgeN") to follow, or None for a free member."""
+    """base: (object, "EdgeN") to follow, or None for a free 2400 mm stud
+    (with a line of its own to edit)."""
+    import Arch
+    import Draft
+
     doc = doc or FreeCAD.ActiveDocument or FreeCAD.newDocument()
-    obj = doc.addObject("Part::FeaturePython", name)
-    MemberFeature(obj)
     if base:
-        obj.Base = base
-    if FreeCAD.GuiUp:
-        ViewProvider(obj.ViewObject)
+        line, subs = base
+        path = [(line, subs)]
+    else:
+        line = Draft.make_line(FreeCAD.Vector(0, 0, 0), FreeCAD.Vector(0, 0, 2400))
+        line.Label = f"{name} path"
+        path = [(line, ["Edge1"])]
+    w, h = lumber_section(DEFAULT_LUMBER)
+    profile = Arch.makeProfile([0, "REC", f"{name} profile", "R", w, h])
+    obj = Arch.makeStructure(profile, name=name)
+    MemberFeature(obj)  # replaces BIM's proxy with the construction subclass
+    obj.IfcType = "Beam"
+    obj.Tool = path
+    obj.BasePerpendicularToTool = True
     doc.recompute()
     return obj
 
