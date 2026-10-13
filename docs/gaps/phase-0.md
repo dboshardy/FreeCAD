@@ -72,7 +72,7 @@ widget), `src/Gui/InputHint*` (per-tool hints in the status bar),
 | 0.6.1 | Context-layered hotkey resolution (command → workspace → global) | Partial | Engine `src/Gui/Hotkeys/HotkeyEngine.h` (Qt-free, tested). Wired in by `src/Gui/Hotkeys/ContextHotkeys.*`: hooks in `ShortcutManager` (key events), `Command::_invoke` (command scope), `ToolHandler` and `ControlSingleton::showDialog` (active tool). Context: workspace = active workbench name, command = command that started the innermost open tool handler or task dialog, selection = element type of the first selected item. Built; in the app, `TestConstructionGui.TestContextHotkeys` binds a workspace-layer key and pressing it runs the command; the strip shows the binding. Command-layer switching with an active tool not yet tested in the app |
 | 0.6.2 | Chords and sequences | Partial | Engine supports sequences; upstream supports global sequences |
 | 0.6.3 | Per-layer conflict detection, user override, reset to default | Partial | Engine API. Bindings come from `<UserAppData>/Hotkeys.json`; `Std_HotkeysReload` re-reads it and lists conflicts. No remapping UI for context layers |
-| 0.6.4 | Profile import/export (JSON) | Missing | |
+| 0.6.4 | Profile import/export (JSON) | Partial | `Std_HotkeysImport` / `Std_HotkeysExport` (Tools menu) copy `Hotkeys.json`; import refuses a file that does not parse and reloads. Written without a build in this environment: compile and run once. Covers context layers only, not upstream's global shortcuts |
 | 0.6.5 | Heads-up hotkey strip (`F1`) | Partial | Status-bar item "Hotkey Strip" (`src/Gui/Hotkeys/HotkeyCommands.cpp`), shown/hidden from the status-bar context menu; shows the innermost active layer. No `F1` toggle (upstream `F1` is What's This, 0.6.10). Polls the context every 300 ms |
 | 0.6.6 | Next-tool suggestions | Missing | |
 | 0.6.7 | Command palette (`Space`) | Partial | `Std_CommandPalette`: popup search over all commands (upstream `CommandCompleter`). No default key (upstream `Space` is show/hide, 0.6.10) |
@@ -91,3 +91,16 @@ widget), `src/Gui/InputHint*` (per-tool hints in the status bar),
 | Hotkey context layers switch with the active tool | Partial: workspace layer verified in the app; command layer (active tool) not yet tested in the app (0.6.1) |
 | Remap a hotkey | Global: upstream dialog. Context layers: edit `Hotkeys.json` + `Std_HotkeysReload` |
 | Command palette finds any registered command | Met in the app: the palette's completer lists registered commands (`TestCoreUx`) |
+
+## 0.7 UX add-on (`addons/ux/`, 2026-10-12)
+
+Python rewrite of the fork's C++ UX (§4.5). Tests: `FreeCADCmd -t TestUx` (12 pass); checked in the GUI.
+
+| Item | Status | Notes |
+|---|---|---|
+| Add-on template, local-folder install, test runner | Present | `addons/template/`; install = symlink into `<UserAppData>/Mod/`, then `FreeCADCmd -t TestTemplate` |
+| Command palette | Present | `Palette.py`, `Ctrl+Shift+P`; app-wide `QShortcut` (a command `Accel` only fires when its action is on the active workbench) |
+| Workspace and global hotkey layers, per-layer conflicts, JSON profile | Present | `Hotkeys.py`, `<UserAppData>/UxHotkeys.json`; Qt `ShortcutOverride` filter runs ahead of Qt shortcuts; text inputs are skipped. No chords |
+| Command (active-tool) layer | Missing | Needs the upstream hook (no Python signal at tool start/finish): minimal PR to FreeCAD, not yet written |
+| Hotkey strip, next-tool suggestions, radial menu, remapping UI | Missing | Still in the fork's C++ |
+| CI on 3 OS, stock FreeCAD | Missing | Tested only against the CADApp-branded build in this container |
