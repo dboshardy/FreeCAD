@@ -293,6 +293,13 @@ class TestConstructionApp(unittest.TestCase):
         slab = CO.make_slab(self.doc)
         self.assertBuilt(slab)
         self.assertAlmostEqual(slab.Shape.Volume / 1e9, 4.05, places=6)
+        self.assertEqual(slab.BimSlab.IfcType, "Slab")  # a BIM slab bound to this object's size
+        self.assertAlmostEqual(slab.BimSlab.Shape.Volume / 1e9, 2.16, places=6)
+        slab.Length = 5000
+        self.doc.recompute()
+        self.assertAlmostEqual(slab.BimSlab.Shape.Volume / 1e9, 5000 * 3600 * 100 / 1e9, places=6)
+        slab.Length = 6000
+        self.doc.recompute()
         self.assertEqual(slab.Shape.BoundBox.ZMin, -450)
         slab.Thickness = 0  # a strip footing alone
         self.doc.recompute()
@@ -319,6 +326,7 @@ class TestConstructionApp(unittest.TestCase):
         self.assertIn("Slab: Bottom plates", checks)
         self.assertFalse([c for c in checks if c.startswith("Floor")])
         self.assertEqual([w for w, _ in garage.Proxy.concrete(garage)], ["Slab"])
+        self.assertEqual(garage.FoundationSlab.IfcType, "Slab")
 
     def test_shed_roof(self):
         roof = CO.make_shed_roof(self.doc)
