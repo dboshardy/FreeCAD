@@ -120,7 +120,7 @@ Work done before 2026-10-12 lives in this repository's FreeCAD fork. Moving it:
 
 | Fork work | Destination |
 |---|---|
-| `addons/construction/` (Construction workbench, libraries, tests) and `addons/construction/Tutorials/` | Construction add-on repository, unchanged in substance; pure Python already. Its tests run in stock FreeCAD. First apply the Phase 5.3 rollback |
+| `src/Mod/Construction/` (Construction workbench, libraries, tests) and `docs/tutorials/construction/` | Construction add-on (`addons/construction/`, done 2026-10-13), unchanged in substance; pure Python already. Its tests run in the add-on install. Phase 5.3 rollback applied first |
 | `src/Gui/Hotkeys/` and the hooks in `Command.cpp`, `Control.cpp`, `ToolHandler.cpp`, `ShortcutManager.cpp`, `MainWindow.cpp`, `CommandStd.cpp`, `Workbench.cpp` | Rewritten as a UX add-on (command palette, radial menu, hotkey strip, workspace and task-dialog contexts from Python). Only the per-tool context hook (tool handler start/finish, context layers ahead of Qt shortcuts) is proposed upstream as a minimal PR |
 | Branding (`src/Main`, `branding/`), installers, `src/App/Fork/FeatureFlags.*`, `src/Ext/freecad/fork_features.py`, the feature-flag sites in FreeCAD files (NaviCube, CAM Adaptive, BIM/Help/download network features), `docs/inherited-conflicts.md` | Retired: FreeCAD is shipped by the FreeCAD project, so its features are not ours to flag |
 | `tools/fork/check.py` (network, reserved terms, data licences, SPDX headers, dependencies) | Kept as add-on CI checks; the fork-path and upstream-base checks are dropped |
