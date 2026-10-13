@@ -5,8 +5,8 @@ import Hotkeys
 
 
 def text(bindings, limit=8):
-    """Workspace bindings first (Hotkeys.active order is file order), then global."""
-    ordered = sorted(bindings, key=lambda b: b["layer"] != "workspace")
+    """Innermost layer first: dialog, workspace, global."""
+    ordered = sorted(bindings, key=lambda b: Hotkeys.LAYERS.index(b["layer"]))
     items = [f"{b['key']} {b['command'].split('_', 1)[-1]}" for b in ordered[:limit]]
     more = len(ordered) - limit
     return "  |  ".join(items) + (f"  (+{more})" if more > 0 else "") if items else "no hotkeys bound"

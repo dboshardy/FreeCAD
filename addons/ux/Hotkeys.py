@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Context-layered hotkeys: workspace layer, then global layer. First match wins.
+"""Context-layered hotkeys: task-dialog layer, workspace layer, global layer. First match wins.
+
+A dialog binding names the open task dialog by a case-insensitive part of its panel header
+("Pad Parameters"), or "*" for any task dialog.
 
 shortcut: no command (active-tool) layer and no chords; Python sees no tool-handler
 start/finish. The command layer needs the upstream hook (design doc §4.2).
@@ -7,7 +10,7 @@ start/finish. The command layer needs the upstream hook (design doc §4.2).
 
 import json
 
-LAYERS = ("workspace", "global")  # resolution order
+LAYERS = ("dialog", "workspace", "global")  # resolution order
 
 
 def parse(text):
@@ -19,7 +22,9 @@ def parse(text):
             raise ValueError(f"bad binding: {b!r}")
         if b["layer"] == "workspace" and not b.get("workbench"):
             raise ValueError(f"workspace binding needs a workbench: {b!r}")
-        out.append({"layer": b["layer"], "workbench": b.get("workbench"),
+        if b["layer"] == "dialog" and not b.get("dialog"):
+            raise ValueError(f"dialog binding needs a dialog title part or '*': {b!r}")
+        out.append({"layer": b["layer"], "workbench": b.get("workbench"), "dialog": b.get("dialog"),
                     "key": b["key"], "command": b["command"]})
     return out
 
@@ -40,10 +45,20 @@ def parse_radial(text):
     return radial
 
 
-def resolve(bindings, workbench, key):
+def _applies(b, workbench, dialogs):
+    if b["layer"] == "global":
+        return True
+    if b["layer"] == "workspace":
+        return b["workbench"] == workbench
+    want = b["dialog"].lower()
+    return bool(dialogs) and (want == "*" or any(want in d.lower() for d in dialogs))
+
+
+def resolve(bindings, workbench, key, dialogs=()):
+    """dialogs: header texts of the open task dialog (empty when none)."""
     for layer in LAYERS:
         for b in bindings:
-            if b["layer"] == layer and b["key"] == key and (layer == "global" or b["workbench"] == workbench):
+            if b["layer"] == layer and b["key"] == key and _applies(b, workbench, dialogs):
                 return b["command"]
     return None
 
@@ -52,9 +67,9 @@ def conflicts(bindings):
     """Two bindings on the same key in the same layer (and workbench)."""
     seen, out = {}, []
     for b in bindings:
-        k = (b["layer"], b["workbench"], b["key"])
+        k = (b["layer"], b["workbench"], b.get("dialog"), b["key"])
         if k in seen and seen[k] != b["command"]:
-            out.append(f"{b['layer']} {b['workbench'] or ''} {b['key']}: {seen[k]} vs {b['command']}")
+            out.append(f"{b['layer']} {b['workbench'] or b.get('dialog') or ''} {b['key']}: {seen[k]} vs {b['command']}")
         seen.setdefault(k, b["command"])
     return out
 
@@ -98,12 +113,32 @@ def reload():
     return _state["bindings"]
 
 
+def dialog_titles():
+    """Header texts of the open task dialog ("Pad Parameters"); [] when none is open."""
+    import FreeCADGui as Gui
+
+    if not Gui.Control.activeDialog():
+        return []
+    from PySide import QtWidgets
+
+    tasks = Gui.getMainWindow().findChild(QtWidgets.QWidget, "Tasks")  # the task view
+    labels = tasks.findChildren(QtWidgets.QLabel) if tasks else []
+    return [
+        w.text() for w in labels
+        if w.isVisible() and w.inherits("QSint::ActionLabel") and w.text()
+    ] or ["*"]
+
+
 def active():
-    """Bindings for the strip: workspace layer of the active workbench, then global."""
+    """Bindings for the strip: the open dialog's layer, the active workbench's, then global."""
     import FreeCADGui as Gui
 
     wb = Gui.activeWorkbench().name() if Gui.activeWorkbench() else None
-    return [b for b in _state["bindings"] if b["layer"] == "global" or b["workbench"] == wb]
+    dialogs = dialog_titles()
+    return sorted(
+        (b for b in _state["bindings"] if _applies(b, wb, dialogs)),
+        key=lambda b: LAYERS.index(b["layer"]),
+    )
 
 
 def install():
@@ -133,7 +168,7 @@ def install():
                     Suggest.run_nth(int(key[-1]))
                     return True
             wb = Gui.activeWorkbench()
-            cmd = resolve(_state["bindings"], wb.name() if wb else None, key)
+            cmd = resolve(_state["bindings"], wb.name() if wb else None, key, dialog_titles())
             if not cmd:
                 return False
             if t == QtCore.QEvent.ShortcutOverride:

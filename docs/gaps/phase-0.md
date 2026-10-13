@@ -94,31 +94,33 @@ widget), `src/Gui/InputHint*` (per-tool hints in the status bar),
 
 ## 0.7 UX add-on (`addons/ux/`, 2026-10-13)
 
-Python rewrite of the fork's C++ UX (§4.5). Tests: `FreeCADCmd -t TestUx` (24, headless) and
-`FreeCAD -t TestUxGui` (6, GUI); both pass against the CADApp-branded build in this container.
+Python rewrite of the fork's C++ UX (§4.5); the C++ palette, radial menu, strip and keymap import/export are
+removed (`src/Gui/Hotkeys/HotkeyCommands.cpp` deleted). Tests: `TestUx` (28, headless) and `TestUxGui` (7, GUI) pass on
+the CADApp build and on stock FreeCAD 26.3 (conda-forge, Linux arm64, with IfcOpenShell), as do the Construction
+suites (`TestConstruction` 135, `TestConstructionApp` 32, `TestConstructionGui` 15).
 
 | Item | Status | Notes |
 |---|---|---|
-| Add-on template, local-folder install, test runner | Present | `addons/template/`; `addons/ci/run_tests.py <addon> <module>... [--gui]` links the add-on into `<user data>/Mod/`, runs the static checks and the tests, removes the link |
+| Add-on template, local-folder install, test runner | Present | `addons/template/`; `addons/ci/run_tests.py <addon> <module>... [--gui] [--freecad DIR]` links the add-on into `<user data>/Mod/`, runs the static checks and the tests, removes the link |
 | Command palette | Present | `Palette.py`, `Ctrl+Shift+P`, app-wide `QShortcut` (a command's `Accel` only fires when its action is on the active workbench). Lists commands of loaded workbenches only: a workbench's commands exist once it is activated (same as upstream's search) |
-| Workspace and global hotkey layers, per-layer conflicts | Present | `Hotkeys.py`, `<user data>/UxHotkeys.json`; `ShortcutOverride` filter runs ahead of Qt shortcuts; text inputs are skipped. No chords |
+| Hotkey layers: dialog, workspace, global; per-layer conflicts | Present | `Hotkeys.py`, `<user data>/UxHotkeys.json`; `ShortcutOverride` filter runs ahead of Qt shortcuts; text inputs are skipped. The dialog layer matches the open task dialog by a part of its panel header ("Pad Parameters") or `*`; a Python panel has no header and counts as `*`. No chords |
 | Profile import/export (JSON), remapping UI with search and conflicts | Present | `Remap.py` (`UX_Hotkeys`). Covers the UX layers only, not upstream's global shortcuts |
-| Heads-up hotkey strip | Present | `Strip.py` (`UX_HotkeyStrip`): status-bar label, workspace bindings first. No `F1` toggle (upstream `F1` is What's This) |
-| Next-tool suggestions | Present | `Suggest.py`: rules keyed by the type of the last created object (sketch → Pad, Pocket, ...), shown in the strip, run with `Alt+1`..`Alt+5`. No local usage statistics |
-| Radial menu | Partial | `Radial.py` (`UX_RadialMenu`): up to 8 commands per workbench from `UxHotkeys.json` (`radial`). Opened by command or hotkey; right-drag opening not done (navigation styles use the right button) |
-| Command (active-tool) layer | Missing | Needs a Python signal from tool handlers: proposal in `docs/upstream/tool-context-hook.md`, not submitted |
-| Inline value entry | Missing | Sketcher has on-view parameters; a generic framework is not started |
-| Default keymaps (§8.2-8.4) | Missing | As 0.6.10: opt-in profile only |
-| CI on 3 OS, stock FreeCAD | Written, not run | `.github/workflows/addons.yml`; all local testing is against the CADApp-branded build, not stock FreeCAD |
+| Heads-up hotkey strip | Present | `Strip.py` (`UX_HotkeyStrip`): status-bar label, innermost layer first. No `F1` toggle (upstream `F1` is What's This) |
+| Next-tool suggestions | Present | `Suggest.py`: rules keyed by the type of the last created object (sketch gives Pad, Pocket, ...), shown in the strip, run with `Alt+1`..`Alt+5`. No local usage statistics |
+| Radial menu | Present, by command | `Radial.py` (`UX_RadialMenu`): up to 8 commands per workbench from `UxHotkeys.json` (`radial`), opened by command or hotkey. Right-drag opening is a decision, not a gap: FreeCAD's navigation styles use the right button |
+| Command (active-tool) layer | Missing | Needs a Python signal from tool handlers: proposal in `docs/upstream/tool-context-hook.md`, not submitted. The C++ engine and tool hooks stay in `src/Gui/Hotkeys/` and the tool hooks until then |
+| Inline value entry | Not built | Sketcher has on-view parameters (FreeCAD's). A generic typed-value framework needs the tool hook above to know the active dimension |
+| Default keymaps (§8.2-8.4) | Opt-in profile | `addons/ux/profiles/design-doc-keymap.json` (§8.2-8.3 keys that map to one FreeCAD command); FreeCAD's keymaps stay the default (0.6.10) |
+| CI on 3 OS, stock FreeCAD | Written, not run on GitHub | `.github/workflows/addons.yml`; local runs on stock 26.3 (Linux) pass; Windows and macOS untried |
 | Network-API check | Present | `addons/*/check.py network`; no runtime network-isolation test |
 
 ## Exit criteria (Phase 0, add-on strategy)
 
 | Criterion | Status |
 |---|---|
-| Construction and UX add-ons install into stock FreeCAD on 3 OS from a local folder and pass their tests | Partial: install and pass on Linux in the CADApp build; stock FreeCAD and Windows/macOS not tried |
+| Construction and UX add-ons install into stock FreeCAD on 3 OS from a local folder and pass their tests | Partial: Linux on stock 26.3 and on the CADApp build pass; Windows and macOS not tried |
 | Add-on code passes the network-API check | Met (`check.py all` on template, ux, construction) |
-| Workspace-level hotkey layers switch with the workbench and task dialog | Partial: workbench layer tested (`Hotkeys.resolve`, key press in `TestUxGui`); no task-dialog layer yet (`Gui.Control.activeDialog()` could serve) |
+| Workspace-level hotkey layers switch with the workbench and task dialog | Met (`TestUx`, `TestUxGui`: key press, workbench layer, open Placement dialog) |
 | Remap a hotkey | Met (`TestUxGui.test_remap_dialog_edits_and_saves`) |
 | Command palette finds any registered command | Met for loaded workbenches |
 | The per-tool context hook is proposed upstream | Drafted (`docs/upstream/tool-context-hook.md`), not submitted |

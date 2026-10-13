@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # Add-on CI (design doc §4.4, Phase 0): install stock FreeCAD, run each add-on's tests there.
 # Not yet run on GitHub: first run may need version pins or action updates.
+# Locally the same commands pass on conda-forge's freecad 26.3 (Linux arm64), headless and with a virtual display.
 name: Add-ons
 
 on:
@@ -27,7 +28,7 @@ jobs:
       - uses: mamba-org/setup-micromamba@v2
         with:
           environment-name: fc
-          create-args: freecad python=3.11
+          create-args: freecad ifcopenshell
           condarc: |
             channels: [conda-forge]
       - name: Static checks and unit tests (headless)

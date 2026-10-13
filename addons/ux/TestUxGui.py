@@ -46,16 +46,16 @@ class TestUxGui(unittest.TestCase):
             self.assertIn(cmd, FreeCADGui.listCommands())
 
     def test_palette_lists_commands(self):
-        FreeCADGui.activateWorkbench("ConstructionWorkbench")  # a workbench's commands exist once it is loaded
+        FreeCADGui.activateWorkbench("PartDesignWorkbench")  # a workbench's commands exist once it is loaded
         FreeCADGui.runCommand("UX_CommandPalette")
         process_events()
         popup = QtWidgets.QApplication.activePopupWidget()
         lst = popup.findChild(QtWidgets.QListWidget)
         edit = popup.findChild(QtWidgets.QLineEdit)
-        edit.setText("construction shed")
+        edit.setText("partdesign pad")
         process_events()
         names = [lst.item(i).data(QtCore.Qt.UserRole) for i in range(lst.count())]
-        self.assertIn("Construction_Shed", names)
+        self.assertIn("PartDesign_Pad", names)
 
     def test_radial_menu_has_eight_buttons(self):
         FreeCADGui.runCommand("UX_RadialMenu")
@@ -110,3 +110,23 @@ class TestUxGui(unittest.TestCase):
             if b.text() == "Save":
                 b.click()
         self.assertEqual(Hotkeys.load()[0]["key"], "F9")
+
+    def test_dialog_layer_follows_the_open_task_dialog(self):
+        doc = FreeCAD.newDocument("UxDialog")
+        box = doc.addObject("Part::Box", "Box")
+        doc.recompute()
+        self.assertEqual(Hotkeys.dialog_titles(), [])
+        FreeCADGui.Selection.addSelection(box)
+        FreeCADGui.runCommand("Std_Placement")  # opens the Placement task dialog
+        process_events(500)
+        try:
+            titles = Hotkeys.dialog_titles()
+            self.assertTrue(titles, "no task dialog seen")
+            star = [{"layer": "dialog", "workbench": None, "dialog": "*", "key": "Q", "command": "Std_Undo"}]
+            self.assertEqual(Hotkeys.resolve(star, None, "Q", titles), "Std_Undo")
+            part = [{"layer": "dialog", "workbench": None, "dialog": titles[0][:4], "key": "Q", "command": "Std_Redo"}]
+            self.assertEqual(Hotkeys.resolve(part, None, "Q", titles), "Std_Redo")
+        finally:
+            FreeCADGui.Control.closeDialog()
+        process_events()
+        self.assertEqual(Hotkeys.dialog_titles(), [])

@@ -34,8 +34,8 @@ class TestPalette(unittest.TestCase):
 import Hotkeys
 
 B = [
-    {"layer": "global", "workbench": None, "key": "M", "command": "Std_Measure"},
-    {"layer": "workspace", "workbench": "SketcherWorkbench", "key": "M", "command": "Sketcher_Mirror"},
+    {"layer": "global", "workbench": None, "dialog": None, "key": "M", "command": "Std_Measure"},
+    {"layer": "workspace", "workbench": "SketcherWorkbench", "dialog": None, "key": "M", "command": "Sketcher_Mirror"},
 ]
 
 
@@ -48,6 +48,21 @@ class TestHotkeys(unittest.TestCase):
 
     def test_no_match(self):
         self.assertIsNone(Hotkeys.resolve(B, "PartDesignWorkbench", "Q"))
+
+    def test_dialog_layer_beats_workspace(self):
+        b = B + [{"layer": "dialog", "workbench": None, "dialog": "Pad", "key": "M", "command": "Std_Undo"}]
+        self.assertEqual(Hotkeys.resolve(b, "SketcherWorkbench", "M", ["Pad Parameters"]), "Std_Undo")
+        self.assertEqual(Hotkeys.resolve(b, "SketcherWorkbench", "M", ["Pocket Parameters"]), "Sketcher_Mirror")
+        self.assertEqual(Hotkeys.resolve(b, "SketcherWorkbench", "M"), "Sketcher_Mirror")  # no dialog open
+
+    def test_dialog_star_matches_any_dialog(self):
+        b = [{"layer": "dialog", "workbench": None, "dialog": "*", "key": "Z", "command": "Std_Undo"}]
+        self.assertEqual(Hotkeys.resolve(b, None, "Z", ["Anything"]), "Std_Undo")
+        self.assertIsNone(Hotkeys.resolve(b, None, "Z"))
+
+    def test_dialog_binding_needs_a_title(self):
+        with self.assertRaises(ValueError):
+            Hotkeys.parse('{"bindings":[{"layer":"dialog","key":"A","command":"c"}]}')
 
     def test_roundtrip(self):
         self.assertEqual(Hotkeys.parse(Hotkeys.dump(B)), B)
