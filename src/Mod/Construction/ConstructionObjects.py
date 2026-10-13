@@ -105,7 +105,6 @@ CHOICES = {
     "DoorStyle": Cabinet.DOOR_STYLES,
     "FillerSide": Cabinet.FILLER_SIDES,
     "BlindSide": Cabinet.BLIND_SIDES,
-    "OpenSides": Framing.OPEN_SIDES,
     "RoofType": Shed.ROOFS,
     "Foundation": Shed.FOUNDATIONS,
     "Guards": ("auto", "yes", "no"),
@@ -950,23 +949,19 @@ class ShedRoofFeature(FramingFeature):
 
 
 class StairFeature(FramingFeature):
-    """Straight stair on cut stringers; the riser limit comes from the rule set."""
+    """Stair plan on an Arch_Stairs (BIM): the Arch_Stairs gives the shape, rise,
+    steps, tread depth, width, nosing, landing and railings. This object adds
+    the lumber: treads cut from whole boards, cut stringers, newel posts,
+    balusters, the advisory checks and the cut list."""
 
     IFC_TYPE = "Stair"
     GROUP = "Stair"
     _d = Framing.Stair()
     PROPERTIES = [
-        _length("TotalRise", "Finished floor to finished floor", _d.total_rise),
-        _length("Width", "Outside of the stringers", _d.width),
-        (INTEGER, "TreadBoards", "Boards per tread: the run follows from them", _d.tread_boards),
         _length("TreadGap", "Gap between tread boards", _d.tread_gap),
-        _length("Nosing", "Tread overhang past the riser face", _d.nosing),
         _length("StringerSpacing", "Largest distance between stringers", _d.max_stringer_spacing),
-        (ENUM, "OpenSides", "Sides without a wall: they get a guard", _d.open_sides),
         _length("HandrailHeight", "Top of the handrail above the nosings", _d.handrail_height),
         _length("BalusterGap", "Largest clear gap between balusters", _d.max_baluster_gap),
-        (INTEGER, "LandingAfter", "Risers up to a landing; 0 = straight stair, no landing", 0),
-        _length("LandingDepth", "Landing depth along the run; 0 = the stair width", 0.0),
     ]
     MATERIALS = [
         ("StringerMaterial", "stringer", "lumber.metric.45x220", "Stringers (cut)"),
@@ -977,14 +972,26 @@ class StairFeature(FramingFeature):
         ("LandingJoistMaterial", "landing_joist", "lumber.metric.45x145", "Landing frame"),
     ]
 
+    def setProperties(self, obj):
+        super().setProperties(obj)
+        add_property(obj, "App::PropertyLink", "Stairs", self.GROUP, "The Arch_Stairs to build", None)
+
+    def arch_stairs(self, obj):
+        if obj.Stairs is None:
+            raise ValueError("no Arch_Stairs linked")
+        return obj.Stairs
+
     def model(self, obj):
         stair = self.stair(obj)
-        if int(obj.LandingAfter) <= 0:
+        arch = self.arch_stairs(obj)
+        if arch.Landings == "None":
             return stair
+        if arch.Landings != "At center" or arch.Flight != "Straight":
+            raise ValueError("only straight stairs, with no landing or one at the center")
         return Framing.LandingStair(
             stair,
-            int(obj.LandingAfter),
-            float(obj.LandingDepth.Value),
+            int(arch.NumberOfSteps) // 2,
+            float(arch.LandingDepth.Value),
             lumber_section(obj.LandingJoistMaterial),
         )
 
@@ -992,24 +999,32 @@ class StairFeature(FramingFeature):
         max_riser = rule_set().get("stair_riser_max_mm")
         if not max_riser:
             raise ValueError("the rule set has no stair_riser_max_mm")
+        arch = self.arch_stairs(obj)
+        sides = [bool(arch.RailingLeft), bool(arch.RailingRight)]
         return Framing.Stair(
-            total_rise=float(obj.TotalRise.Value),
-            width=float(obj.Width.Value),
+            total_rise=float(arch.Height.Value),
+            n_risers=int(arch.NumberOfSteps),
+            tread_run=float(arch.TreadDepth.Value),
+            width=float(arch.Width.Value),
             max_riser=float(max_riser),
-            tread_boards=int(obj.TreadBoards),
             tread_gap=float(obj.TreadGap.Value),
-            nosing=float(obj.Nosing.Value),
+            nosing=float(arch.Nosing.Value),
             tread=lumber_section(obj.TreadMaterial),
             stringer=lumber_section(obj.StringerMaterial),
             max_stringer_spacing=float(obj.StringerSpacing.Value),
             max_piece=self.max_piece(obj),
-            open_sides=obj.OpenSides,
+            open_sides={(True, True): "both", (True, False): "left", (False, True): "right"}.get(
+                tuple(sides), "none"
+            ),
             handrail_height=float(obj.HandrailHeight.Value),
             rail=lumber_section(obj.RailMaterial),
             post=lumber_section(obj.PostMaterial),
             baluster=lumber_section(obj.BalusterMaterial),
             max_baluster_gap=float(obj.BalusterGap.Value),
         )
+
+    def solids(self, obj):
+        return [self.arch_stairs(obj).Shape.copy()]
 
     def checks(self, obj, rules):
         model = self.model(obj)
@@ -1114,7 +1129,28 @@ def make_deck(doc=None, name="Deck"):
 
 
 def make_stair(doc=None, name="Stair"):
-    return _make_framing(StairFeature, name, doc)
+    """A stair: an Arch_Stairs of the default rise and width on cut stringers,
+    and the plan object that turns it into lumber."""
+    import Arch
+
+    doc = doc or FreeCAD.ActiveDocument or FreeCAD.newDocument()
+    d = Framing.Stair(max_riser=float(rule_set()["stair_riser_max_mm"]))
+    arch = Arch.makeStairs(
+        length=d.total_run(), width=d.width, height=d.total_rise, steps=d.risers()
+    )
+    arch.Label = f"{name} (Arch_Stairs)"
+    arch.Nosing = d.nosing
+    arch.TreadThickness = d.tread[0]
+    arch.Structure = "Two stringers"
+    arch.StringerWidth, arch.StructureThickness = d.stringer
+    plan = doc.addObject("Part::FeaturePython", name)
+    StairFeature(plan)
+    plan.Stairs = arch
+    if FreeCAD.GuiUp:
+        ViewProvider(plan.ViewObject)
+        arch.ViewObject.Visibility = False  # the plan object shows the same shape
+    doc.recompute()
+    return plan
 
 
 def _make_framing(feature, name, doc):

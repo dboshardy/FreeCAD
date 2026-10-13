@@ -162,22 +162,25 @@ depth; each rafter needs a board of at least 2060 mm.
 
 ## 5. A stair
 
-Click **Stair** and set **TotalRise** (finished floor to finished floor) and
-**Width**. The stair:
+Click **Stair**. It creates an **Arch_Stairs** (the BIM workbench's stair: it
+draws the stair and carries **Height** = finished floor to finished floor,
+**Width**, **NumberOfSteps**, **TreadDepth**, **Nosing**, **Landings** and the
+left and right **Railing**) and a Stair object that turns it into lumber. Edit
+the rise, steps and width on the Arch_Stairs; the Stair object:
 
-- splits the rise into the fewest **equal** risers no higher than the rule
-  set's `stair_riser_max_mm` (tutorial 4), so it follows your rules;
-- makes each tread from **TreadBoards** whole boards of **TreadMaterial** laid
-  flat with **TreadGap** between them, overhanging the riser by **Nosing**; the
-  run (riser face to riser face) follows from that, so no board is ripped;
+- reads the equal risers and tread depth of the Arch_Stairs, and checks the
+  riser against the rule set's `stair_riser_max_mm` (tutorial 4);
+- makes each tread from whole boards of **TreadMaterial** laid flat with
+  **TreadGap** between them, overhanging the riser by the Arch_Stairs'
+  **Nosing**; the last board is ripped when the boards overshoot the run;
 - cuts the stringers from **StringerMaterial**, dropped by the tread thickness
   so the first and last risers equal the others, as many as keep them within
   **StringerSpacing**;
-- on each of the **OpenSides** (`both`, `left`, `right` or `none`), adds a
-  guard: newel posts at the bottom and top, a handrail **HandrailHeight** above
-  the nosings, and balusters on the treads with clear gaps no wider than
-  **BalusterGap**. With `none` (walls on both sides) it adds a handrail on the
-  left wall.
+- for each side with an Arch_Stairs railing, adds a guard: newel posts at the
+  bottom and top, a handrail **HandrailHeight** above the nosings, and
+  balusters on the treads with clear gaps no wider than **BalusterGap**. With
+  no railing it adds a handrail on the left wall;
+- with **Landings** `At center` on a straight flight, adds a landing frame.
 
 ```pycon
 >>> stair = Framing.Stair(total_rise=2600, max_riser=190, stringer=(38.1, 285.75))
