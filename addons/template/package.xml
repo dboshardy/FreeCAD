@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<package format="1" xmlns="https://wiki.freecad.org/Package_Metadata">
+  <name>CADAppTemplate</name>
+  <description>Template for CADApp add-ons: workbench registration, tests, compliance checks.</description>
+  <version>0.1.0</version>
+  <date>2026-10-12</date>
+  <maintainer email="noreply@example.invalid">CADApp</maintainer>
+  <license file="LICENSE">LGPL-2.1-or-later</license>
+  <url type="repository" branch="main">https://github.com/dboshardy/MyCAD</url>
+  <!-- Minimum FreeCAD version this add-on supports (§4.4). -->
+  <freecadmin>1.1.0</freecadmin>
+  <content>
+    <workbench>
+      <classname>TemplateWorkbench</classname>
+      <subdirectory>./</subdirectory>
+      <freecadmin>1.1.0</freecadmin>
+    </workbench>
+  </content>
+</package>
