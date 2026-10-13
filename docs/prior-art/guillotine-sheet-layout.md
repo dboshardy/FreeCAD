@@ -5,7 +5,7 @@ FORK: added by the CADApp fork (design doc §12.4 item 2, risk R7).
 
 # Guillotine Sheet Layout
 
-Implementation: `src/Mod/Construction/CutList.py` (`layout_sheets`, `_pack`).
+Implementation: `addons/construction/CutList.py` (`layout_sheets`, `_pack`).
 
 Panel-saw layouts: rectangular parts on rectangular sheets, every cut running
 edge to edge of the piece it splits (guillotine cuts), with saw kerf, edge trim,
