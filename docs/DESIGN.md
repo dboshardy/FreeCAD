@@ -120,7 +120,7 @@ Work done before 2026-10-12 lives in this repository's FreeCAD fork. Moving it:
 
 | Fork work | Destination |
 |---|---|
-| `src/Mod/Construction/` (Construction workbench, libraries, tests) and `docs/tutorials/construction/` | Construction add-on repository, unchanged in substance; pure Python already. Its tests run in stock FreeCAD. First apply the Phase 5.3 rollback |
+| `addons/construction/` (Construction workbench, libraries, tests) and `addons/construction/Tutorials/` | Construction add-on repository, unchanged in substance; pure Python already. Its tests run in stock FreeCAD. First apply the Phase 5.3 rollback |
 | `src/Gui/Hotkeys/` and the hooks in `Command.cpp`, `Control.cpp`, `ToolHandler.cpp`, `ShortcutManager.cpp`, `MainWindow.cpp`, `CommandStd.cpp`, `Workbench.cpp` | Rewritten as a UX add-on (command palette, radial menu, hotkey strip, workspace and task-dialog contexts from Python). Only the per-tool context hook (tool handler start/finish, context layers ahead of Qt shortcuts) is proposed upstream as a minimal PR |
 | Branding (`src/Main`, `branding/`), installers, `src/App/Fork/FeatureFlags.*`, `src/Ext/freecad/fork_features.py`, the feature-flag sites in FreeCAD files (NaviCube, CAM Adaptive, BIM/Help/download network features), `docs/inherited-conflicts.md` | Retired: FreeCAD is shipped by the FreeCAD project, so its features are not ours to flag |
 | `tools/fork/check.py` (network, reserved terms, data licences, SPDX headers, dependencies) | Kept as add-on CI checks; the fork-path and upstream-base checks are dropped |
@@ -226,7 +226,7 @@ Done in the fork before 2026-10-12 (branded build, feature flags, hotkey engine 
 ### Phase 5 — Construction & Woodworking Module
 **Upstream baseline**: BIM workbench: walls (multi-material), windows, doors, slabs, levels, buildings, sites, spaces (rooms with areas), roofs, stairs, structural members, beams and columns with steel profiles (`Presets/profiles.csv`), rebar, trusses (`Arch_Truss`), frames, fences, panels with thickness and sheet cut layouts (`Arch_Panel`, `Arch_Panel_Sheet`), true-shape nesting (`Arch_Nest`), materials and multi-materials, schedules, reports, quantities, native IFC import/export. TechDraw and Spreadsheet for drawings and tables. The Woodworking add-on (MIT, not in tree) was reviewed and not incorporated (`docs/gaps/phase-5.md`).
 
-**Known gaps**: Primary differentiator. Framing generators, member/joinery model, region-switchable material libraries, 1D/2D cut optimization, framing drawings, build sequences. Delivered as the Construction add-on (developed so far in `src/Mod/Construction/` of the fork, §4.5), building on BIM objects so IFC export works.
+**Known gaps**: Primary differentiator. Framing generators, member/joinery model, region-switchable material libraries, 1D/2D cut optimization, framing drawings, build sequences. Delivered as the Construction add-on (developed so far in `addons/construction/` of the fork, §4.5), building on BIM objects so IFC export works.
 
 **Target scope**
 
@@ -278,7 +278,7 @@ Done in the fork before 2026-10-12 (branded build, feature flags, hotkey engine 
 - Export: CSV/XLSX, PDF shop drawings, labels (printable).
 
 **5.7 Tutorials**
-- Step-by-step tutorials with examples for every generator and output: cabinets and runs, members, wall/floor/roof framing, sheathing, the shed template, libraries, settings and checks (`docs/tutorials/construction/`).
+- Step-by-step tutorials with examples for every generator and output: cabinets and runs, members, wall/floor/roof framing, sheathing, the shed template, libraries, settings and checks (`addons/construction/Tutorials/`).
 - Examples that use the standalone modules are runnable and tested (doctest), so documented results stay true.
 
 **Exit criteria**: Generate a 10×12 ft (3×3.6 m) gable shed from template; edit wall height and door width; framing regenerates; BOM, optimized cut list, sheet nesting, and framing drawings produce correct quantities (validated against hand count).
@@ -288,7 +288,7 @@ Phase 5 work that repeats FreeCAD features (review 2026-10-12) is rolled back in
 ---
 
 ### Phase 5.1 — Woodworking Assemblies & Joinery
-**Upstream baseline**: None for woodworking joinery. The Assembly workbench's joints position parts for motion, not joinery. The Woodworking add-on (MIT, not in tree) was reviewed 2026-10-10 and not incorporated: its joints are hand-placed PartDesign pockets inside Qt dialogs, with no joint model to build on (see `docs/gaps/phase-5.md`). Builds on Phase 5 (`src/Mod/Construction/`: `Parts.py`, libraries, `Joinery.py`, cut list, drawings, checks) and BIM's IFC export.
+**Upstream baseline**: None for woodworking joinery. The Assembly workbench's joints position parts for motion, not joinery. The Woodworking add-on (MIT, not in tree) was reviewed 2026-10-10 and not incorporated: its joints are hand-placed PartDesign pockets inside Qt dialogs, with no joint model to build on (see `docs/gaps/phase-5.md`). Builds on Phase 5 (`addons/construction/`: `Parts.py`, libraries, `Joinery.py`, cut list, drawings, checks) and BIM's IFC export.
 
 **Known gaps**: General woodworking design: free-form boards and panels, user-selected joints and hardware, furniture templates. Phase 5 generators (cabinets, shed) are special-purpose.
 

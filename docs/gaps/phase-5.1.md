@@ -7,7 +7,7 @@ FORK: added by the CADApp fork.
 
 Audit of Phase 5.1 target scope (`docs/DESIGN.md`, Phase 5.1) against this
 repository. Status: **Present**, **Partial**, **Missing**. Code in
-`src/Mod/Construction/`. Overlap with BIM, the Assembly workbench and the
+`addons/construction/`. Overlap with BIM, the Assembly workbench and the
 Woodworking add-on is reviewed in `docs/gaps/phase-5.md`.
 
 | Scope item | Status | Notes |
@@ -21,7 +21,7 @@ Woodworking add-on is reviewed in `docs/gaps/phase-5.md`.
 | Outputs | Present | Cut list with an Operations column (parts lengthened by tenons), hardware list from joints, lumber plan and sheet layout, drawing with tags (`write_cut_list`, `make_drawing`), IFC export as an element assembly |
 | Checks (tenon walls, edge distances, wood movement) | Present | `Checks.build`: wall anchoring required for builds taller than `anchor_furniture_height_mm` and slender (`anchor_furniture_slenderness`; anchors added to the hardware list), wood movement measured across whole edge-glued glue-ups, mortise wall thickness (rule `mortise_wall_min_mm`), cuts meeting inside a part (e.g. two tenons in one leg), solid wood wider than `wood_movement_width_mm` fixed rigidly (joint presets mark `allows_movement`). holes leaving less than `hole_wall_min_mm` to a face or breaking through (fastener edge distances) |
 | Templates | Present | General table (`Build.table`: sizes, stock, joint, top fastening, panel or glued-up board top, optional shelf on stretchers) with End Table, Dining Table and Workbench commands. Bookcase (`Build.bookcase`, command **Bookcase**): fixed shelves, top and bottom in dados (or any joint), kick board on pocket screws, back nailed on with its grain up. Cabinets and runs keep their size properties but go through the same pipeline: `Cabinet.joint_rows()` names library joints (carcass joint, hinges on the hanging side, shelf pins, drawer slides) and `Cabinet.joined()` applies them, so hardware and shop operations come from joinery; `CutList.hardware` only adds wall anchors (a safety rule, not a joint). The shed's framing already counts its fasteners through joinery with the fastening schedule |
-| Tutorials | Present | `docs/tutorials/construction/05-end-table.md`, examples run as doctests |
+| Tutorials | Present | `addons/construction/Tutorials/05-end-table.md`, examples run as doctests |
 
 ## Exit criteria status
 
@@ -33,7 +33,7 @@ Woodworking add-on is reviewed in `docs/gaps/phase-5.md`.
 
 ## Verification
 
-- `python3 src/Mod/Construction/TestConstruction.py` (standalone, includes the
+- `python3 addons/construction/TestConstruction.py` (standalone, includes the
   tutorial doctests), `FreeCADCmd -t TestConstructionApp`, `FreeCAD -t
   TestConstructionGui`: all pass.
 - The end table's 3D view and drawing were exported and inspected: legs,
