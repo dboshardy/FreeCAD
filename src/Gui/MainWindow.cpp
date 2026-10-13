@@ -92,7 +92,6 @@
 #include "Command.h"
 #include "DockWindowManager.h"
 #include "DownloadManager.h"
-#include "Hotkeys/ContextHotkeys.h"  // FORK: hotkey strip
 #include "FileDialog.h"
 #include "InputHintWidget.h"
 #include "MenuManager.h"
@@ -495,7 +494,6 @@ MainWindow::MainWindow(QWidget* parent, Qt::WindowFlags f)
          .persistentVisibility = true}
     );
 
-    Hotkeys::addHotkeyStrip(this);  // FORK: heads-up hotkey strip (§8.1)
 
     // Progress bar sits in the Left (non-permanent) slot, between Preselection and
     // Input Hints. Preselection (stretch=1) absorbs its show/hide so Input Hints

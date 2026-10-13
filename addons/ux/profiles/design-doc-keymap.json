@@ -1,0 +1,25 @@
+{
+  "bindings": [
+    {"layer": "global", "workbench": null, "key": "Space", "command": "UX_CommandPalette"},
+    {"layer": "global", "workbench": null, "key": "F", "command": "Std_ViewFitAll"},
+    {"layer": "global", "workbench": null, "key": "H", "command": "Std_ToggleVisibility"},
+    {"layer": "global", "workbench": null, "key": "1", "command": "Std_ViewFront"},
+    {"layer": "global", "workbench": null, "key": "2", "command": "Std_ViewRear"},
+    {"layer": "global", "workbench": null, "key": "3", "command": "Std_ViewLeft"},
+    {"layer": "global", "workbench": null, "key": "4", "command": "Std_ViewRight"},
+    {"layer": "global", "workbench": null, "key": "6", "command": "Std_ViewBottom"},
+    {"layer": "global", "workbench": null, "key": "7", "command": "Std_ViewIsometric"},
+    {"layer": "workspace", "workbench": "SketcherWorkbench", "key": "L", "command": "Sketcher_CreateLine"},
+    {"layer": "workspace", "workbench": "SketcherWorkbench", "key": "R", "command": "Sketcher_CreateRectangle"},
+    {"layer": "workspace", "workbench": "SketcherWorkbench", "key": "C", "command": "Sketcher_CreateCircle"},
+    {"layer": "workspace", "workbench": "SketcherWorkbench", "key": "A", "command": "Sketcher_CreateArc"},
+    {"layer": "workspace", "workbench": "SketcherWorkbench", "key": "S", "command": "Sketcher_CreateBSpline"},
+    {"layer": "workspace", "workbench": "SketcherWorkbench", "key": "T", "command": "Sketcher_Trimming"},
+    {"layer": "workspace", "workbench": "SketcherWorkbench", "key": "D", "command": "Sketcher_Dimension"},
+    {"layer": "workspace", "workbench": "SketcherWorkbench", "key": "G", "command": "Sketcher_ToggleConstruction"},
+    {"layer": "workspace", "workbench": "SketcherWorkbench", "key": "F2", "command": "Sketcher_LeaveSketch"}
+  ],
+  "radial": {
+    "SketcherWorkbench": ["Sketcher_CreateLine", "Sketcher_CreateRectangle", "Sketcher_CreateCircle", "Sketcher_CreateArc", "Sketcher_Trimming", "Sketcher_Dimension", "Sketcher_ToggleConstruction", "Sketcher_LeaveSketch"]
+  }
+}

@@ -76,9 +76,6 @@ class TestConstructionGui(unittest.TestCase):
             "Construction_DiningTable",
             "Construction_Workbench",
             "Construction_Bookcase",
-            "Std_CommandPalette",
-            "Std_RadialMenu",
-            "Std_HotkeysReload",
         ]:
             self.assertIn(name, registered)
 

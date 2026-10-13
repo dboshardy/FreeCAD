@@ -811,12 +811,7 @@ MenuItem* StdWorkbench::setupMenuBar() const
           << "Separator"
           << "Std_ProjectUtil"
           << "Std_DlgParameter"
-          << "Std_DlgCustomize"
-          // FORK: core UX commands (palette, radial menu, context hotkeys)
-          << "Separator"
-          << "Std_CommandPalette"
-          << "Std_RadialMenu"
-          << "Std_HotkeysReload";
+          << "Std_DlgCustomize";
 
     // Macro
     auto macro = new MenuItem(menuBar);
