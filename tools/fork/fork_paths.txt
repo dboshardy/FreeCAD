@@ -15,6 +15,7 @@ tools/fork/**
 .github/workflows/fork_checks.yml
 src/Gui/Hotkeys/**
 src/Mod/Construction/**
+addons/**
 src/Mod/Generative/**
 src/Mod/Render/**
 src/Mod/Freeform/**

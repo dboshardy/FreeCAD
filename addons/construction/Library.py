@@ -21,7 +21,12 @@ def density_kg_m3(item):
         return None
     import Materials
 
-    card = Materials.MaterialManager().getMaterial(uuid)
+    manager = Materials.MaterialManager()
+    try:
+        card = manager.getMaterial(uuid)
+    except LookupError:  # the manager started before Init.py registered our library
+        manager.refresh()
+        card = manager.getMaterial(uuid)
     return card.getPhysicalValue("Density").getValueAs("kg/m^3").Value
 
 

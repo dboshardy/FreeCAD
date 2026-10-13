@@ -1972,29 +1972,17 @@ class TestChecks(unittest.TestCase):
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TUTORIALS = next(
-    (
-        folder
-        for folder in (
-            os.path.join(HERE, "Tutorials"),  # installed with the workbench
-            os.path.join(HERE, "..", "..", "..", "docs", "tutorials", "construction"),  # source
-        )
-        if os.path.isdir(folder)
-    ),
-    "",
-)
+TUTORIALS = os.path.join(HERE, "Tutorials")
 
 
 class TestTutorials(unittest.TestCase):
-    """Runs every ```pycon block in docs/tutorials/construction with doctest, so
+    """Runs every ```pycon block in Tutorials/ with doctest, so
     the tutorials' examples and printed results stay true."""
 
     def test_examples(self):
         import doctest
         import re
 
-        if not TUTORIALS:
-            self.skipTest("tutorials not found")
         parser = doctest.DocTestParser()
         runner = doctest.DocTestRunner(optionflags=doctest.NORMALIZE_WHITESPACE)
         blocks = 0

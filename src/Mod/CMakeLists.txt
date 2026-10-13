@@ -18,10 +18,6 @@ if(BUILD_DRAFT)
   add_subdirectory(Draft)
 endif(BUILD_DRAFT)
 
-# FORK: Construction workbench (design doc §5)
-if(BUILD_CONSTRUCTION)
-  add_subdirectory(Construction)
-endif(BUILD_CONSTRUCTION)
 
 if(BUILD_FEM)
     add_subdirectory(Fem)
