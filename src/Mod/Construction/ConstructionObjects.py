@@ -1033,6 +1033,98 @@ class StairFeature(FramingFeature):
         return Checks.stair(model, rules)
 
 
+GUARD_PIECES = ("Guard post", "Guard rail", "Baluster")
+
+
+class GuardPart:
+    """Helper shape of a deck guard, the input of an Arch_Fence (BIM): the path
+    of one side, the post, or the section (rail and balusters of one bay,
+    drawn in front view). Computed from the deck's model."""
+
+    def __init__(self, obj, deck, kind, side=0):
+        obj.Proxy = self
+        obj.addProperty("App::PropertyLink", "Deck", "Guard", "The deck")
+        obj.addProperty("App::PropertyString", "Kind", "Guard", "path, post or section")
+        obj.addProperty("App::PropertyInteger", "Side", "Guard", "Guard side (0 to 3)")
+        obj.Deck, obj.Kind, obj.Side = deck, kind, side
+
+    def execute(self, obj):
+        deck = obj.Deck
+        model = deck.Proxy.model(deck)
+        V = FreeCAD.Vector
+        pt, pw = model.post
+        z0 = model.guard_frame_bottom()
+        height = model.guard_rail_bottom() - z0
+        if obj.Kind == "post":
+            obj.Shape = Part.makeBox(pt, pw, height)
+            return
+        if not model.guards or obj.Side >= len(model.guard_sides()):
+            obj.Shape = Part.Shape()
+            return
+        (x0, y0), (ux, uy), length, bays, inward = model.guard_layout(obj.Side)
+        if obj.Kind == "path":
+            h = pt / 2  # the fence puts a post's start on the path: shift by its half
+            wire = Part.makePolygon(
+                [
+                    V(x0 - ux * h, y0 - uy * h, z0),
+                    # 0.02 mm short, and the section 0.002 mm short per bay: the fence
+                    # counts sections with ceil() and clips a section that overshoots.
+                    V(x0 + ux * (length - h - 0.02), y0 + uy * (length - h - 0.02), z0),
+                ]
+            )
+            wire.transformShape(deck.Placement.toMatrix())
+            obj.Shape = wire
+            return
+        bay = length / bays
+        section = bay - pt - 0.002
+        rt, rd = model.rail
+        bw, bt = model.baluster
+        lateral = pw / 2  # the fence centres posts on the path; its section is offset the same
+        boxes = [Part.makeBox(section, rt, rd, V(0, lateral - rt / 2, height))]
+        n, gap = model.bay_balusters(bay)
+        for k in range(n):
+            x = gap * (k + 1) + bt * k
+            boxes.append(Part.makeBox(bt, bw, height, V(x, lateral + inward - bw / 2, 0)))
+        obj.Shape = Part.makeCompound(boxes)
+
+    def dumps(self):
+        return None
+
+    def loads(self, state):
+        return None
+
+
+def make_deck_guards(deck):
+    """An Arch_Fence per guard side (four: a freestanding deck has all four),
+    with its path, post and section, in a group. Sides without a guard stay empty."""
+    import Arch
+
+    doc = deck.Document
+    group = doc.addObject("App::DocumentObjectGroup", f"{deck.Name}Guards")
+    group.Label = f"{deck.Label} guards"
+
+    def part(kind, side, label):
+        obj = doc.addObject("Part::FeaturePython", f"{deck.Name}Guard{kind.capitalize()}")
+        GuardPart(obj, deck, kind, side)
+        obj.Label = label
+        group.addObject(obj)
+        if FreeCAD.GuiUp:
+            obj.ViewObject.Visibility = False
+        return obj
+
+    post = part("post", 0, "Guard post")
+    names = []
+    for side in range(4):
+        path = part("path", side, f"Guard path {side + 1}")
+        section = part("section", side, f"Guard section {side + 1}")
+        fence = Arch.makeFence(section, post, path)
+        fence.Label = f"Guard {side + 1}"
+        group.addObject(fence)
+        names.append(fence.Name)
+    deck.GuardFences = names
+    doc.recompute()
+
+
 class DeckFeature(FramingFeature):
     """Deck against a house: ledger, joists, rim, dropped beam on posts, decking."""
 
@@ -1104,6 +1196,26 @@ class DeckFeature(FramingFeature):
             max_baluster_gap=float(obj.BalusterGap.Value),
         )
 
+    def setProperties(self, obj):
+        super().setProperties(obj)
+        add_property(
+            obj, "App::PropertyStringList", "GuardFences", self.GROUP, "Names of the guard fences", []
+        )
+
+    def solids(self, obj):
+        """The framing and decking; the guards are Arch_Fence objects (their
+        parts are still listed). A side without a guard clears its fence."""
+        sides = len(self.model(obj).guard_sides()) if self.model(obj).guards else 0
+        for i, name in enumerate(obj.GuardFences):
+            fence = obj.Document.getObject(name)
+            if fence is not None and i >= sides and not fence.Shape.isNull():
+                fence.Shape = Part.Shape()
+        return [
+            piece_solid(p, size)
+            for p, (_, size) in self._all(obj)
+            if p.name not in GUARD_PIECES
+        ]
+
     def guards(self, obj):
         if obj.Guards != "auto":
             return obj.Guards == "yes"
@@ -1125,7 +1237,9 @@ class DeckFeature(FramingFeature):
 
 
 def make_deck(doc=None, name="Deck"):
-    return _make_framing(DeckFeature, name, doc)
+    deck = _make_framing(DeckFeature, name, doc)
+    make_deck_guards(deck)
+    return deck
 
 
 def make_stair(doc=None, name="Stair"):
