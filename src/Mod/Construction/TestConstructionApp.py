@@ -534,6 +534,36 @@ class TestConstructionApp(unittest.TestCase):
         fasteners = deck.Proxy.fasteners(deck, CO.fastening_schedule())
         self.assertEqual(fasteners["hardware.guard_corner_bracket"], 2)
 
+    def test_deck_guards_are_arch_fences(self):
+        deck = CO.make_deck(self.doc)
+        fences = [self.doc.getObject(n) for n in deck.GuardFences]
+        self.assertEqual([f.Proxy.Type for f in fences], ["Fence"] * 4)
+        self.assertTrue(all(f.Shape.isNull() for f in fences))  # 600 mm: no guard
+        deck.Height = 1200
+        self.doc.recompute()
+        self.assertEqual([not f.Shape.isNull() for f in fences], [True, True, True, False])
+        model = deck.Proxy.model(deck)
+        parts = deck.Proxy.parts(deck)
+        posts = sum(1 for _, p in parts if p.name == "Guard post")
+        balusters = sum(1 for _, p in parts if p.name == "Baluster")
+        self.assertEqual(posts, 10)
+        self.assertGreater(balusters, 0)
+        for i in range(3):  # as many sections as the model's bays
+            self.assertEqual(fences[i].NumberOfSections, model.guard_layout(i)[3])
+        # The outer rim side: balusters sit on the framing's face (inside the post line).
+        line = model.projection + model.post[0] / 2
+        balusters = [s for s in fences[0].Shape.Solids if s.BoundBox.XLength < model.baluster[1] + 1 and s.BoundBox.ZLength > 300 and s.BoundBox.YLength < model.baluster[0] + 1]
+        self.assertTrue(balusters)
+        self.assertTrue(all(s.BoundBox.Center.y < line for s in balusters))
+        box = fences[0].Shape.BoundBox
+        self.assertAlmostEqual(box.ZMax, model.height + model.guard_height, delta=1)
+        deck.Attached = False  # freestanding: all four sides
+        self.doc.recompute()
+        self.assertTrue(all(not f.Shape.isNull() for f in fences))
+        deck.Guards = "no"
+        self.doc.recompute()
+        self.assertTrue(all(f.Shape.isNull() for f in fences))
+
     def test_drawing(self):
         shed = CO.make_shed(self.doc)
         page = CO.make_drawing([shed], self.doc)

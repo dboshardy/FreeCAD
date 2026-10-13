@@ -1252,6 +1252,34 @@ class Deck:
             ]
         return sides
 
+    def guard_frame_bottom(self):
+        """Bottom of the guard posts: the underside of the framing."""
+        return self.joist_top() - self.joist[1]
+
+    def guard_rail_bottom(self):
+        return self.height + self.guard_height - self.rail[1]
+
+    def guard_layout(self, side):
+        """Layout of one guard side: (start, unit direction, length, bays,
+        inward offset of the balusters, signed to the left of the direction)."""
+        (x0, y0), (x1, y1) = self.guard_sides()[side]
+        length = math.hypot(x1 - x0, y1 - y0)
+        ux, uy = (x1 - x0) / length, (y1 - y0) / length
+        bays = max(1, math.ceil(length / self.guard_post_spacing - 1e-9))
+        nx, ny = -uy, ux  # to the left of the direction
+        into = nx * (self.length / 2 - x0) + ny * (self.projection / 2 - y0) > 0
+        inward = (self.post[0] / 2 - self.baluster[1] / 2) * (1 if into else -1)
+        return (x0, y0), (ux, uy), length, bays, inward
+
+    def bay_balusters(self, bay):
+        """(count, gap) of the balusters in a bay between post centres."""
+        bt, pt = self.baluster[1], self.post[0]
+        clear = bay - pt
+        n = max(
+            0, math.ceil((clear - self.max_baluster_gap) / (bt + self.max_baluster_gap) - 1e-9)
+        )
+        return n, (clear - n * bt) / (n + 1)
+
     def _guards(self):
         t, d = self.joist
         pt, h = self.post[0], self.post[0] / 2
