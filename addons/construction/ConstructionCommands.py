@@ -248,14 +248,10 @@ class TutorialsCommand:
         import os
 
         here = os.path.dirname(os.path.abspath(__file__))
-        for folder in (
-            os.path.join(here, "Tutorials"),  # installed
-            os.path.join(here, "..", "..", "..", "docs", "tutorials", "construction"),  # source
-        ):
-            index = os.path.normpath(os.path.join(folder, "README.md"))
-            if os.path.exists(index):
-                show_tutorials(index)
-                return
+        index = os.path.join(here, "Tutorials", "README.md")
+        if os.path.exists(index):
+            show_tutorials(index)
+            return
         FreeCAD.Console.PrintError("Construction tutorials not found\n")
 
 

@@ -58,3 +58,18 @@ class TestHotkeys(unittest.TestCase):
     def test_conflict(self):
         self.assertEqual(len(Hotkeys.conflicts(B + [dict(B[0], command="Other")])), 1)
         self.assertEqual(Hotkeys.conflicts(B), [])
+
+
+import Strip
+
+
+class TestStrip(unittest.TestCase):
+    def test_workspace_first_and_short_names(self):
+        self.assertEqual(Strip.text(B), "M Mirror  |  M Measure")
+
+    def test_limit(self):
+        many = [dict(B[0], key=str(i)) for i in range(10)]
+        self.assertTrue(Strip.text(many).endswith("(+2)"))
+
+    def test_empty(self):
+        self.assertEqual(Strip.text([]), "no hotkeys bound")

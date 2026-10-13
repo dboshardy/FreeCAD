@@ -19,18 +19,32 @@ class _PaletteCommand:
         Palette.show()
 
 
+class _StripCommand:
+    def GetResources(self):
+        return {"MenuText": "Hotkey Strip", "ToolTip": "Show or hide the hotkeys of the active workbench"}
+
+    def IsActive(self):
+        return True
+
+    def Activated(self):
+        import Strip
+
+        Strip.toggle()
+
+
 class UxWorkbench(FreeCADGui.Workbench):
     MenuText = "CADApp UX"
     ToolTip = "Keyboard-first UX tools"
 
     def Initialize(self):
-        self.appendMenu("UX", ["UX_CommandPalette"])
+        self.appendMenu("UX", ["UX_CommandPalette", "UX_HotkeyStrip"])
 
     def GetClassName(self):
         return "Gui::PythonWorkbench"
 
 
 FreeCADGui.addCommand("UX_CommandPalette", _PaletteCommand())
+FreeCADGui.addCommand("UX_HotkeyStrip", _StripCommand())
 
 
 def _install_shortcut():

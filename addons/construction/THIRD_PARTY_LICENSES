@@ -1,0 +1,10 @@
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+# Third-party components
+
+No code is added. The add-on uses FreeCAD's BIM (Arch_Structure, Arch_Stairs, Arch_Fence,
+Arch_Panel_Sheet, profiles), TechDraw, Spreadsheet, Material, Help and Draft workbenches
+through their Python API (LGPL-2.1-or-later, shipped with FreeCAD).
+
+Data: the libraries under `Resources/libraries/` carry `source` and `data_license` per file or entry.
+The Material cards under `Resources/Materials/` are original (CC0-1.0).
