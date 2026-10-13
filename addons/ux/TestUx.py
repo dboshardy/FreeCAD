@@ -73,3 +73,44 @@ class TestStrip(unittest.TestCase):
 
     def test_empty(self):
         self.assertEqual(Strip.text([]), "no hotkeys bound")
+
+
+import Radial
+import Suggest
+
+
+class TestRadial(unittest.TestCase):
+    def test_workbench_list_then_default_then_builtin(self):
+        radial = {"default": ["A"], "PartDesignWorkbench": ["B", "C"]}
+        self.assertEqual(Radial.commands_for(radial, "PartDesignWorkbench"), ["B", "C"])
+        self.assertEqual(Radial.commands_for(radial, "SketcherWorkbench"), ["A"])
+        self.assertEqual(Radial.commands_for({}, "X"), Radial.DEFAULT)
+        self.assertEqual(len(Radial.commands_for({"default": list("ABCDEFGHIJ")}, "X")), 8)
+
+    def test_positions_clockwise_from_the_top(self):
+        self.assertEqual(Radial.positions(4, 100), [(0, -100), (100, 0), (0, 100), (-100, 0)])
+
+    def test_parse_radial_limits(self):
+        self.assertEqual(Hotkeys.parse_radial('{"radial": {"default": ["A"]}}'), {"default": ["A"]})
+        with self.assertRaises(ValueError):
+            Hotkeys.parse_radial('{"radial": {"default": ["a","b","c","d","e","f","g","h","i"]}}')
+
+    def test_dump_keeps_radial(self):
+        text = Hotkeys.dump(B, {"default": ["A"]})
+        self.assertEqual(Hotkeys.parse(text), B)
+        self.assertEqual(Hotkeys.parse_radial(text), {"default": ["A"]})
+
+
+class TestSuggest(unittest.TestCase):
+    def test_after_a_sketch(self):
+        self.assertEqual(Suggest.after("Sketcher::SketchObject")[0], "PartDesign_Pad")
+
+    def test_unknown_type_has_none(self):
+        self.assertEqual(Suggest.after("App::Origin"), [])
+
+    def test_limit(self):
+        self.assertEqual(len(Suggest.after("Sketcher::SketchObject", 2)), 2)
+
+    def test_strip_next_text(self):
+        self.assertEqual(Strip.next_text(["Pad", "Pocket"]), "Next: Alt+1 Pad  Alt+2 Pocket")
+        self.assertEqual(Strip.next_text([]), "")

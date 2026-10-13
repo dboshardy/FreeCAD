@@ -24,8 +24,20 @@ def parse(text):
     return out
 
 
-def dump(bindings):
-    return json.dumps({"bindings": bindings}, indent=2)
+def dump(bindings, radial=None):
+    data = {"bindings": bindings}
+    if radial:
+        data["radial"] = radial
+    return json.dumps(data, indent=2)
+
+
+def parse_radial(text):
+    """{workbench name or "default": [command ids]} from JSON text."""
+    radial = json.loads(text).get("radial", {})
+    for name, cmds in radial.items():
+        if not isinstance(cmds, list) or not all(isinstance(c, str) for c in cmds) or len(cmds) > 8:
+            raise ValueError(f"radial menu '{name}': a list of at most 8 command ids")
+    return radial
 
 
 def resolve(bindings, workbench, key):
@@ -53,12 +65,25 @@ def path():
     return FreeCAD.getUserAppDataDir() + "UxHotkeys.json"
 
 
-def load():
+def read_text():
     try:
         with open(path(), encoding="utf-8") as f:
-            return parse(f.read())
+            return f.read()
     except FileNotFoundError:
-        return []
+        return '{"bindings": []}'
+
+
+def load():
+    return parse(read_text())
+
+
+def save(bindings, radial=None):
+    """Writes the profile; keeps the radial menus when `radial` is None."""
+    if radial is None:
+        radial = parse_radial(read_text())
+    with open(path(), "w", encoding="utf-8") as f:
+        f.write(dump(bindings, radial))
+    reload()
 
 
 _state = {"bindings": [], "pending": None}
@@ -96,6 +121,17 @@ def install():
             if isinstance(QtWidgets.QApplication.focusWidget(), TEXT):
                 return False
             key = QtGui.QKeySequence(ev.keyCombination()).toString()
+            if key in ("Alt+1", "Alt+2", "Alt+3", "Alt+4", "Alt+5"):
+                import Suggest
+
+                if t == QtCore.QEvent.ShortcutOverride and int(key[-1]) <= len(Suggest.current()):
+                    ev.accept()
+                    _state["pending"] = key
+                    return False
+                if t == QtCore.QEvent.KeyPress and _state["pending"] == key:
+                    _state["pending"] = None
+                    Suggest.run_nth(int(key[-1]))
+                    return True
             wb = Gui.activeWorkbench()
             cmd = resolve(_state["bindings"], wb.name() if wb else None, key)
             if not cmd:
