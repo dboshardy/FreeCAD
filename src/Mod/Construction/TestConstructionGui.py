@@ -37,6 +37,13 @@ def process_events(ms=200):
     QtTest.QTest.qWait(ms)  # waits in C++: no Python timer left at exit
 
 
+class TestTutorialsViewer(unittest.TestCase):
+    def test_help_viewer_check_answers(self):
+        import ConstructionCommands
+
+        self.assertIsInstance(ConstructionCommands.help_viewer_available(), bool)
+
+
 class TestConstructionGui(unittest.TestCase):
     def setUp(self):
         self.doc = FreeCAD.newDocument("ConstructionGuiTest")

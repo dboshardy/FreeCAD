@@ -192,10 +192,26 @@ class DrawingCommand:
         doc.commitTransaction()
 
 
+def help_viewer_available():
+    """FreeCAD's Help module can show pages here (it needs Qt WebEngine)."""
+    try:
+        import Help
+
+        return bool(Help.get_qtwebwidgets())
+    except ImportError:
+        return False
+
+
 def show_tutorials(index):
-    """Opens the tutorials' Markdown in a tab of the main window: Qt renders
-    it and follows the links between tutorials (no web engine needed; web
-    links open in the desktop browser). Returns the tab."""
+    """Opens the tutorials with FreeCAD's Help module. Without Qt WebEngine,
+    falls back to a tab of the main window where Qt renders the Markdown and
+    follows the links between tutorials (web links open in the desktop
+    browser). Returns the fallback tab, or None when Help showed them."""
+    if help_viewer_available():
+        import Help
+
+        Help.show(index)
+        return None
     import re
 
     from PySide import QtCore, QtWidgets
