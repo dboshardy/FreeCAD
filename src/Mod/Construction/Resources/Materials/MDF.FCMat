@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+General:
+  UUID: "281ebdd9-45a6-5603-a98b-103852332ab7"
+  Name: "MDF"
+  Author: "CADApp"
+  License: "CC0-1.0"
+  Description: "Density of mdf as listed in the construction library (generic value; user-extendable)"
+Models:
+  Density:
+    UUID: '454661e5-265b-4320-8e6f-fcf6223ac3af'
+    Density: "750 kg/m^3"

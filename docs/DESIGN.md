@@ -239,7 +239,7 @@ Done in the fork before 2026-10-12 (branded build, feature flags, hotkey engine 
 - Masonry/concrete: CMU, brick, concrete (poured volume); rebar is BIM's.
 - Roofing, siding, insulation, membranes (area-based materials).
 - Hardware: hinges, drawer slides, shelf pins, connectors, joist hangers, anchors, fasteners (generic, user-extendable).
-- Per-material: actual dimensions, grain direction, density, cost (user price table), supplier SKU field.
+- Per-material: actual dimensions, grain direction, a link to a Material workbench card (density, appearance), cost (user price table), supplier SKU field.
 - Region switch per document (US / metric); user libraries and overrides.
 
 **5.2 Structural members**
@@ -626,7 +626,7 @@ Assembly, Drawing, CAM, and Simulation layers follow the same pattern; each comm
   "actual": {"w": 38.1, "h": 88.9, "unit": "mm"},
   "stock_lengths_mm": [2438.4, 3048, 3657.6, 4267.2, 4876.8],
   "grain_axis": "length",
-  "density_kg_m3": 450,
+  "material_card": "<UUID of a Material workbench card: density, appearance>",
   "species_options": ["SPF", "DF-L", "SYP"],
   "design_values": null,
   "price": {"per": "piece", "by_length": {}},

@@ -96,6 +96,22 @@ class TestConstructionApp(unittest.TestCase):
         self.assertAlmostEqual(box.ZLength, 45, places=6)
         self.assertAlmostEqual(box.XLength, 3000 + 47.5, places=6)  # long point reaches past the end
 
+    def test_library_density_comes_from_material_cards(self):
+        items = CO.Library.load()
+        expected = {
+            "lumber.metric.45x95": 450,
+            "lumber.metric.lvl.45x200": 510,
+            "sheet.metric.plywood.18": 550,
+            "sheet.metric.mdf.18": 750,
+        }
+        for item_id, density in expected.items():
+            self.assertNotIn("density_kg_m3", items[item_id])
+            self.assertAlmostEqual(CO.Library.density_kg_m3(items[item_id]), density, places=6, msg=item_id)
+        carded = [i for i in items.values() if i.get("material_card")]
+        self.assertGreater(len(carded), 40)
+        for item in carded:  # every link resolves to a card with a density
+            self.assertGreater(CO.Library.density_kg_m3(item), 0, item["id"])
+
     def test_cut_list_and_checks(self):
         CO.make_cabinet("tall", self.doc)
         CO.make_shed(self.doc)

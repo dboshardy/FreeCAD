@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+General:
+  UUID: "4e9ad149-1a11-5f56-9c71-ac456713ed6c"
+  Name: "I-joist"
+  Author: "CADApp"
+  License: "CC0-1.0"
+  Description: "Density of i-joist as listed in the construction library (generic value; user-extendable)"
+Models:
+  Density:
+    UUID: '454661e5-265b-4320-8e6f-fcf6223ac3af'
+    Density: "200 kg/m^3"

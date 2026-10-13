@@ -10,6 +10,21 @@ import os
 LIBRARY_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Resources", "libraries")
 
 
+MATERIALS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Resources", "Materials")
+
+
+def density_kg_m3(item):
+    """Density from the item's Material workbench card (`material_card` UUID);
+    None when the item has no card. Needs FreeCAD's Materials module."""
+    uuid = item.get("material_card")
+    if not uuid:
+        return None
+    import Materials
+
+    card = Materials.MaterialManager().getMaterial(uuid)
+    return card.getPhysicalValue("Density").getValueAs("kg/m^3").Value
+
+
 def _read(path):
     with open(path, encoding="utf-8") as f:
         data = json.load(f)

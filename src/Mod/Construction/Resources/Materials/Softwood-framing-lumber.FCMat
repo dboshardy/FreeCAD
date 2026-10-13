@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+General:
+  UUID: "ebf49ef6-58ca-5199-80a8-9cc7d9bafeec"
+  Name: "Softwood framing lumber"
+  Author: "CADApp"
+  License: "CC0-1.0"
+  Description: "Density of softwood framing lumber as listed in the construction library (generic value; user-extendable)"
+Models:
+  Density:
+    UUID: '454661e5-265b-4320-8e6f-fcf6223ac3af'
+    Density: "450 kg/m^3"
