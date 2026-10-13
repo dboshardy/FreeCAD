@@ -144,9 +144,9 @@ Done in the fork before 2026-10-12 (branded build, feature flags, hotkey engine 
 - CI per add-on: install stock FreeCAD stable and development builds on Windows, macOS and Linux; run the add-on's tests headless and with the GUI.
 - Compliance files per add-on: `LICENSE`, `THIRD_PARTY_LICENSES`, `CONTRIBUTING.md` (clean-room attestation, §12 R20), `LEGAL.md`, SPDX headers, license and reserved-term CI checks (§12 R21).
 - Network rule (§1): static CI check for network APIs (`QNetworkAccessManager`, `urllib`, `requests`, `http.client`, sockets) in add-on code.
-- Core UX (§6, §8) as a UX add-on: context-layered hotkeys (workspace and task-dialog contexts from Python), heads-up hotkey strip, next-tool suggestions, command palette, radial menu, inline value entry. Build on FreeCAD's command and shortcut system; audit it first. Per-tool context (inside a Sketcher tool) needs a FreeCAD hook: proposed upstream as a minimal PR.
+- Core UX (§6, §8) as a UX add-on: context-layered hotkeys (workspace and task-dialog contexts from Python), heads-up hotkey strip, next-tool suggestions, command palette, radial menu, inline value entry. Build on FreeCAD's command and shortcut system; audit it first. Deferred (2026-10-13, secondary): per-tool context (inside a Sketcher tool) and generic inline value entry need a FreeCAD hook; the draft PR is `docs/upstream/tool-context-hook.md`, not submitted.
 
-**Exit criteria**: The Construction and UX add-ons install into stock FreeCAD on all 3 OS from a local folder and pass their tests there; add-on code passes the network-API check; workspace-level hotkey layers switch with the workbench and task dialog; remap a hotkey; command palette finds any registered command; the per-tool context hook is proposed upstream.
+**Exit criteria**: The Construction and UX add-ons install into stock FreeCAD on all 3 OS from a local folder and pass their tests there; add-on code passes the network-API check; workspace-level hotkey layers switch with the workbench and task dialog; remap a hotkey; command palette finds any registered command. (Per-tool hook deferred; not an exit criterion.)
 
 ---
 
