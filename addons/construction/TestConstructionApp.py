@@ -137,7 +137,10 @@ class TestConstructionApp(unittest.TestCase):
         import os
         import tempfile
 
-        import ifcopenshell
+        try:
+            import ifcopenshell
+        except ImportError:
+            self.skipTest("IfcOpenShell is not installed")
         from importers import exportIFC
 
         objects = [CO.make_shed(self.doc), CO.make_cabinet("base", self.doc)]

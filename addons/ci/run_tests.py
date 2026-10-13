@@ -17,14 +17,16 @@ from pathlib import Path
 
 
 def find(name, hint):
+    names = (name, name.lower())  # conda installs lower-case names on Linux
     if hint:
         p = Path(hint)
         if p.is_file():
             return str(p)
-        for c in (p / name, p / "bin" / name, p / "usr" / "bin" / name, p / f"{name}.exe", p / "bin" / f"{name}.exe"):
-            if c.exists():
-                return str(c)
-    return shutil.which(name) or sys.exit(f"{name} not found: pass --freecad")
+        for n in names:
+            for c in (p / n, p / "bin" / n, p / "usr" / "bin" / n, p / f"{n}.exe", p / "bin" / f"{n}.exe"):
+                if c.exists():
+                    return str(c)
+    return next((w for n in names if (w := shutil.which(n))), None) or sys.exit(f"{name} not found: pass --freecad")
 
 
 def main(argv):
