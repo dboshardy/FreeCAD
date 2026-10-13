@@ -5,8 +5,12 @@ FORK: added by the CADApp fork.
 
 # Phase 5 Gap Inventory — Construction & Woodworking
 
+> 2026-10-13: the workbench moved to `addons/construction/` (a stock-FreeCAD add-on). Members, stairs, slabs,
+> sheet layouts and deck guards are now BIM objects with the lumber and rules added on top: see
+> `phase-5.3.md`; where a row below describes their own geometry, that file has the current state.
+
 Audit of Phase 5 target scope (`docs/DESIGN.md` §5) against this repository.
-Status: **Present**, **Partial**, **Missing**. Fork code lives in `src/Mod/Construction/`
+Status: **Present**, **Partial**, **Missing**. Fork code lives in `addons/construction/`
 (build option `BUILD_CONSTRUCTION`, default on).
 
 ## Ordering exception
@@ -48,7 +52,7 @@ advisory checks. Nothing here certifies building-code compliance:
 
 | # | Item | Status | Where / notes |
 |---|---|---|---|
-| 5.1.1 | Data-driven library, `source` + `data_license` per item (§9) | Partial | `Construction/Library.py`, `Resources/libraries/{US,metric}/*.json`; CI `check.py data`. User overrides in `<user data>/Construction/libraries/` |
+| 5.1.1 | Data-driven library, `source` + `data_license` per item (§9) | Partial | `addons/construction/Library.py`, `Resources/libraries/{US,metric}/*.json`; CI `check.py data`. User overrides in `<user data>/Construction/libraries/` |
 | 5.1.2 | Dimensional lumber (US nominal / metric) | Partial | Fork library: US 1x4–4x6 with PS 20 dressed sizes and stock lengths incl. precut studs (92-5/8", 104-5/8"); metric 38/45 mm sections, 70x70, 95x95, stock 2.4–6.0 m. No species grades or design values (user-supplied, §9) |
 | 5.1.3 | Engineered lumber (LVL, glulam, I-joist) | Present | `metric/` and `US/engineered_lumber.json`: common LVL, glulam and I-joist sizes (I-joists as flange × depth rectangles), selectable wherever lumber is; design values from the maker go in the user library |
 | 5.1.4 | Sheet goods (plywood, OSB, MDF, particleboard, HDF; US 4×8, metric) | Present | US plywood, OSB, MDF, drywall, cement board; metric plywood, MDF, OSB, edge-glued panels, gypsum and cement board. Particleboard / HDF: add by user library |
@@ -86,7 +90,7 @@ advisory checks. Nothing here certifies building-code compliance:
 | 5.4.5 | Decks | Partial | `Construction_Deck` (`Framing.Deck`): attached (ledger) or freestanding (two beams), joists on centres, rims, dropped multi-ply beams with cantilever, posts within a maximum spacing, blocking rows, decking boards (joints over joists, staggered); footings counted as concrete (`FootingSize`, `FootingDepth`); guards on the open sides (`Guards` auto above the rule set's `guard_min_rise_mm`: posts bolted through the framing, top rail at `GuardHeight`, balusters with clear gaps no wider than `BalusterGap`, corner posts with brackets in the hardware list); checks for joists, the joist cantilever and beams (mechanics), ledger attachment, footings, guard height and gaps, guard post detail required. Stairs to grade: add a **Stair** object. Missing: multi-level decks |
 | 5.4.6 | Foundations | Partial | `Construction_Slab` (`Framing.Slab`, `SlabFeature`): slab on grade with a thickened edge, or a strip footing alone (Thickness 0), counted in the cut list's Concrete section; check "Foundation design" required (soil, frost depth, reinforcement are the user's). Post footings of decks and floors counted as concrete. No reinforcement, stepped footings or pads under point loads; upstream `ArchStructure` remains |
 | 5.4.7 | Sheathing / cladding layers | Partial | `Construction_Sheathing` (`Sheathing.py`): sheet goods on floor (long side across joists), wall (upright, openings cut out) and both roof slopes, seams staggered when a row needs more than one sheet; laid out on sheets with no edge trim (factory edges), whole sheets counted as whole. Joints between sheets fall on the framing (stud, joist or rafter centres; sheets cut back to the last member within reach). Missing: siding, roofing, membranes |
-| 5.4.8 | Cabinets | Partial | `Construction/Cabinet.py`, `ConstructionObjects.py`. Frameless base / wall / tall / sink cabinets (base: top stretchers + plinth; wall / tall: full top; wall cabinets created at 1400 mm; sink: front stretcher only, no back, false front over doors) and blind-corner cabinets (any kind; blind panel left or right, doors on the open width). Carcass joint chosen from the joint library (**CarcassJoint**: confirmat by default, dowels, pocket screws, biscuits, dado, ...), adjustable shelves, full-overlay fronts: doors, drawer bank, drawer over doors, false front over doors. Drawer boxes sized from slide clearances (side, height, rear), depth rounded down to 50 mm slide lengths. Runs along a wall (`Construction_BaseRun`, `Construction_WallRun`): given widths, or widths chosen from a standard list to leave the least filler, fillers left / right / both; per-cabinet styles in Widths (`1000 blind_left, 600 drawers, 800 sink, 600`), a blind corner at a run end keeps the filler off the corner side. Doors slab or shaker (**DoorStyle**: stiles and rails doweled, panel of the back material housed in grooves). Edge banding (see 5.2.2). Missing: diagonal and L-shaped corner cabinets, face-frame cabinets, shaker drawer fronts, toe-kick notch option, per-cabinet sizes other than width inside a run |
+| 5.4.8 | Cabinets | Partial | `addons/construction/Cabinet.py`, `ConstructionObjects.py`. Frameless base / wall / tall / sink cabinets (base: top stretchers + plinth; wall / tall: full top; wall cabinets created at 1400 mm; sink: front stretcher only, no back, false front over doors) and blind-corner cabinets (any kind; blind panel left or right, doors on the open width). Carcass joint chosen from the joint library (**CarcassJoint**: confirmat by default, dowels, pocket screws, biscuits, dado, ...), adjustable shelves, full-overlay fronts: doors, drawer bank, drawer over doors, false front over doors. Drawer boxes sized from slide clearances (side, height, rear), depth rounded down to 50 mm slide lengths. Runs along a wall (`Construction_BaseRun`, `Construction_WallRun`): given widths, or widths chosen from a standard list to leave the least filler, fillers left / right / both; per-cabinet styles in Widths (`1000 blind_left, 600 drawers, 800 sink, 600`), a blind corner at a run end keeps the filler off the corner side. Doors slab or shaker (**DoorStyle**: stiles and rails doweled, panel of the back material housed in grooves). Edge banding (see 5.2.2). Missing: diagonal and L-shaped corner cabinets, face-frame cabinets, shaker drawer fronts, toe-kick notch option, per-cabinet sizes other than width inside a run |
 | 5.4.9 | Furniture primitives | Present | Phase 5.1 builds: Board, Board Between, Panel, joints from the library (`docs/gaps/phase-5.1.md`) |
 | 5.4.10 | Building elements (walls, doors, windows, levels, rooms) | Present | Upstream BIM |
 | 5.4.11 | Templates (shed, garage, kitchen run, bookcase, workbench) | Partial | `Construction_Shed` (`Shed.py`, `ShedFeature`): gable shed from one object — floor platform, front wall with a centred door, back and side walls, gable roof with ceiling joists, sheathing on floor, walls (side sheathing wraps the corners), gable ends (panels clipped to the gable outline) and roof; every size, spacing, lumber and sheet is a property and everything regenerates; per-wall openings, gable or mono-pitch roof, framed floor or slab (**Foundation**). `Construction_Garage`: the shed on a slab with a 2400 mm door and an LVL header (`Shed.GARAGE`). Kitchens from **Room** and runs; bookcase, workbench, tables as builds (Phase 5.1). Missing: double garage door framing details (header sizing is the user's) |
@@ -114,7 +118,7 @@ advisory checks. Nothing here certifies building-code compliance:
 
 | # | Item | Status | Where / notes |
 |---|---|---|---|
-| 5.7.1 | Tutorials with examples for each feature | Present | `docs/tutorials/construction/`: 1 cabinets and runs, 2 framing (members, walls, floors, roofs, sheathing, lumber plan), 3 shed end to end, 4 libraries, settings and checks |
+| 5.7.1 | Tutorials with examples for each feature | Present | `addons/construction/Tutorials/`: 1 cabinets and runs, 2 framing (members, walls, floors, roofs, sheathing, lumber plan), 3 shed end to end, 4 libraries, settings and checks |
 | 5.7.2 | Examples kept true | Present | Every `pycon` block runs under doctest in `TestConstruction.TestTutorials`. GUI steps are written from the code and not yet followed in a running app |
 | 5.7.3 | Shown in the in-app help | Present | Installed with the workbench (`Mod/Construction/Tutorials`); **Construction > Tutorials** opens the index in a tab of the main window (Qt's Markdown rendering in a `QTextBrowser`, no web engine needed; this build has none, so upstream `Help.show` would hand raw Markdown to the desktop browser). Links between tutorials stay in the tab; licence comments are hidden. `TestConstructionGui.test_tutorials_open_in_a_tab` |
 
@@ -138,7 +142,7 @@ What FreeCAD already provides, and what Construction does with it:
 
 ## Verification
 
-- `python3 src/Mod/Construction/TestConstruction.py` (no application needed):
+- `python3 addons/construction/TestConstruction.py` (no application needed):
   geometry, layouts, checks, library, and every tutorial example (doctest).
 - In the application (local macOS build): `FreeCADCmd -t TestConstruction`,
   `FreeCADCmd -t TestConstructionApp` (every object builds a valid solid, edits
