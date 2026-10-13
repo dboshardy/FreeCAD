@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Add-on CI (design doc §4.4, Phase 0): install stock FreeCAD, run each add-on's tests there.
+# Not yet run on GitHub: first run may need version pins or action updates.
+name: Add-ons
+
+on:
+  push:
+    paths: ["addons/**", ".github/workflows/addons.yml"]
+  pull_request:
+    paths: ["addons/**", ".github/workflows/addons.yml"]
+  schedule:
+    - cron: "0 5 * * 1" # weekly: catches new FreeCAD releases and the development build
+
+jobs:
+  stable:
+    name: stable FreeCAD on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: fc
+          create-args: freecad python=3.11
+          condarc: |
+            channels: [conda-forge]
+      - name: Static checks and unit tests (headless)
+        run: |
+          for a in template ux construction; do python addons/$a/check.py all addons/$a; done
+          python addons/ci/run_tests.py addons/template TestTemplate
+          python addons/ci/run_tests.py addons/ux TestUx
+          python addons/ci/run_tests.py addons/construction TestConstruction TestConstructionApp
+      - name: GUI tests (Linux, virtual display)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb libgl1 libegl1 libxkbcommon-x11-0 libxcb-cursor0
+          xvfb-run -a python addons/ci/run_tests.py addons/ux TestUxGui --gui
+          xvfb-run -a python addons/ci/run_tests.py addons/construction TestConstructionGui --gui
+
+  development:
+    name: development FreeCAD on Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get the latest weekly build
+        run: |
+          url=$(curl -s https://api.github.com/repos/FreeCAD/FreeCAD/releases/tags/weekly-builds \
+            | python3 -c "import sys,json;print(next(a['browser_download_url'] for a in json.load(sys.stdin)['assets'] if a['name'].endswith('Linux-x86_64-py311.AppImage')))")
+          curl -L -o fc.AppImage "$url"
+          chmod +x fc.AppImage && ./fc.AppImage --appimage-extract >/dev/null
+          echo "FREECAD=$PWD/squashfs-root" >> "$GITHUB_ENV"
+      - name: Tests
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb
+          python3 addons/ci/run_tests.py addons/ux TestUx
+          python3 addons/ci/run_tests.py addons/construction TestConstruction TestConstructionApp

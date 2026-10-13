@@ -749,7 +749,7 @@ What this project has added so far (as of 2026-10-12), and how. All of it was bu
 | Addition | Where (fork) | Delivery | Plan |
 |---|---|---|---|
 | Context-layered hotkeys: engine, tool and task-dialog context, context layers ahead of Qt shortcuts (Phase 0) | `src/Gui/Hotkeys/`; hooks in `Command.cpp`, `Control.cpp`, `ToolHandler.cpp/.h`, `ShortcutManager.cpp`, `MainWindow.cpp`, `CommandStd.cpp`, `Workbench.cpp`; `tests/src/Gui/Hotkeys/` | FreeCAD change | UX add-on for workspace and task-dialog contexts; per-tool context needs a FreeCAD hook (no Python signal when a tool handler starts or ends): minimal upstream PR |
-| Command palette, radial menu, heads-up hotkey strip (Phase 0) | `src/Gui/Hotkeys/HotkeyCommands.cpp`, `MainWindow.cpp` | FreeCAD change | UX add-on (Qt from Python); no FreeCAD change needed. Palette and workspace/global hotkey layers done in `addons/ux/`; strip and radial menu next |
+| Command palette, radial menu, heads-up hotkey strip (Phase 0) | `src/Gui/Hotkeys/HotkeyCommands.cpp`, `MainWindow.cpp` | FreeCAD change | UX add-on (Qt from Python); no FreeCAD change needed. Done in `addons/ux/`: palette, workspace/global hotkey layers, strip, suggestions, remapping dialog, radial menu (by command) |
 | Rebranding: product name, app id, maintainer URL | `src/Main/Main*.cpp`, `branding/`, `cMake/CADApp/`, top `CMakeLists.txt` | FreeCAD change | Retired |
 | Feature flags for FreeCAD features with risk exposure: NaviCube (R1), CAM Adaptive (R3) | `src/App/Fork/`, `App/Application.cpp`, `src/Ext/freecad/fork_features.py`, `Gui/View3DInventorViewer.cpp`, `Mod/CAM/InitGui.py`, `Mod/CAM/Path/GuiInit.py` | FreeCAD change | Retired: FreeCAD's features are FreeCAD's (§12 R22) |
 | Network features behind runtime flags: downloads, BIM library, tutorial and SHP downloads, online Help, MTConnect import | `Gui/DownloadManager.cpp`, `Mod/BIM/ArchCommands.py`, `bimcommands/BimLibrary.py`, `bimcommands/BimTutorial.py`, `importers/importSHP.py`, `Mod/Help/Help.py`, `Mod/CAM/Machine/ui/mtconnect_import_dialog.py`; `docs/inherited-conflicts.md` | FreeCAD change | Retired |
@@ -758,16 +758,16 @@ What this project has added so far (as of 2026-10-12), and how. All of it was bu
 
 ### Add-ons (no change to FreeCAD's code)
 
-The Construction workbench (`src/Mod/Construction/`, Phases 5–5.2) uses only FreeCAD's public Python API and none of the changes above, so it moves into the Construction add-on as is (after the Phase 5.3 rollback).
+The Construction workbench (Phases 5–5.2) uses only FreeCAD's public Python API and none of the changes above. It now lives in `addons/construction/` (moved 2026-10-13, after the Phase 5.3 rollback, `docs/gaps/phase-5.3.md`).
 
 | Addition | Phase | Delivery | Plan |
 |---|---|---|---|
 | Material, hardware, joint, area-material, rule-set and fastening-schedule libraries (JSON with source and licence), user overrides, region per document, library editor with CSV import/export | 5 | Add-on | Construction add-on; link items to Material cards (5.3 #7) |
 | Cabinets (frameless base, wall, tall, sink, blind corner; carcass joints, drawers, shelves, edge banding, shaker doors) and cabinet runs with fillers and appliance gaps | 5 | Add-on | Construction add-on |
-| Member (lumber along an edge, roll, end cuts) | 5 | Add-on | Rebuild on `Arch_Structure` (5.3 #1) |
+| Member (lumber along an edge, roll, end cuts) | 5 | Add-on | Done: `Arch_Structure` subclass (5.3 #1) |
 | Wall, floor, gable roof, mono-pitch roof and deck framing; corner studs, openings, blocking, beams on posts | 5 | Add-on | Construction add-on (deck guards onto `Arch_Fence`, 5.3 #5) |
-| Stairs (straight and with landing, guards) | 5 | Add-on | Rebuild on `Arch_Stairs` (5.3 #2) |
-| Slab and strip footing; garage template on a slab | 5 | Add-on | Rebuild on `BIM_Slab` (5.3 #3) |
+| Stairs (straight and with landing, guards) | 5 | Add-on | Done: reads an `Arch_Stairs` (5.3 #2) |
+| Slab and strip footing; garage template on a slab | 5 | Add-on | Done: BIM slab plus thickened edge (5.3 #3) |
 | Sheathing with joints on the framing; coverings (roofing, wrap, siding, insulation) by area | 5 | Add-on | Construction add-on |
 | Shed template (per-wall openings, gable or mono-pitch roof, floor or slab) | 5, 5.2 | Add-on | Construction add-on |
 | Joinery (housing, mortise and tenon, loose tenon, half lap, bridle, box joint, dovetail, miter, dowels, screws, holes) and fastening schedules with hardware counts | 5, 5.1 | Add-on | Construction add-on |

@@ -22,6 +22,11 @@ class TestPalette(unittest.TestCase):
     def test_empty_query_lists_all(self):
         self.assertEqual(len(Palette.search(ENTRIES, "")), len(ENTRIES))
 
+    def test_label_matches_before_name_only_matches(self):
+        entries = [("Sketcher_CreateBSpline", "B-Spline"), ("Sketcher_CreateLine", "Line")]
+        self.assertEqual(Palette.search(entries, "create line")[0][0], "Sketcher_CreateLine")
+        self.assertEqual(Palette.search(entries, "line")[0][0], "Sketcher_CreateLine")
+
     def test_no_match(self):
         self.assertEqual(Palette.search(ENTRIES, "zzz"), [])
 
