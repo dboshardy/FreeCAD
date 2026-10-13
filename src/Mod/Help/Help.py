@@ -164,11 +164,6 @@ def location_url(url_localized: str, url_english: str) -> tuple:
          Wiki translators should make sure to add it.
       b) <title> HTML tag
     """
-    # FORK: online help behind a runtime flag (docs/inherited-conflicts.md)
-    from freecad import fork_features
-
-    if not fork_features.is_enabled("OnlineHelp"):
-        return (url_english, "")
     try:
         req = urllib.request.Request(url_localized)
         with urllib.request.urlopen(req) as response:
@@ -308,11 +303,6 @@ def get_contents(location):
     import urllib
 
     if location.startswith("http"):
-        # FORK: online help behind a runtime flag (docs/inherited-conflicts.md)
-        from freecad import fork_features
-
-        if not fork_features.is_enabled("OnlineHelp"):
-            return ERRORTXT
         import urllib.request
 
         try:
@@ -353,11 +343,6 @@ def convert(content, force=None):
             return None
 
     def convert_github(m):
-        # FORK: online help behind a runtime flag (docs/inherited-conflicts.md)
-        from freecad import fork_features
-
-        if not fork_features.is_enabled("OnlineHelp"):
-            return None
         try:
             import json
             import urllib.request

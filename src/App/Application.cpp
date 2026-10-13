@@ -164,7 +164,6 @@
 
 #include <Base/Version.h>
 #include "Branding.h"
-#include "Fork/FeatureFlags.h"  // FORK: CADApp feature flags
 
 
 // scriptings (scripts are built-in but can be overridden by command line option)
@@ -2772,9 +2771,6 @@ void Application::initConfig(int argc, char ** argv)
 
     _argc = argc;
     _argv = argv;
-
-    // FORK: publish compile-time feature flags for Python (FreeCAD.ConfigGet)
-    Fork::publishToConfig(mConfig);
 
     // Now it's time to read-in the file branding.xml if it exists
     Branding brand;

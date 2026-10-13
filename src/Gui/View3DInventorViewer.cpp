@@ -109,7 +109,6 @@
 
 #include <App/Document.h>
 #include <App/GeoFeatureGroupExtension.h>
-#include <App/Fork/FeatureFlags.h>  // FORK: feature flags
 #include <Base/Console.h>
 #include <Base/Exception.h>
 #include <Base/FileInfo.h>
@@ -1325,9 +1324,7 @@ void View3DInventorViewer::init()
     ParameterGrp::handle hViewGrp = App::GetApplication().GetParameterGroupByPath(
         "User parameter:BaseApp/Preferences/View"
     );
-    // FORK: NaviCube is isolated behind the R1 feature flag (docs/inherited-conflicts.md)
-    naviCubeEnabled = App::Fork::isEnabled(App::Fork::Feature::NaviCube)
-        && hViewGrp->GetBool("ShowNaviCube", true);
+    naviCubeEnabled = hViewGrp->GetBool("ShowNaviCube", true);
     syncNaviCubeVisibility();
 
     updateColors();
@@ -2156,8 +2153,7 @@ void View3DInventorViewer::setRenderCache(int mode)
 
 void View3DInventorViewer::setEnabledNaviCube(bool on)
 {
-    // FORK: NaviCube is isolated behind the R1 feature flag (docs/inherited-conflicts.md)
-    naviCubeEnabled = on && App::Fork::isEnabled(App::Fork::Feature::NaviCube);
+    naviCubeEnabled = on;
     syncNaviCubeVisibility();
 }
 

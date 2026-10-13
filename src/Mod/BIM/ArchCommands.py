@@ -796,11 +796,6 @@ def download(url, force=False):
     filepath = os.path.join(macropath, name)
     if os.path.exists(filepath) and not (force):
         return filepath
-    # FORK: network feature behind a runtime flag (docs/inherited-conflicts.md)
-    from freecad import fork_features
-
-    if not fork_features.is_enabled("BIMDownload"):
-        return None
     try:
         FreeCAD.Console.PrintMessage("Downloading " + url + " …\n")
         response = urlopen(url)

@@ -173,12 +173,6 @@ class BIM_Library_TaskPanel:
         # retrieve preferences
         self.form.checkOnline.toggled.connect(self.onCheckOnline)
         self.form.checkOnline.setChecked(PARAMS.GetBool("LibraryOnline", not offlinemode))
-        # FORK: online library behind a runtime flag (docs/inherited-conflicts.md)
-        from freecad import fork_features
-
-        if not fork_features.is_enabled("BIMOnlineLibrary"):
-            self.form.checkOnline.setChecked(False)
-            self.form.checkOnline.setEnabled(False)
         self.form.checkFCStdOnly.toggled.connect(self.onCheckFCStdOnly)
         self.form.checkFCStdOnly.setChecked(PARAMS.GetBool("LibraryFCStdOnly", False))
         self.form.check3DPreview.toggled.connect(self.onCheck3DPreview)

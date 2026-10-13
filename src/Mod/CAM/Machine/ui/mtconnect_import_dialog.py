@@ -53,11 +53,6 @@ class FetchError(Exception):
 
 
 def _fetch_url(url: str) -> str:
-    # FORK: network feature behind a runtime flag (docs/inherited-conflicts.md)
-    from freecad import fork_features
-
-    if not fork_features.is_enabled("CAMMTConnectURL"):
-        raise FetchError("URL import is disabled (Preferences/Fork/Features/CAMMTConnectURL)")
     try:
         with urllib.request.urlopen(url, timeout=FETCH_TIMEOUT_SECONDS) as response:
             return response.read(MAX_DOCUMENT_BYTES).decode("utf-8", errors="replace")
