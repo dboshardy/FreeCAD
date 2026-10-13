@@ -1179,9 +1179,55 @@ def make_gable_roof(doc=None, name="GableRoof"):
     return _make_framing(GableRoofFeature, name, doc)
 
 
+def make_bim_slab(owner, length, width, thickness, name):
+    """A BIM slab (an Arch_Structure of type Slab) under `owner`, its size and
+    placement bound by expressions to the owner's length, width and thickness
+    properties, so it follows the owner's edits and moves."""
+    import Arch
+
+    doc = owner.Document
+    slab = Arch.makeStructure(length=1000, width=1000, height=100, name=name)
+    slab.IfcType = "Slab"
+    n = owner.Name
+    slab.setExpression("Length", f"{n}.{length}")
+    slab.setExpression("Width", f"{n}.{width}")
+    slab.setExpression("Height", f"max({n}.{thickness}; 0.001 mm)")
+    slab.setExpression(
+        "Placement",
+        f"{n}.Placement * create(<<placement>>; create(<<vector>>; {n}.{length} / 2; "
+        f"{n}.{width} / 2; -{n}.{thickness}); create(<<rotation>>; 0; 0; 0))",
+    )
+    if FreeCAD.GuiUp:
+        slab.ViewObject.Visibility = False  # the owner shows the slab with its edges
+    doc.recompute()
+    return slab
+
+
+def slab_solids(owner, bim_slab, model):
+    """Solids of a slab in the owner's coordinates: the BIM slab's shape (when
+    the slab has thickness) and the thickened edge boxes added below it."""
+    out = []
+    if bim_slab is not None and model.thickness > 0:
+        shape = bim_slab.Shape.copy()
+        shape.Placement = owner.Placement.inverse().multiply(shape.Placement)
+        out.append(shape)
+    out += [
+        Part.makeBox(*size, FreeCAD.Vector(*pos))
+        for name, size, pos in model.boxes()
+        if name == "Edge"
+    ]
+    return out
+
+
+def slab_concrete_m3(solids):
+    return sum(s.Volume for s in solids) / 1e9
+
+
 class SlabFeature(FramingFeature):
     """Concrete slab on grade with a thickened edge, or a strip footing alone
-    (Framing.Slab); counted as concrete, not in the cut list."""
+    (Framing.Slab); counted as concrete, not in the cut list. The slab itself
+    is a BIM slab (Arch_Structure) bound to this object's size; the thickened
+    edge is added below it."""
 
     IFC_TYPE = "Footing"
     GROUP = "Slab"
@@ -1194,6 +1240,10 @@ class SlabFeature(FramingFeature):
         _length("EdgeDepth", "Top of the slab to the bottom of the edge", _d.edge_depth),
     ]
 
+    def setProperties(self, obj):
+        super().setProperties(obj)
+        add_property(obj, "App::PropertyLink", "BimSlab", self.GROUP, "The BIM slab", None)
+
     def model(self, obj):
         return Framing.Slab(
             *(float(getattr(obj, p).Value) for _, p, _, _ in self.PROPERTIES)
@@ -1203,22 +1253,23 @@ class SlabFeature(FramingFeature):
         return []
 
     def solids(self, obj):
-        return [
-            Part.makeBox(*size, FreeCAD.Vector(*pos)) for _, size, pos in self.model(obj).boxes()
-        ]
+        return slab_solids(obj, obj.BimSlab, self.model(obj))
 
     def fasteners(self, obj, schedule):
         return {}
 
     def concrete(self, obj):
-        return [("Slab and footings", self.model(obj).concrete_m3())]
+        return [("Slab and footings", slab_concrete_m3(self.solids(obj)))]
 
     def checks(self, obj, rules):
         return Checks.slab(self.model(obj), rules)
 
 
 def make_slab(doc=None, name="Slab"):
-    return _make_framing(SlabFeature, name, doc)
+    obj = _make_framing(SlabFeature, name, doc)
+    obj.BimSlab = make_bim_slab(obj, "Length", "Width", "Thickness", f"{name} (BIM slab)")
+    obj.Document.recompute()
+    return obj
 
 
 DEFAULT_SHEATHING = "sheet.metric.plywood.12"
@@ -1376,6 +1427,7 @@ class ShedFeature:
 
     def setProperties(self, obj):
         add_ifc_type(obj, self)
+        add_property(obj, "App::PropertyLink", "FoundationSlab", self.GROUP, "The BIM slab", None)
         for ptype, prop, tip, value in self.PROPERTIES:
             add_property(obj, ptype, prop, self.GROUP, tip, value)
         for prop, section, default in self.LUMBER:
@@ -1461,12 +1513,23 @@ class ShedFeature:
 
     def slab_solids(self, obj):
         slab = self.model(obj).slab_model()
-        boxes = slab.boxes() if slab else []
-        return [Part.makeBox(*size, FreeCAD.Vector(*pos)) for _, size, pos in boxes]
+        return slab_solids(obj, obj.FoundationSlab, slab) if slab else []
 
     def concrete(self, obj):
-        slab = self.model(obj).slab_model()
-        return [("Slab", slab.concrete_m3())] if slab else []
+        return [("Slab", slab_concrete_m3(self.slab_solids(obj)))] if self.model(obj).slab_model() else []
+
+    def onChanged(self, obj, prop):
+        # A shed on a slab gets a BIM slab bound to its size.
+        if (
+            prop == "Foundation"
+            and "FoundationSlab" in obj.PropertiesList
+            and obj.Foundation == "slab"
+            and obj.FoundationSlab is None
+            and not obj.Document.Restoring
+        ):
+            obj.FoundationSlab = make_bim_slab(
+                obj, "Length", "Width", "SlabThickness", f"{obj.Label} (BIM slab)"
+            )
 
     def execute(self, obj):
         solids = self.solids(obj)
