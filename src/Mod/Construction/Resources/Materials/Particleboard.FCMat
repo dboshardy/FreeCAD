@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+General:
+  UUID: "d01a6524-6a26-5f7d-9747-7cc2a63fc045"
+  Name: "Particleboard"
+  Author: "CADApp"
+  License: "CC0-1.0"
+  Description: "Density of particleboard as listed in the construction library (generic value; user-extendable)"
+Models:
+  Density:
+    UUID: '454661e5-265b-4320-8e6f-fcf6223ac3af'
+    Density: "650 kg/m^3"

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+General:
+  UUID: "5490f8c5-82a8-558e-935b-23ed91389f35"
+  Name: "OSB"
+  Author: "CADApp"
+  License: "CC0-1.0"
+  Description: "Density of osb as listed in the construction library (generic value; user-extendable)"
+Models:
+  Density:
+    UUID: '454661e5-265b-4320-8e6f-fcf6223ac3af'
+    Density: "620 kg/m^3"

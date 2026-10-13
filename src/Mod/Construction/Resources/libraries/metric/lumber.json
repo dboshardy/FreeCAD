@@ -2,7 +2,7 @@
   "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp construction library (design doc §9). Common planed (regularised) softwood sections and stock lengths; ranges vary by country and yard, verify before ordering.",
   "source": "Common European planed softwood sections (38 mm CLS, 45 mm construction timber) and stock lengths 2.4-6.0 m; original compilation of facts, no standard text or table copied",
   "data_license": "CC0-1.0",
-  "defaults": {"category": "dimensional_lumber", "region": "metric", "grain_axis": "length", "density_kg_m3": 450, "stock_lengths_mm": [2400, 2700, 3000, 3600, 4200, 4800, 5400, 6000]},
+  "defaults": {"category": "dimensional_lumber", "region": "metric", "grain_axis": "length", "material_card": "ebf49ef6-58ca-5199-80a8-9cc7d9bafeec", "stock_lengths_mm": [2400, 2700, 3000, 3600, 4200, 4800, 5400, 6000]},
   "items": [
     {"id": "lumber.metric.38x63", "name": "38x63", "actual": {"w": 38, "h": 63, "unit": "mm"}},
     {"id": "lumber.metric.38x89", "name": "38x89", "actual": {"w": 38, "h": 89, "unit": "mm"}},

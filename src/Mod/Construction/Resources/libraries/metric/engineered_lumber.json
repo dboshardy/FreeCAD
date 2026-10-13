@@ -4,14 +4,14 @@
   "data_license": "CC0-1.0",
   "defaults": {"category": "dimensional_lumber", "region": "metric", "grain_axis": "length", "stock_lengths_mm": [6000, 7200, 9000, 12000]},
   "items": [
-    {"id": "lumber.metric.lvl.45x200", "name": "LVL 45x200", "material": "LVL", "density_kg_m3": 510, "actual": {"w": 45, "h": 200, "unit": "mm"}},
-    {"id": "lumber.metric.lvl.45x240", "name": "LVL 45x240", "material": "LVL", "density_kg_m3": 510, "actual": {"w": 45, "h": 240, "unit": "mm"}},
-    {"id": "lumber.metric.lvl.45x300", "name": "LVL 45x300", "material": "LVL", "density_kg_m3": 510, "actual": {"w": 45, "h": 300, "unit": "mm"}},
-    {"id": "lumber.metric.lvl.45x360", "name": "LVL 45x360", "material": "LVL", "density_kg_m3": 510, "actual": {"w": 45, "h": 360, "unit": "mm"}},
-    {"id": "lumber.metric.glulam.90x270", "name": "Glulam 90x270", "material": "glulam", "density_kg_m3": 470, "actual": {"w": 90, "h": 270, "unit": "mm"}},
-    {"id": "lumber.metric.glulam.90x315", "name": "Glulam 90x315", "material": "glulam", "density_kg_m3": 470, "actual": {"w": 90, "h": 315, "unit": "mm"}},
-    {"id": "lumber.metric.glulam.115x360", "name": "Glulam 115x360", "material": "glulam", "density_kg_m3": 470, "actual": {"w": 115, "h": 360, "unit": "mm"}},
-    {"id": "lumber.metric.ijoist.45x220", "name": "I-joist 220 (45 flange)", "material": "I-joist", "density_kg_m3": 200, "actual": {"w": 45, "h": 220, "unit": "mm"}},
-    {"id": "lumber.metric.ijoist.45x300", "name": "I-joist 300 (45 flange)", "material": "I-joist", "density_kg_m3": 200, "actual": {"w": 45, "h": 300, "unit": "mm"}}
+    {"id": "lumber.metric.lvl.45x200", "name": "LVL 45x200", "material": "LVL", "material_card": "cd359807-5063-5c36-9c97-10b1d097da19", "actual": {"w": 45, "h": 200, "unit": "mm"}},
+    {"id": "lumber.metric.lvl.45x240", "name": "LVL 45x240", "material": "LVL", "material_card": "cd359807-5063-5c36-9c97-10b1d097da19", "actual": {"w": 45, "h": 240, "unit": "mm"}},
+    {"id": "lumber.metric.lvl.45x300", "name": "LVL 45x300", "material": "LVL", "material_card": "cd359807-5063-5c36-9c97-10b1d097da19", "actual": {"w": 45, "h": 300, "unit": "mm"}},
+    {"id": "lumber.metric.lvl.45x360", "name": "LVL 45x360", "material": "LVL", "material_card": "cd359807-5063-5c36-9c97-10b1d097da19", "actual": {"w": 45, "h": 360, "unit": "mm"}},
+    {"id": "lumber.metric.glulam.90x270", "name": "Glulam 90x270", "material": "glulam", "material_card": "0a68da40-2dc1-5221-835b-af6b7709c9a1", "actual": {"w": 90, "h": 270, "unit": "mm"}},
+    {"id": "lumber.metric.glulam.90x315", "name": "Glulam 90x315", "material": "glulam", "material_card": "0a68da40-2dc1-5221-835b-af6b7709c9a1", "actual": {"w": 90, "h": 315, "unit": "mm"}},
+    {"id": "lumber.metric.glulam.115x360", "name": "Glulam 115x360", "material": "glulam", "material_card": "0a68da40-2dc1-5221-835b-af6b7709c9a1", "actual": {"w": 115, "h": 360, "unit": "mm"}},
+    {"id": "lumber.metric.ijoist.45x220", "name": "I-joist 220 (45 flange)", "material": "I-joist", "material_card": "4e9ad149-1a11-5f56-9c71-ac456713ed6c", "actual": {"w": 45, "h": 220, "unit": "mm"}},
+    {"id": "lumber.metric.ijoist.45x300", "name": "I-joist 300 (45 flange)", "material": "I-joist", "material_card": "4e9ad149-1a11-5f56-9c71-ac456713ed6c", "actual": {"w": 45, "h": 300, "unit": "mm"}}
   ]
 }

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+General:
+  UUID: "0a68da40-2dc1-5221-835b-af6b7709c9a1"
+  Name: "Glulam"
+  Author: "CADApp"
+  License: "CC0-1.0"
+  Description: "Density of glulam as listed in the construction library (generic value; user-extendable)"
+Models:
+  Density:
+    UUID: '454661e5-265b-4320-8e6f-fcf6223ac3af'
+    Density: "470 kg/m^3"

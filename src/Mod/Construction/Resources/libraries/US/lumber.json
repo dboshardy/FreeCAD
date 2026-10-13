@@ -2,7 +2,7 @@
   "_comment": "SPDX-License-Identifier: LGPL-2.1-or-later. FORK: CADApp construction library (design doc §9). Dry dressed (S4S) sizes; 'actual' is what the board measures. Stock lengths include precut studs (92-5/8 in, 104-5/8 in). Verify with your yard.",
   "source": "Nominal and dry dressed sizes from US DOC Voluntary Product Standard PS 20 (American Softwood Lumber Standard), published by NIST (US government work)",
   "data_license": "public-domain",
-  "defaults": {"category": "dimensional_lumber", "region": "US", "grain_axis": "length", "density_kg_m3": 450, "species_options": ["SPF", "DF-L", "SYP", "Hem-Fir"]},
+  "defaults": {"category": "dimensional_lumber", "region": "US", "grain_axis": "length", "material_card": "ebf49ef6-58ca-5199-80a8-9cc7d9bafeec", "species_options": ["SPF", "DF-L", "SYP", "Hem-Fir"]},
   "items": [
     {"id": "lumber.us.1x4", "name": "1x4", "nominal": {"w": 1, "h": 4, "unit": "in"}, "actual": {"w": 19.05, "h": 88.9, "unit": "mm"}, "stock_lengths_mm": [2438.4, 3048, 3657.6, 4267.2, 4876.8]},
     {"id": "lumber.us.1x6", "name": "1x6", "nominal": {"w": 1, "h": 6, "unit": "in"}, "actual": {"w": 19.05, "h": 139.7, "unit": "mm"}, "stock_lengths_mm": [2438.4, 3048, 3657.6, 4267.2, 4876.8]},

@@ -24,7 +24,7 @@ set(Construction_SRCS
     TestConstructionApp.py
     TestConstructionGui.py
 )
-file(GLOB_RECURSE Construction_DATA RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} Resources/libraries/*.json)
+file(GLOB_RECURSE Construction_DATA RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} Resources/libraries/*.json Resources/Materials/*.FCMat)
 # Tutorials (docs/tutorials/construction) ship with the workbench, opened from its menu.
 file(GLOB Construction_TUTORIALS ${CMAKE_SOURCE_DIR}/docs/tutorials/construction/*.md)
 

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+General:
+  UUID: "d198e789-8baf-5fa9-ae92-53c7f1c87422"
+  Name: "Gypsum board 800"
+  Author: "CADApp"
+  License: "CC0-1.0"
+  Description: "Density of gypsum board 800 as listed in the construction library (generic value; user-extendable)"
+Models:
+  Density:
+    UUID: '454661e5-265b-4320-8e6f-fcf6223ac3af'
+    Density: "800 kg/m^3"

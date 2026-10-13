@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+General:
+  UUID: "6f03778d-397f-5adc-bb9c-417ff0c31476"
+  Name: "HDF"
+  Author: "CADApp"
+  License: "CC0-1.0"
+  Description: "Density of hdf as listed in the construction library (generic value; user-extendable)"
+Models:
+  Density:
+    UUID: '454661e5-265b-4320-8e6f-fcf6223ac3af'
+    Density: "850 kg/m^3"

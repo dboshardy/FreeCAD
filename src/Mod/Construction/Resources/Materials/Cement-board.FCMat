@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+General:
+  UUID: "5a603657-d630-5c70-8805-030872d86d54"
+  Name: "Cement board"
+  Author: "CADApp"
+  License: "CC0-1.0"
+  Description: "Density of cement board as listed in the construction library (generic value; user-extendable)"
+Models:
+  Density:
+    UUID: '454661e5-265b-4320-8e6f-fcf6223ac3af'
+    Density: "1150 kg/m^3"

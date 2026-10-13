@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+General:
+  UUID: "cd359807-5063-5c36-9c97-10b1d097da19"
+  Name: "LVL"
+  Author: "CADApp"
+  License: "CC0-1.0"
+  Description: "Density of lvl as listed in the construction library (generic value; user-extendable)"
+Models:
+  Density:
+    UUID: '454661e5-265b-4320-8e6f-fcf6223ac3af'
+    Density: "510 kg/m^3"

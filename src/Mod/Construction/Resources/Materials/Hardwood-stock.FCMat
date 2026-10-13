@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+General:
+  UUID: "f8151d04-c7bd-566b-8547-38c2ac758994"
+  Name: "Hardwood stock"
+  Author: "CADApp"
+  License: "CC0-1.0"
+  Description: "Density of hardwood stock as listed in the construction library (generic value; user-extendable)"
+Models:
+  Density:
+    UUID: '454661e5-265b-4320-8e6f-fcf6223ac3af'
+    Density: "650 kg/m^3"

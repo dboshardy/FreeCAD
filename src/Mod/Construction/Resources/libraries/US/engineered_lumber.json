@@ -4,12 +4,12 @@
   "data_license": "CC0-1.0",
   "defaults": {"category": "dimensional_lumber", "region": "US", "grain_axis": "length", "stock_lengths_mm": [4876.8, 6096, 7315.2, 9144, 12192]},
   "items": [
-    {"id": "lumber.us.lvl.1-3-4x9-1-4", "name": "LVL 1-3/4\" x 9-1/4\"", "material": "LVL", "density_kg_m3": 510, "actual": {"w": 44.45, "h": 234.95, "unit": "mm"}},
-    {"id": "lumber.us.lvl.1-3-4x11-7-8", "name": "LVL 1-3/4\" x 11-7/8\"", "material": "LVL", "density_kg_m3": 510, "actual": {"w": 44.45, "h": 301.63, "unit": "mm"}},
-    {"id": "lumber.us.lvl.1-3-4x14", "name": "LVL 1-3/4\" x 14\"", "material": "LVL", "density_kg_m3": 510, "actual": {"w": 44.45, "h": 355.6, "unit": "mm"}},
-    {"id": "lumber.us.glulam.3-1-8x9", "name": "Glulam 3-1/8\" x 9\"", "material": "glulam", "density_kg_m3": 470, "actual": {"w": 79.38, "h": 228.6, "unit": "mm"}},
-    {"id": "lumber.us.glulam.5-1-8x12", "name": "Glulam 5-1/8\" x 12\"", "material": "glulam", "density_kg_m3": 470, "actual": {"w": 130.18, "h": 304.8, "unit": "mm"}},
-    {"id": "lumber.us.ijoist.9-1-2", "name": "I-joist 9-1/2\" (2-1/2\" flange)", "material": "I-joist", "density_kg_m3": 200, "actual": {"w": 63.5, "h": 241.3, "unit": "mm"}},
-    {"id": "lumber.us.ijoist.11-7-8", "name": "I-joist 11-7/8\" (2-1/2\" flange)", "material": "I-joist", "density_kg_m3": 200, "actual": {"w": 63.5, "h": 301.63, "unit": "mm"}}
+    {"id": "lumber.us.lvl.1-3-4x9-1-4", "name": "LVL 1-3/4\" x 9-1/4\"", "material": "LVL", "material_card": "cd359807-5063-5c36-9c97-10b1d097da19", "actual": {"w": 44.45, "h": 234.95, "unit": "mm"}},
+    {"id": "lumber.us.lvl.1-3-4x11-7-8", "name": "LVL 1-3/4\" x 11-7/8\"", "material": "LVL", "material_card": "cd359807-5063-5c36-9c97-10b1d097da19", "actual": {"w": 44.45, "h": 301.63, "unit": "mm"}},
+    {"id": "lumber.us.lvl.1-3-4x14", "name": "LVL 1-3/4\" x 14\"", "material": "LVL", "material_card": "cd359807-5063-5c36-9c97-10b1d097da19", "actual": {"w": 44.45, "h": 355.6, "unit": "mm"}},
+    {"id": "lumber.us.glulam.3-1-8x9", "name": "Glulam 3-1/8\" x 9\"", "material": "glulam", "material_card": "0a68da40-2dc1-5221-835b-af6b7709c9a1", "actual": {"w": 79.38, "h": 228.6, "unit": "mm"}},
+    {"id": "lumber.us.glulam.5-1-8x12", "name": "Glulam 5-1/8\" x 12\"", "material": "glulam", "material_card": "0a68da40-2dc1-5221-835b-af6b7709c9a1", "actual": {"w": 130.18, "h": 304.8, "unit": "mm"}},
+    {"id": "lumber.us.ijoist.9-1-2", "name": "I-joist 9-1/2\" (2-1/2\" flange)", "material": "I-joist", "material_card": "4e9ad149-1a11-5f56-9c71-ac456713ed6c", "actual": {"w": 63.5, "h": 241.3, "unit": "mm"}},
+    {"id": "lumber.us.ijoist.11-7-8", "name": "I-joist 11-7/8\" (2-1/2\" flange)", "material": "I-joist", "material_card": "4e9ad149-1a11-5f56-9c71-ac456713ed6c", "actual": {"w": 63.5, "h": 301.63, "unit": "mm"}}
   ]
 }
