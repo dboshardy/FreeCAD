@@ -16,6 +16,7 @@ buying plans, hardware lists and advisory safety checks.
 | [3. Build a shed](03-shed.md) | Create a complete gable shed from the template, change it, and get everything needed to buy and cut it |
 | [4. Libraries, settings and checks](04-libraries-and-checks.md) | Add your own lumber and sheet sizes, set the saw kerf, enter loads and design values, read the checks |
 | [5. Build an end table](05-end-table.md) | Make a build from boards and panels, join them with mortise and tenon and tabletop fasteners, and compare with the End Table template |
+| [6. Construction objects are FreeCAD objects](06-freecad-objects.md) | Use BIM tools and IFC export on members, stairs, slabs, guards and sheet layouts; read density from Material cards |
 
 ## Before you start
 
