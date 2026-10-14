@@ -33,10 +33,11 @@ jobs:
             channels: [conda-forge]
       - name: Static checks and unit tests (headless)
         run: |
-          for a in template ux construction sketch; do python addons/$a/check.py all addons/$a; done
+          for a in template ux construction sketch bodytools; do python addons/$a/check.py all addons/$a; done
           python addons/ci/run_tests.py addons/template TestTemplate
           python addons/ci/run_tests.py addons/ux TestUx
           python addons/ci/run_tests.py addons/sketch TestSketch
+          python addons/ci/run_tests.py addons/bodytools TestBodyTools
           python addons/ci/run_tests.py addons/construction TestConstruction TestConstructionApp
       - name: GUI tests (Linux, virtual display)
         if: runner.os == 'Linux'
@@ -44,6 +45,7 @@ jobs:
           sudo apt-get update && sudo apt-get install -y xvfb libgl1 libegl1 libxkbcommon-x11-0 libxcb-cursor0
           xvfb-run -a python addons/ci/run_tests.py addons/ux TestUxGui --gui
           xvfb-run -a python addons/ci/run_tests.py addons/sketch TestSketchGui --gui
+          xvfb-run -a python addons/ci/run_tests.py addons/bodytools TestBodyToolsGui --gui
           xvfb-run -a python addons/ci/run_tests.py addons/construction TestConstructionGui --gui
 
   development:
