@@ -22,6 +22,8 @@ fi
 
 docker build -q -t "$image" - <<'DOCKERFILE' >/dev/null
 FROM mcr.microsoft.com/devcontainers/cpp:ubuntu-24.04
+# Claude Code plugin hooks (caveman, ponytail) run on node.
+COPY --from=node:22-bookworm-slim /usr/local/bin/node /usr/local/bin/node
 RUN apt-get update && apt-get install -y --no-install-recommends gh python3 python3-venv \
       xvfb x11vnc xdotool scrot x11-utils libgl1 libegl1 libxkbcommon-x11-0 \
       libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 \
