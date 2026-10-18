@@ -7,6 +7,7 @@
     {"id": "hardware.drawer_slide", "category": "hardware", "region": "generic", "name": "Drawer slide pair, side mount, full extension"},
     {"id": "hardware.shelf_pin", "category": "hardware", "region": "generic", "name": "Shelf pin, 5 mm"},
     {"id": "hardware.nail_framing", "category": "hardware", "region": "generic", "name": "Framing nail, 3.1 x 90 mm"},
+    {"id": "hardware.rafter_tie", "category": "hardware", "region": "generic", "name": "Rafter tie (hurricane clip), with its nails (choose for your uplift load)"},
     {"id": "hardware.joist_hanger", "category": "hardware", "region": "generic", "name": "Joist hanger, sized for the joist (with its nails)"},
     {"id": "hardware.deck_screw", "category": "hardware", "region": "generic", "name": "Deck screw, 5 x 60 mm"},
     {"id": "hardware.wall_anchor", "category": "hardware", "region": "generic", "name": "Wall anchor for cabinets and furniture (screw into wall framing; choose for your wall type and load)", "per_cabinet": 2},

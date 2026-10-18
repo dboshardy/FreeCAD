@@ -380,6 +380,29 @@ class TestConstructionApp(unittest.TestCase):
         self.assertBuilt(stair)
         self.assertGreaterEqual(stair.Shape.BoundBox.XLength, 13 * 271)  # Arch_Stairs runs along X
 
+    def test_tilted_part_and_notched_member(self):
+        build = CO.make_build(self.doc)
+        build.Proxy.add_part(build, ("Deck", "sheet.metric.plywood.18", 2400, 1200, "", 0, 0, 0, "y", "z", 8))
+        plate = ("Plate", "lumber.metric.45x95", 1200, "", "", 0, 500, 0, "x", "z")
+        build.Proxy.add_part(build, plate)
+        self.doc.recompute()
+        self.assertBuilt(build)
+        # The deck rises 2400 * sin 8 at its far end (and turns about its corner).
+        self.assertAlmostEqual(build.Shape.BoundBox.ZMax, 2400 * math.sin(math.radians(8)) + 18 * math.cos(math.radians(8)), 3)
+        # A rafter along the slope, notched where it crosses the plate.
+        import Draft
+
+        line = Draft.make_line(FreeCAD.Vector(600, 0, 0), FreeCAD.Vector(600, 1000, 0))
+        rafter = CO.make_member((line, ["Edge1"]), self.doc, "Rafter")
+        rafter.Lumber = "lumber.metric.45x145"
+        self.doc.recompute()
+        whole = rafter.Shape.Volume
+        rafter.CutBy = [build]
+        self.doc.recompute()
+        self.assertBuilt(rafter)
+        self.assertLess(rafter.Shape.Volume, whole)
+        self.assertIn("notch for Build", rafter.Proxy.parts(rafter)[0][1].operations[-1])
+
     def test_parametric_template(self):
         table = CO.make_end_table(self.doc)
         self.assertEqual(table.Template, "table")
@@ -399,7 +422,7 @@ class TestConstructionApp(unittest.TestCase):
         self.doc.recompute()
         self.assertEqual(legs()[0][2], 700.0)
         self.assertEqual(legs()[1][2], 632.0)
-        self.assertEqual(table.PartsTable.getContents("K2"), "'edited")
+        self.assertEqual(table.PartsTable.getContents("L2"), "'edited")
         table.Overhang = 400  # too big for the top: reported, not crashed
         self.doc.recompute()
         self.assertIn("Invalid", table.State)

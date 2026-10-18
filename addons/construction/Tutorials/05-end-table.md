@@ -17,8 +17,9 @@ shown under it in the Tree view):
 
 - **Parts table**: one row per board or panel: name, stock (from the
   library), length, width, thickness, position (X, Y, Z of its lowest corner),
-  the axis its length runs along (**Along**) and the axis of its thickness
-  (**Thick**). Leave width and thickness empty to use the stock's size.
+  the axis its length runs along (**Along**), the axis of its thickness
+  (**Thick**) and, optionally, a **Tilt** in degrees. Leave width and
+  thickness empty to use the stock's size.
 - **Joints table**: one row per joint: receiving part, inserted part, joint
   (from the library) and options such as `depth=30`. Names may use `*`:
   `Leg*` means every part whose name starts with "Leg".
@@ -189,6 +190,25 @@ the hardware list gets the anchors.
 [('Wall anchoring', 'required')]
 
 ```
+
+## Tilted parts
+
+Parts are boxes square to the axes, unless they have a **Tilt**: the angle in
+degrees that turns the part about its width axis, through its lowest corner,
+so that its length turns towards its thickness. A 12 mm sheet laid along Y
+with its thickness along Z and a tilt of 8 lies on a roof that rises 8° to
+the back. A tilted part is cut and listed at its drawn size. It is not
+joined to other parts, and **Align**, **Board Between** and **Move Part**
+read its unturned box. For a board at any angle, use a **Member**
+([tutorial 2](02-framing.md)).
+
+## Framing joints
+
+The joint library also has nailed and strapped joints for framing: **Framing
+nails through the plate**, **Toe-nails**, **Framing nails through the face**,
+**Joist hanger** and **Rafter tie**. They change no part and add the nails or
+connectors to the hardware list. [Tutorial 9](09-frame-any-structure.md)
+frames a whole shed with them.
 
 ## Moving parts with the mouse
 

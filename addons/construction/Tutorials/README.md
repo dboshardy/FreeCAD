@@ -17,6 +17,9 @@ buying plans, hardware lists and advisory safety checks.
 | [4. Libraries, settings and checks](04-libraries-and-checks.md) | Add your own lumber and sheet sizes, set the saw kerf, enter loads and design values, read the checks |
 | [5. Build an end table](05-end-table.md) | Make a build from boards and panels, join them with mortise and tenon and tabletop fasteners, and compare with the End Table template |
 | [6. Construction objects are FreeCAD objects](06-freecad-objects.md) | Use BIM tools and IFC export on members, stairs, slabs, guards and sheet layouts; read density from Material cards |
+| [7. Fit a cabinet to a wall](07-fit-a-cabinet-to-a-wall.md) | Measure an irregular space and build a tall cabinet for it panel by panel, with the scribe strip and cap |
+| [8. Build a chair](08-build-a-chair.md) | Place every leg, rail and panel by hand, join them, check them and get the cut list |
+| [9. Frame any structure](09-frame-any-structure.md) | Frame a structure board by board with the Build and Member tools, no templates; worked example: a single-slope shed with an open front against a garage |
 
 ## Before you start
 

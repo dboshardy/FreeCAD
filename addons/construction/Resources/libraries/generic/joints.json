@@ -23,6 +23,11 @@
     {"id": "joint.drawer_slide", "name": "Drawer slides, side mount (one pair per joint)", "kind": "fastened", "fastener": "hardware.drawer_slide", "per_joint": 1, "sized": true, "meets": ["face_to_face"], "_note": "Set gap to the slide clearance between the drawer box and the cabinet side."},
     {"id": "joint.shelf_pins", "hole": [5, 10, 0], "name": "Shelf pins, 2 per shelf end", "kind": "fastened", "fastener": "hardware.shelf_pin", "per_joint": 2, "operation": "{n} shelf pin hole{s}, 5 mm", "on": "receiver", "meets": ["end_to_face"], "fixes": false, "_note": "Set gap to the shelf's clearance at each end."},
     {"id": "joint.brad_nail", "name": "Brad nails (backs, light panels)", "kind": "fastened", "fastener": "hardware.brad_nail", "spacing": 150, "edge": 25, "meets": ["face_to_face"]},
+    {"id": "joint.nail_end", "name": "Framing nails through the plate (end nailing, 2 per end)", "kind": "fastened", "fastener": "hardware.nail_framing", "per_joint": 2, "meets": ["end_to_face"]},
+    {"id": "joint.toenail", "name": "Toe-nails (3 per end)", "kind": "fastened", "fastener": "hardware.nail_framing", "per_joint": 3, "meets": ["end_to_face"]},
+    {"id": "joint.nail_face", "name": "Framing nails through the face (400 mm apart)", "kind": "fastened", "fastener": "hardware.nail_framing", "spacing": 400, "edge": 100, "meets": ["face_to_face", "edge_to_face"]},
+    {"id": "joint.hanger", "name": "Joist hanger (one per end)", "kind": "fastened", "fastener": "hardware.joist_hanger", "per_joint": 1, "meets": ["end_to_face"]},
+    {"id": "joint.rafter_tie", "name": "Rafter tie (hurricane clip, one per bearing)", "kind": "fastened", "fastener": "hardware.rafter_tie", "per_joint": 1, "meets": ["end_to_face", "edge_to_face"]},
     {"id": "joint.z_clip", "allows_movement": true, "name": "Tabletop fasteners, Z-clip", "kind": "fastened", "fastener": "hardware.z_clip", "spacing": 300, "edge": 75, "operation": "kerf for {n} Z-clips", "on": "receiver", "meets": ["face_to_face"]}
   ]
 }

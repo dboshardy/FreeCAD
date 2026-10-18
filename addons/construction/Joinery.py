@@ -141,7 +141,7 @@ def apply(boxes, rules):
     out = Result(list(boxes))
     for i, a in enumerate(boxes):
         for j, b in enumerate(boxes):
-            if i == j:
+            if i == j or a.tilt or b.tilt:
                 continue
             rule = next(
                 (

@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # FORK: the one part model of the Construction workbench (design doc §5.1.1).
 # No FreeCAD imports.
-"""A part: a named, axis-aligned box of one material in one coordinate frame.
+"""A part: a named box of one material in one coordinate frame, axis-aligned unless
+tilted (see `tilt`).
 
 Cabinets, framing, sheathing and joinery all describe their pieces as Parts,
 so the cut list, joinery and drawings handle every object the same way.
@@ -23,6 +24,10 @@ class Part:
     # box's (a, b) rectangle with its right angle at the corner (ca, cb)
     # (0 = the low side, 1 = the high side): a miter's waste.
     profile: tuple = ()
+    # (nx, ny, nz, degrees): the box is turned by this angle about the axis
+    # (nx, ny, nz) through its minimum corner, after joinery and pockets are cut.
+    # Joinery treats a tilted part as nothing: it is not joined (see Build.py).
+    tilt: tuple = ()
 
     def lo(self, k):
         return self.pos[k]

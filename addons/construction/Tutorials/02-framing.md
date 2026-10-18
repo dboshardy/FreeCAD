@@ -21,6 +21,11 @@ A member is a length of lumber between two points.
   straight line. Each stays linked to its line: edit the sketch and the lumber
   follows. Arcs and curves are skipped.
 
+A member can also be notched by other objects: set **CutBy** to the objects
+(a build of plates, a beam) whose volume is cut out of it where they overlap
+it. That cuts a birdsmouth where a rafter crosses a plate, or a housing for a
+joist in a beam.
+
 Pick the size in **Material** (e.g. `lumber.us.2x4`, `lumber.metric.45x95`).
 Lumber is modelled at its real dressed size: a 2x4 is 38.1 × 88.9 mm
 (1-1/2 × 3-1/2 in).

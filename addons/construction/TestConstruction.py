@@ -1620,6 +1620,49 @@ class TestBuild(unittest.TestCase):
         with self.assertRaises(ValueError):
             Build.part(("B", "nope", 500, "", "", 0, 0, 0, "x", "z"), self.ITEMS)
 
+    def test_tilt(self):
+        panel = "sheet.metric.plywood.18"
+        row = ("Deck", panel, 2400, 1200, "", 0, 0, 0, "y", "z")
+        self.assertEqual(Build.part(row, self.ITEMS).tilt, ())
+        # Length (y) turned towards the thickness (z): about +x.
+        self.assertEqual(Build.part(row + (8,), self.ITEMS).tilt, (1.0, 0.0, 0.0, 8.0))
+        # along x thick z: the axis is -y, so the length still turns up.
+        up = Build.part(("D", panel, 2400, 1200, "", 0, 0, 0, "x", "z", 8), self.ITEMS)
+        self.assertEqual(up.tilt, (0.0, -1.0, 0.0, 8.0))
+        # A template's 'edited' mark from the time the column was not there.
+        self.assertEqual(Build.part(row + ("edited",), self.ITEMS).tilt, ())
+        # The part is cut and listed at its drawn size.
+        self.assertEqual(Build.part(row + (8,), self.ITEMS).size, (1200, 2400, 18))
+
+    def test_tilted_parts_are_not_joined(self):
+        leg = ("Leg", self.LEG, 600, "", "", 0, 0, 0, "z", "x")
+        apron = ("Apron", self.APRON, 410, "", "", 45, 5, 505, "x", "y")
+        joint = [("Leg", "Apron", "joint.mortise_tenon", "")]
+        straight = Build.build([leg, ("Apron", self.APRON, 410, "", "", 45, 5, 505, "x", "y")], joint, self.ITEMS)
+        self.assertTrue(straight[1].joints)
+        # Same geometry, the apron tilted a degree: no joint, no change to either part.
+        tilted = Build.build([leg, apron + (1,)], joint, self.ITEMS)
+        self.assertFalse(tilted[1].joints)
+        self.assertEqual({p.size for _, p in tilted[0]}, {(45, 45, 600), (410, 20, 95)})
+
+    def test_framing_joint_presets(self):
+        stud = "lumber.metric.45x95"
+        rows = [
+            ("Plate", stud, 600, "", "", 0, 0, 0, "x", "z"),
+            ("Stud 1", stud, 2000, "", "", 0, 0, 45, "z", "x"),
+            ("Rafter", stud, 800, "", "", 0, 0, 2045, "x", "z"),
+        ]
+        for joint, hardware, count in (
+            ("joint.nail_end", "hardware.nail_framing", 2),
+            ("joint.toenail", "hardware.nail_framing", 3),
+            ("joint.hanger", "hardware.joist_hanger", 1),
+            ("joint.rafter_tie", "hardware.rafter_tie", 1),
+        ):
+            _, result = Build.build(rows, [("Plate", "Stud*", joint, "")], self.ITEMS)
+            self.assertEqual(result.fasteners, {hardware: count}, joint)
+        _, result = Build.build(rows, [("Stud*", "Rafter", "joint.nail_face", "")], self.ITEMS)
+        self.assertEqual(set(result.fasteners), {"hardware.nail_framing"})
+
     def test_joints_from_presets(self):
         joints = [
             ("Leg*", "Apron*", "joint.mortise_tenon", "depth=20"),

@@ -4,11 +4,14 @@
 """A build is a parts table and a joints table.
 
 Parts table rows: (name, stock, length, width, thickness, x, y, z, along,
-thick). `stock` is a library id: lumber gives the width and thickness, sheet
-goods the thickness; a non-empty width or thickness overrides it. `along` is
-the axis ("x", "y" or "z") the length (and grain) runs along, `thick` the axis
+thick, tilt). `stock` is a library id: lumber gives the width and thickness,
+sheet goods the thickness; a non-empty width or thickness overrides it. `along`
+is the axis ("x", "y" or "z") the length (and grain) runs along, `thick` the axis
 of the thickness; the width takes the third. x, y, z is the part's minimum
-corner.
+corner. `tilt` (degrees, optional) turns the part about its width axis through
+that corner, its length towards its thickness direction: a roof panel, a
+raked back. A tilted part is cut and listed at its drawn size, but is not
+joined to other parts.
 
 Joints table rows: (receiver, inserted, joint, options). Receiver and inserted
 are part names or fnmatch patterns ("Leg*"); `joint` is a library joint
@@ -33,6 +36,7 @@ PARTS_HEADER = (
     "Z",
     "Along",
     "Thick",
+    "Tilt",
 )
 JOINTS_HEADER = ("Receiver", "Inserted", "Joint", "Options")
 MIN_SHELF_OPENING = 50.0  # mm clear between bookcase shelves
@@ -44,7 +48,9 @@ def _number(value):
 
 def part(row, items):
     """Part from a parts table row. Raises ValueError with the row's name."""
-    name, stock, length, width, thick, x, y, z, along, thick_axis = row
+    name, stock, length, width, thick, x, y, z, along, thick_axis, tilt = (
+        tuple(row) + ("",) * (len(PARTS_HEADER) - len(row))
+    )[: len(PARTS_HEADER)]
     item = items.get(stock)
     if item is None:
         raise ValueError(f"{name}: stock '{stock}' not found in the construction library")
@@ -64,7 +70,23 @@ def part(row, items):
     size = {along: length, thick_axis: thick}
     size[next(a for a in AXES if a not in size)] = width
     pos = tuple(float(v or 0) for v in (x, y, z))
-    return Part(name, role, tuple(size[a] for a in AXES), pos, along)
+    return Part(name, role, tuple(size[a] for a in AXES), pos, along, tilt=_tilt(tilt, along, thick_axis))
+
+
+def _tilt(value, along, thick):
+    """Part.tilt of a Tilt cell: the angle about the axis along x thick, which
+    turns the length towards the thickness. Text (a template's 'edited' mark
+    in a file from before the column existed) and 0 mean no tilt."""
+    try:
+        angle = _number(value)
+    except ValueError:
+        return ()
+    if not angle:
+        return ()
+    a, t = AXES.index(along), AXES.index(thick)
+    axis = [0.0] * 3
+    axis[3 - a - t] = 1.0 if (t - a) % 3 == 1 else -1.0  # along x thick, a unit axis
+    return (*axis, angle)
 
 
 def options(text):
@@ -449,6 +471,8 @@ def _norm(row):
             out.append(f"{round(float(v), 6):g}")
         else:
             out.append("" if v is None else str(v))
+    while out and out[-1] == "":  # a template row may stop before the last column
+        out.pop()
     return tuple(out)
 
 

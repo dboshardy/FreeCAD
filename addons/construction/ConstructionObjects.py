@@ -231,7 +231,10 @@ def joined_solids(result):
     for i, p in enumerate(result.boxes):
         solid = Part.makeBox(*p.size, FreeCAD.Vector(*p.pos))
         cuts = [_cut_shape(c) for j, c in result.pockets if j == i]
-        out.append(solid.cut(cuts) if cuts else solid)
+        solid = solid.cut(cuts) if cuts else solid
+        if p.tilt:
+            solid.rotate(FreeCAD.Vector(*p.pos), FreeCAD.Vector(*p.tilt[:3]), p.tilt[3])
+        out.append(solid)
     return out
 
 
@@ -502,6 +505,12 @@ class MemberFeature(ArchStructure._Structure):
                 "End cut at the start, degrees from square, across the depth (45 = miter)",
             ),
             ("App::PropertyAngle", "EndCut", "End cut at the end, degrees from square"),
+            (
+                "App::PropertyLinkList",
+                "CutBy",
+                "Objects whose volume is cut out of this member where they overlap it: "
+                "a birdsmouth over a plate, a housing in a beam",
+            ),
         ):
             if prop not in obj.PropertiesList:
                 obj.addProperty(ptype, prop, "Member", tip)
@@ -522,7 +531,9 @@ class MemberFeature(ArchStructure._Structure):
         start, end = self.endpoints(obj)
         cuts = (obj.StartCut.Value, obj.EndCut.Value)
         section = lumber_section(obj.Lumber)
-        return [(obj.Lumber, member_part(obj.Label, start, end, section, cuts))]
+        part = member_part(obj.Label, start, end, section, cuts)
+        notches = tuple(f"notch for {o.Label}" for o in obj.CutBy)
+        return [(obj.Lumber, replace(part, operations=part.operations + notches))]
 
     def checks(self, obj, rules):
         return []
@@ -547,21 +558,27 @@ class MemberFeature(ArchStructure._Structure):
         # A cut through the centre line leaves the stock long point to long point.
         obj.ToolOffsetFirst, obj.ToolOffsetLast = (Member.end_extension(h, a) for a in cuts)
         super().execute(obj)
-        if not any(cuts) or obj.Shape.isNull():
+        if obj.Shape.isNull():
             return
-        length, x, y, z = Member.frame(start, end, -obj.BaseRotation.Value)
-        V = FreeCAD.Vector
-        big = 4 * (length + h + w)
         shape = obj.Shape
-        for angle, point, outward in ((cuts[0], start, -1), (cuts[1], end, 1)):
-            if not angle:
-                continue
-            a = math.radians(angle)
-            normal = V(*z) * (outward * math.cos(a)) - V(*y) * (outward * math.sin(a))
-            waste = Part.makeBox(big, big, big, V(-big / 2, -big / 2, 0))
-            waste.Placement = FreeCAD.Placement(V(*point), FreeCAD.Rotation(V(0, 0, 1), normal))
-            shape = shape.cut(waste)
-        obj.Shape = shape
+        if any(cuts):
+            length, x, y, z = Member.frame(start, end, -obj.BaseRotation.Value)
+            V = FreeCAD.Vector
+            big = 4 * (length + h + w)
+            for angle, point, outward in ((cuts[0], start, -1), (cuts[1], end, 1)):
+                if not angle:
+                    continue
+                a = math.radians(angle)
+                normal = V(*z) * (outward * math.cos(a)) - V(*y) * (outward * math.sin(a))
+                waste = Part.makeBox(big, big, big, V(-big / 2, -big / 2, 0))
+                waste.Placement = FreeCAD.Placement(V(*point), FreeCAD.Rotation(V(0, 0, 1), normal))
+                shape = shape.cut(waste)
+        # Cut last: the notches are cut from the member with its ends already cut.
+        tools = [o.Shape for o in obj.CutBy if not o.Shape.isNull()]
+        if tools:
+            shape = shape.cut(tools)
+        if any(cuts) or tools:
+            obj.Shape = shape
 
 
 DEFAULT_LUMBER = "lumber.metric.45x95"

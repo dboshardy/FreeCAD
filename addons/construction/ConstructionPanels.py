@@ -188,6 +188,7 @@ def build_panel(obj):
             ("Z", NUMBER, None),
             ("Along", CHOICE, AXES),
             ("Thick", CHOICE, AXES),
+            ("Tilt", NUMBER, None),
         ],
         obj.Proxy.part_rows(obj),
     )
