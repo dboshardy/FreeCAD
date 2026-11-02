@@ -222,22 +222,49 @@ square to each other and the front is the slanted fourth edge: set
 `1' 11"`, `16 in`, `30 in`, `81.5 in`). The back-left corner is on the origin
 and the cabinet lies in front of it (towards −y); move it with **Placement**.
 
+Every size, part type and material is a property you can change at any time.
+
 | Property | Meaning |
 |---|---|
-| **DoorStyle** | `shaker` (stiles, rails with stub tenons, a panel of the **BackMaterial** in grooves) or `slab` |
+| **DoorStyle** | `shaker` (stiles, rails with stub tenons, a panel of the **BackMaterial** in grooves) or `slab`; **FrameWidth**, **GrooveDepth**, **PanelPlay**, **DoorGap** size it |
 | **HingeSide** | `left` or `right`; **DoorOpenAngle** shows the door swung open |
-| **TrayCount**, **FirstTrayHeight**, **TraySpacing**, **TrayHeight** | Pull-out trays on side-mount slides, fronts parallel to the door |
-| **BottomTrayHeight** | Wall height of the lowest tray, e.g. `8 in` for tall items; 0 = **TrayHeight**. It must stay below the next tray (raise **TraySpacing** if not) |
-| **SlideLength** (result) | Slide length: the left (shallower) side limits it; **TrayExtension** shows the trays pulled out |
-| **Parts** (result) | Every part with its size |
+| **Interior** | The trays and shelves, one line each (see below) |
+| **TrayHeight**, **ShelfSetback**, **ShelfPinClearance** | Defaults for lines that do not give their own |
+| **SlideClearance**, **SlideStep**, **RearClearance**, **DoorClearance** | Tray slide and clearance rules; **TrayExtension** shows the trays pulled out |
 | **CarcassMaterial**, **BackMaterial**, **TrayMaterial** | Sheet goods; the part thicknesses come from them |
+| **SlideLength** (result) | The longest slide that fits: the left (shallower) side limits it |
+| **Parts** (result) | Every part with its size |
 
-The cut list lists the slanted parts (sides, top, bottom, tray walls and
-bottoms) at their rectangular blank size, with the bevel or taper under
+**Interior** holds one line per item, in any order, any mix and any count.
+Click the property's **…** button to edit the list. Each line is the item's
+type and the height of its underside above the floor, then any of its own
+settings:
+
+```
+tray 4 in, walls 8 in
+tray 16 in, slide 12 in, material sheet.us.plywood.3-4
+adjustable shelf 40 in
+shelf 60 in, setback 3 in
+```
+
+| Type | Settings |
+|---|---|
+| `tray` | `walls` (wall height), `slide` (slide length, up to **SlideLength**), `material` |
+| `shelf` (fixed, screwed through the sides) | `setback` (front edge back from the door), `material` |
+| `adjustable shelf` (on shelf pins) | `setback`, `material` |
+
+Lengths take a unit (`in` or `"`, `ft` or `'`, `mm`, `cm`, `m`) and may use
+fractions (`3 1/2 in`); a number without a unit is in mm. If a line is wrong,
+or an item reaches into the one above it or out of the cabinet, the cabinet is
+marked with an error and the Report view names the line.
+
+The cut list lists the slanted parts (sides, top, bottom, shelves, tray walls
+and bottoms) at their rectangular blank size, with the bevel or taper under
 Operations, and lays the blanks out on sheets. The hardware list counts hinges
-by door height, a slide pair per tray and wall anchors. **Check** reminds you
-that the door meets the hinge side at an angle other than 90°: use angled
-hinges or mounting plates.
+by door height, a slide pair per tray (by slide length), four shelf pins per
+adjustable shelf, confirmat screws for fixed shelves and wall anchors.
+**Check** reminds you that the door meets the hinge side at an angle other
+than 90°: use angled hinges or mounting plates.
 
 ## From the Python console
 
@@ -254,6 +281,7 @@ ConstructionObjects.write_cut_list(App.ActiveDocument)
 
 import TrapezoidCabinet
 trap = TrapezoidCabinet.make()
+trap.Interior = ["tray 4 in, walls 8 in", "tray 16 in", "adjustable shelf 40 in"]
 trap.DoorOpenAngle = 95
 App.ActiveDocument.recompute()
 ```

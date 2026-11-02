@@ -358,12 +358,27 @@ class TestConstructionApp(unittest.TestCase):
         fasteners = cab.Proxy.fasteners(cab, None)
         self.assertEqual(fasteners["hardware.hinge"], 5)
         self.assertEqual(fasteners["hardware.drawer_slide@355.6"], 4)
-        cab.BottomTrayHeight = 8 * 25.4  # a deeper lowest tray
+        # Every interior item has its own type, height and sizes.
+        cab.Interior = [
+            "tray 4 in, walls 8 in",
+            "tray 16 in, slide 12 in, material sheet.us.plywood.3-4",
+            "adjustable shelf 40 in",
+            "shelf 60 in, setback 3 in",
+        ]
         self.doc.recompute()
         self.assertBuilt(cab)
-        walls = {p.name: p.size[2] for _, p in cab.Proxy.parts(cab) if "wall" in p.name}
-        self.assertAlmostEqual(walls["Tray 1 left wall"], 8 * 25.4)
-        self.assertAlmostEqual(walls["Tray 2 left wall"], 4 * 25.4)
+        by_name = {p.name: (m, p) for m, p in cab.Proxy.parts(cab)}
+        self.assertAlmostEqual(by_name["Tray 1 left wall"][1].size[2], 8 * 25.4)
+        self.assertAlmostEqual(by_name["Tray 2 left wall"][1].size[1], 12 * 25.4)
+        self.assertEqual(by_name["Tray 2 left wall"][0], "sheet.us.plywood.3-4")
+        self.assertIn("Shelf 2", by_name)
+        fasteners = cab.Proxy.fasteners(cab, None)
+        self.assertEqual(fasteners["hardware.shelf_pin"], 4)
+        self.assertEqual(fasteners["hardware.drawer_slide@304.8"], 1)
+        cab.Interior = ["tray 4 in, walls 15 in", "tray 18 in"]  # overlap
+        self.doc.recompute()
+        self.assertIn("Invalid", cab.State)
+        cab.Interior = ["tray 4 in"]
         cab.DoorStyle = "slab"
         cab.HingeSide = "right"
         cab.DoorOpenAngle = 95

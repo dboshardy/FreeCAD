@@ -16,6 +16,7 @@ import Cabinet  # noqa: E402
 import Checks  # noqa: E402
 import CutList  # noqa: E402
 import Framing  # noqa: E402
+import Interior  # noqa: E402
 import Joinery  # noqa: E402
 import Library  # noqa: E402
 import Member  # noqa: E402
@@ -280,6 +281,53 @@ class TestCutList(unittest.TestCase):
         self.assertEqual(CutList.format_length(18.26, "in", denominator=32), '23/32"')
         self.assertEqual(CutList.length_text(3.2), "3.2 mm")
         self.assertEqual(CutList.length_text(3.2, "in"), '1/8"')
+
+
+class TestInterior(unittest.TestCase):
+    def test_parse_length(self):
+        for text, mm in (("1500", 1500), ("150 cm", 1500), ("4 in", 101.6), ("4in", 101.6),
+                         ('3 1/2"', 88.9), ("1' 4-1/2\"", 419.1), ("1 ft 3 in", 381),
+                         ("3/4 in", 19.05), ('23/32"', 18.25625), ("2 m", 2000)):
+            self.assertAlmostEqual(Interior.parse_length(text), mm, msg=text)
+        for text in ("", "abc", "4 in 5", "4 xyz"):
+            with self.assertRaises(ValueError, msg=text):
+                Interior.parse_length(text)
+
+    def test_parse_items(self):
+        items = Interior.parse([
+            "shelf 1500, material sheet.us.plywood.3-4",
+            "# comment",
+            "tray 4 in, walls 8 in",
+            "adjustable shelf 50 in, setback 2 in",
+            "",
+            "tray 16 in, slide 12 in",
+        ])
+        self.assertEqual([i.kind for i in items], ["tray", "tray", "adjustable shelf", "shelf"])
+        self.assertEqual([i.line for i in items], [3, 6, 4, 1])
+        self.assertAlmostEqual(items[0].walls, 203.2)
+        self.assertAlmostEqual(items[1].slide, 304.8)
+        self.assertAlmostEqual(items[2].setback, 50.8)
+        self.assertEqual(items[3].material, "sheet.us.plywood.3-4")
+        text = Interior.format_item(items[0], lambda mm: f"{mm / 25.4:g} in")
+        self.assertEqual(text, "tray 4 in, walls 8 in")
+
+    def test_parse_errors_name_the_line(self):
+        for lines, message in (
+            (["tray 4 in", "drawer 8 in"], "line 2"),
+            (["tray 4 in, setback 1 in"], "no 'setback'"),
+            (["shelf 10 in, walls 2 in"], "no 'walls'"),
+            (["tray x"], "line 1: height"),
+        ):
+            with self.assertRaisesRegex(ValueError, message):
+                Interior.parse(lines)
+
+    def test_check_fit(self):
+        defaults = {"walls": 100.0, "thickness": lambda material: 18.0}
+        Interior.check_fit(Interior.parse(["tray 100", "tray 200", "shelf 300"]), 18, 2000, defaults)
+        with self.assertRaisesRegex(ValueError, "reaches 50.0 mm into tray"):
+            Interior.check_fit(Interior.parse(["tray 100, walls 150", "tray 200"]), 18, 2000, defaults)
+        with self.assertRaisesRegex(ValueError, "outside the cabinet"):
+            Interior.check_fit(Interior.parse(["shelf 1990"]), 18, 2000, defaults)
 
 
 def check_layout(test, sheets, sheet_w, sheet_h, kerf, trim):
