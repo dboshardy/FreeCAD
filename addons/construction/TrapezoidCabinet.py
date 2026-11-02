@@ -165,6 +165,11 @@ class TrapezoidCabinet(CO.CabinetFeature):  # the cut list collects CabinetFeatu
         added = set()
         for kind, name, group, tip, default in PROPERTIES:
             if name in obj.PropertiesList:
+                # Saved with an earlier version: move to the current group, current tooltip.
+                if hasattr(obj, "setGroupOfProperty") and obj.getGroupOfProperty(name) != group:
+                    obj.setGroupOfProperty(name, group)
+                if hasattr(obj, "setDocumentationOfProperty"):
+                    obj.setDocumentationOfProperty(name, tip)
                 continue
             added.add(name)
             obj.addProperty(kind, name, group, tip)
