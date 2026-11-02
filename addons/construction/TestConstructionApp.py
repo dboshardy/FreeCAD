@@ -342,6 +342,70 @@ class TestConstructionApp(unittest.TestCase):
         names = [p.name for _, p in cabinet.Proxy.parts(cabinet)]
         self.assertIn("Door panel", names)
 
+    def test_trapezoid_cabinet(self):
+        import CutList
+        import TrapezoidCabinet
+
+        cab = TrapezoidCabinet.make(doc=self.doc)
+        self.assertBuilt(cab)
+        self.assertIn(cab, CO.construction_objects(self.doc))  # in the cut list
+        parts = cab.Proxy.parts(cab)
+        self.assertEqual(len(parts), len(cab.Proxy.solids(cab)))
+        names = [p.name for _, p in parts]
+        self.assertIn("Door panel", names)
+        self.assertEqual(sum(n.endswith("bottom") and n.startswith("Tray") for n in names), 4)
+        self.assertAlmostEqual(cab.SlideLength.Value, 14 * 25.4, places=6)
+        fasteners = cab.Proxy.fasteners(cab, None)
+        self.assertEqual(fasteners["hardware.hinge"], 5)
+        self.assertEqual(fasteners["hardware.drawer_slide@355.6"], 4)
+        # Every interior item has its own type, height and sizes.
+        cab.Interior = [
+            "tray 4 in, walls 8 in",
+            "tray 16 in, slide 12 in, material sheet.us.plywood.3-4",
+            "adjustable shelf 40 in",
+            "shelf 60 in, setback 3 in",
+        ]
+        self.doc.recompute()
+        self.assertBuilt(cab)
+        by_name = {p.name: (m, p) for m, p in cab.Proxy.parts(cab)}
+        self.assertAlmostEqual(by_name["Tray 1 left wall"][1].size[2], 8 * 25.4)
+        self.assertAlmostEqual(by_name["Tray 2 left wall"][1].size[1], 12 * 25.4)
+        self.assertEqual(by_name["Tray 2 left wall"][0], "sheet.us.plywood.3-4")
+        self.assertIn("Shelf 2", by_name)
+        fasteners = cab.Proxy.fasteners(cab, None)
+        self.assertEqual(fasteners["hardware.shelf_pin"], 4)
+        self.assertEqual(fasteners["hardware.drawer_slide@304.8"], 1)
+        cab.Interior = ["tray 4 in, walls 15 in", "tray 18 in"]  # overlap
+        self.doc.recompute()
+        self.assertIn("Invalid", cab.State)
+        cab.Interior = ["tray 4 in"]
+        cab.Top = "stretchers"  # rails instead of a full top
+        self.doc.recompute()
+        self.assertBuilt(cab)
+        names = [p.name for _, p in cab.Proxy.parts(cab)]
+        self.assertIn("Front stretcher", names)
+        self.assertIn("Back stretcher", names)
+        self.assertNotIn("Top", names)
+        cab.DoorStyle = "slab"
+        cab.HingeSide = "right"
+        cab.DoorOpenAngle = 95
+        cab.TrayExtension = 100
+        self.doc.recompute()
+        self.assertBuilt(cab)
+        CO.write_cut_list(self.doc)
+        names = [self.doc.getObject("CutList").getContents(f"B{r}") for r in range(2, 12)]
+        self.assertTrue(any("Door" in n for n in names))
+        self.assertEqual(CutList.format_length(cab.Height.Value, "in"), '81 1/2"')
+
+    def test_cut_list_in_inches(self):
+        CO.set_document_region(self.doc, "US")
+        CO.make_cabinet("base", self.doc)
+        self.doc.recompute()
+        self.assertEqual(CO.cut_list_units(self.doc), "in")
+        cut = CO.write_cut_list(self.doc)
+        self.assertEqual(cut.get("C1"), "Length (in)")
+        self.assertTrue(cut.get("C2").endswith('"'))
+
     def test_garage(self):
         garage = CO.make_garage(self.doc)
         self.assertBuilt(garage)

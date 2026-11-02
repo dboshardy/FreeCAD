@@ -805,6 +805,30 @@ CABINET_COMMANDS = {
 
 for name, command in CABINET_COMMANDS.items():
     FreeCADGui.addCommand(name, command)
+
+
+class TrapezoidCabinetCommand:
+    def GetResources(self):
+        return {
+            "MenuText": QT_TRANSLATE_NOOP("Construction_TrapezoidCabinet", "Trapezoid Cabinet"),
+            "ToolTip": QT_TRANSLATE_NOOP(
+                "Construction_TrapezoidCabinet",
+                "Creates a cabinet with a slanted front: back and sides square, one door "
+                "(shaker or slab) and pull-out trays" + EDIT_HINT,
+            ),
+        }
+
+    def Activated(self):
+        doc = FreeCAD.ActiveDocument or FreeCAD.newDocument()
+        doc.openTransaction(translate("Construction", "Create cabinet"))
+        FreeCADGui.addModule("TrapezoidCabinet")
+        FreeCADGui.doCommand("obj = TrapezoidCabinet.make()")
+        doc.commitTransaction()
+        FreeCADGui.doCommand("Gui.Selection.clearSelection()")
+        FreeCADGui.doCommand("Gui.Selection.addSelection(obj)")
+
+
+FreeCADGui.addCommand("Construction_TrapezoidCabinet", TrapezoidCabinetCommand())
 FreeCADGui.addCommand("Construction_Member", MemberCommand())
 FreeCADGui.addCommand("Construction_WallFrame", WallFrameCommand())
 FreeCADGui.addCommand(

@@ -6,6 +6,33 @@ from collections import Counter
 from dataclasses import dataclass
 
 EPS = 1e-6
+UNITS = ("mm", "in")  # cut list length units
+INCH = 25.4
+
+
+def format_length(mm, units="mm", denominator=16):
+    """A length for the cut list: mm as a number rounded to 0.1, or inches as
+    text to the nearest 1/denominator, reduced: 81 1/2", 23/32", 0"."""
+    if units == "mm":
+        return round(mm, 1)
+    steps = round(abs(mm) / INCH * denominator)
+    whole, num = divmod(steps, denominator)
+    den = denominator
+    while num and num % 2 == 0:
+        num, den = num // 2, den // 2
+    sign = "-" if mm < 0 and steps else ""
+    if not num:
+        return f'{sign}{whole}"'
+    return f'{sign}{whole} {num}/{den}"' if whole else f'{sign}{num}/{den}"'
+
+
+def unit_label(units):
+    return "in" if units == "in" else "mm"
+
+
+def length_text(mm, units="mm"):
+    """A length in running text: 3.2 mm, or 1/8"."""
+    return f"{mm:g} mm" if units == "mm" else format_length(mm, units)
 
 
 def _key(material, part):

@@ -28,6 +28,10 @@ buying plans, hardware lists and advisory safety checks.
   these pages.
 - Sizes are in millimetres. Imperial values work too: type `16 in` or `8 ft`
   into a length property and it is converted.
+- The cut list, sheet layout, lumber plan and part labels give lengths in
+  fractional inches (to 1/16", thicknesses to 1/32") when the document's region
+  is US (**Region**) or its unit system is in inches or feet, else in mm. Set
+  preference `Mod/Construction/CutListUnits` to `in` or `mm` to choose.
 - Every generated object is parametric. Select it and change its properties in
   the **Property view**; the model regenerates.
 - If a size cannot be built, the object is marked with an error in the **Tree

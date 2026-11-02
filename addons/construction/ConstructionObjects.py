@@ -4,6 +4,7 @@
 import json
 import math
 import os
+import re
 from dataclasses import replace
 
 import ArchStructure
@@ -2259,6 +2260,27 @@ def saw_settings():
     return params.GetFloat("Kerf", 3.2), params.GetFloat("Trim", 10.0)
 
 
+IMPERIAL_SCHEMAS = (2, 3, 5, 7)  # FreeCAD unit schemas in inches or feet
+
+
+def cut_list_units(doc):
+    """Length units of the cut list, sheet layout, lumber plan and labels: "in"
+    (fractional inches) or "mm". Preference Mod/Construction/CutListUnits:
+    "mm", "in" or "auto" (default): inches when the document is in the US
+    region, or the document's or the preferences' unit system is in inches or
+    feet; else mm."""
+    choice = FreeCAD.ParamGet(PARAMS).GetString("CutListUnits", "auto")
+    if choice in CutList.UNITS:
+        return choice
+    if document_region(doc) == "US":
+        return "in"
+    system = getattr(doc, "UnitSystem", "") if doc else ""
+    # e.g. "US customary (in, lb)", "Building US (ft-in, sqft, cft)"
+    if re.search(r"\((in|ft)\b", system or ""):
+        return "in"
+    return "in" if FreeCAD.Units.getSchema() in IMPERIAL_SCHEMAS else "mm"
+
+
 def _sheet(doc, name):
     sheet = doc.getObject(name) or doc.addObject("Spreadsheet::Sheet", name)
     sheet.clearAll()
@@ -2286,6 +2308,14 @@ def write_cut_list(doc):
     rows = CutList.rows(parts)
     lib = items()
     kerf, trim = saw_settings()
+    units = cut_list_units(doc)
+    unit = CutList.unit_label(units)
+
+    def fmt(mm):
+        return CutList.format_length(mm, units)
+
+    def text(mm):
+        return CutList.length_text(mm, units)
 
     def label(material):
         return lib.get(material, {}).get("name", material)
@@ -2294,9 +2324,9 @@ def write_cut_list(doc):
     headers = [
         "Material",
         "Part",
-        "Length (mm)",
-        "Width (mm)",
-        "Thickness (mm)",
+        f"Length ({unit})",
+        f"Width ({unit})",
+        f"Thickness ({unit})",
         "Grain",
         "Qty",
         "Tag",
@@ -2310,7 +2340,8 @@ def write_cut_list(doc):
     operations = CutList.operations(parts)
     for r, (material, name, length, width, thick, grain, qty) in enumerate(rows, start=2):
         # Tag: the row number, used by the balloons on drawings (CutList.row_numbers).
-        values = [label(material), name, length, width, thick, grain, qty, r - 1]
+        thick = CutList.format_length(thick, units, denominator=32)  # sheet goods: 23/32"
+        values = [label(material), name, fmt(length), fmt(width), thick, grain, qty, r - 1]
         _write_row(cut, r, values + [operations[r - 2]])
 
     def of_category(cut_rows, category):
@@ -2334,21 +2365,21 @@ def write_cut_list(doc):
         _write_row(cut, summary, values + ["", ""] + ([round(cost, 2)] if cost is not None else []))
 
     summary = len(rows) + 3
-    _write_row(cut, summary, [f"Sheets (panel-saw layout, kerf {kerf:g} mm, trim {trim:g} mm)"])
-    for material, suffix, count, share in _write_sheet_layouts(doc, groups, lib, label, kerf):
+    _write_row(cut, summary, [f"Sheets (panel-saw layout, kerf {text(kerf)}, trim {text(trim)})"])
+    for material, suffix, count, share in _write_sheet_layouts(doc, groups, lib, label, kerf, units):
         name = label(material) + suffix
         line(
             [name, f"{share:.0%} used", "", "", "", "", count], CutList.price(lib[material], count)
         )
     summary += 2
-    _write_row(cut, summary, [f"Lumber (stock lengths, kerf {kerf:g} mm)"])
+    _write_row(cut, summary, [f"Lumber (stock lengths, kerf {text(kerf)})"])
     volumes = {}
     for material, stock, count in _write_lumber_plan(
-        doc, rows, of_category(rows, Library.LUMBER), lib, label, kerf
+        doc, rows, of_category(rows, Library.LUMBER), lib, label, kerf, units
     ):
         item = lib[material]
         line(
-            [label(material), f"{stock:g} mm", "", "", "", "", count],
+            [label(material), text(stock), "", "", "", "", count],
             CutList.price(item, count, stock),
         )
         m3, bf = volumes.get(material, (0.0, 0.0))
@@ -2411,15 +2442,18 @@ def write_cut_list(doc):
     return cut
 
 
-def _write_sheet_layouts(doc, groups, lib, label, kerf):
+def _write_sheet_layouts(doc, groups, lib, label, kerf, units="mm"):
     """Lays out sheet materials. groups: [(cut rows, materials, trim, label suffix)].
     Each sheet is a BIM panel sheet (Arch_Panel_Sheet) holding its placed parts,
-    in the group 'SheetLayoutView'. Returns [(material, suffix, sheets, share used)]."""
+    in the group 'SheetLayoutView'. Returns [(material, suffix, sheets, share used)].
+    units: lengths in the spreadsheet, "mm" or "in" (fractional inches)."""
     layout = _sheet(doc, "SheetLayout")
+    unit = CutList.unit_label(units)
     _write_row(
         layout,
         1,
-        ["Material", "Sheet", "Part", "X (mm)", "Y (mm)", "Across (mm)", "Along (mm)", "Rotated"],
+        ["Material", "Sheet", "Part", f"X ({unit})", f"Y ({unit})", f"Across ({unit})",
+         f"Along ({unit})", "Rotated"],
     )
     import Arch
 
@@ -2453,7 +2487,9 @@ def _write_sheet_layouts(doc, groups, lib, label, kerf):
                 _write_row(
                     layout,
                     row,
-                    [label(material) + suffix, number, p.name, p.x, p.y, p.w, p.h, rotated],
+                    [label(material) + suffix, number, p.name]
+                    + [CutList.format_length(v, units) for v in (p.x, p.y, p.w, p.h)]
+                    + [rotated],
                 )
                 # The sheet's coordinates are centred on the sheet.
                 corner = FreeCAD.Vector(p.x - sheet_w / 2, p.y - sheet_h / 2, 0)
@@ -2470,17 +2506,26 @@ def _write_sheet_layouts(doc, groups, lib, label, kerf):
     return out
 
 
-def _write_lumber_plan(doc, rows, materials, lib, label, kerf):
-    """Plans lumber cuts; returns (material, stock length, boards) per stock length."""
+def _write_lumber_plan(doc, rows, materials, lib, label, kerf, units="mm"):
+    """Plans lumber cuts; returns (material, stock length, boards) per stock length.
+    units: lengths in the spreadsheet, "mm" or "in" (fractional inches)."""
     plan = _sheet(doc, "LumberPlan")
-    _write_row(plan, 1, ["Material", "Board", "Stock (mm)", "Cuts", "Offcut (mm)"])
+    unit = CutList.unit_label(units)
+
+    def fmt(mm):
+        return CutList.format_length(mm, units)
+
+    _write_row(plan, 1, ["Material", "Board", f"Stock ({unit})", "Cuts", f"Offcut ({unit})"])
     row, out = 2, []
     for material in materials:
         pieces = [(name, length) for name, length, _, _ in CutList.pieces(rows, material)]
         boards = CutList.plan_lengths(pieces, lib[material]["stock_lengths_mm"], kerf=kerf)
         for number, board in enumerate(boards, start=1):
-            cuts = ", ".join(f"{name} {length:g}" for name, length in board.cuts)
-            _write_row(plan, row, [label(material), number, board.stock, cuts, board.offcut()])
+            cuts = ", ".join(
+                f"{name} {length:g}" if units == "mm" else f"{name} {fmt(length)}"
+                for name, length in board.cuts
+            )
+            _write_row(plan, row, [label(material), number, fmt(board.stock), cuts, fmt(board.offcut())])
             row += 1
         for stock in sorted({b.stock for b in boards}, reverse=True):
             out.append((material, stock, sum(1 for b in boards if b.stock == stock)))
@@ -2700,10 +2745,15 @@ def write_part_labels(doc):
         "Grain",
         "Operations",
     ]
+    units = cut_list_units(doc)
+    if units != "mm":
+        header[3:6] = [f"{h} ({CutList.unit_label(units)})" for h in header[3:6]]
     _write_row(sheet, 1, header)
     lib = items()
     for r, ((obj, (material, part)), tag) in enumerate(zip(pairs, tags), start=2):
-        length, width, thick = (round(v, 1) for v in part.cut_size())
+        length, width, thick = part.cut_size()
+        length, width = CutList.format_length(length, units), CutList.format_length(width, units)
+        thick = CutList.format_length(thick, units, denominator=32)
         name = lib.get(material, {}).get("name", material)
         grain = "yes" if part.grain else "no"
         ops = "; ".join(part.operations)
