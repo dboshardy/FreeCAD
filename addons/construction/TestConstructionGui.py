@@ -15,6 +15,7 @@ COMMANDS = [
     "Construction_TallCabinet",
     "Construction_SinkCabinet",
     "Construction_CornerCabinet",
+    "Construction_TrapezoidCabinet",
     "Construction_BaseRun",
     "Construction_WallRun",
     "Construction_Member",

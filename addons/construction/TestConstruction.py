@@ -270,6 +270,17 @@ class TestCutList(unittest.TestCase):
         self.assertEqual(sides[0][6], 2)  # left and right side share a row
         self.assertEqual(sum(r[6] for r in rows), len(parts))
 
+    def test_format_length(self):
+        self.assertEqual(CutList.format_length(2070.1), 2070.1)
+        self.assertEqual(CutList.format_length(2070.1, "in"), '81 1/2"')
+        self.assertEqual(CutList.format_length(18.26, "in"), '3/4"')  # nearest 1/16
+        self.assertEqual(CutList.format_length(2438.4, "in"), '96"')
+        self.assertEqual(CutList.format_length(0.5, "in"), '0"')
+        self.assertEqual(CutList.format_length(-12.7, "in"), '-1/2"')
+        self.assertEqual(CutList.format_length(18.26, "in", denominator=32), '23/32"')
+        self.assertEqual(CutList.length_text(3.2), "3.2 mm")
+        self.assertEqual(CutList.length_text(3.2, "in"), '1/8"')
+
 
 def check_layout(test, sheets, sheet_w, sheet_h, kerf, trim):
     """Every part inside the trimmed sheet and at least one kerf from the others."""

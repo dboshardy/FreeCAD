@@ -214,6 +214,30 @@ from the chosen material, so picking `sheet.us.plywood.3-4` gives 18.26 mm
 (23/32 in, what "3/4 in" plywood actually measures). Add your own sheets in
 [tutorial 4](04-libraries-and-checks.md).
 
+## 6. A cabinet with a slanted front
+
+For an odd corner, click **Trapezoid Cabinet**. The back and both sides are
+square to each other and the front is the slanted fourth edge: set
+**BackWidth**, **LeftDepth**, **RightDepth** and **Height** (for example
+`1' 11"`, `16 in`, `30 in`, `81.5 in`). The back-left corner is on the origin
+and the cabinet lies in front of it (towards −y); move it with **Placement**.
+
+| Property | Meaning |
+|---|---|
+| **DoorStyle** | `shaker` (stiles, rails with stub tenons, a panel of the **BackMaterial** in grooves) or `slab` |
+| **HingeSide** | `left` or `right`; **DoorOpenAngle** shows the door swung open |
+| **TrayCount**, **FirstTrayHeight**, **TraySpacing**, **TrayHeight** | Pull-out trays on side-mount slides, fronts parallel to the door |
+| **SlideLength** (result) | Slide length: the left (shallower) side limits it; **TrayExtension** shows the trays pulled out |
+| **Parts** (result) | Every part with its size |
+| **CarcassMaterial**, **BackMaterial**, **TrayMaterial** | Sheet goods; the part thicknesses come from them |
+
+The cut list lists the slanted parts (sides, top, bottom, tray walls and
+bottoms) at their rectangular blank size, with the bevel or taper under
+Operations, and lays the blanks out on sheets. The hardware list counts hinges
+by door height, a slide pair per tray and wall anchors. **Check** reminds you
+that the door meets the hinge side at an angle other than 90°: use angled
+hinges or mounting plates.
+
 ## From the Python console
 
 ```py
@@ -226,4 +250,9 @@ run.Length = 3100
 run.Widths = "1000 blind_left, 600 drawers, 800 sink, 600"
 App.ActiveDocument.recompute()
 ConstructionObjects.write_cut_list(App.ActiveDocument)
+
+import TrapezoidCabinet
+trap = TrapezoidCabinet.make()
+trap.DoorOpenAngle = 95
+App.ActiveDocument.recompute()
 ```
