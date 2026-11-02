@@ -358,6 +358,12 @@ class TestConstructionApp(unittest.TestCase):
         fasteners = cab.Proxy.fasteners(cab, None)
         self.assertEqual(fasteners["hardware.hinge"], 5)
         self.assertEqual(fasteners["hardware.drawer_slide@355.6"], 4)
+        cab.BottomTrayHeight = 8 * 25.4  # a deeper lowest tray
+        self.doc.recompute()
+        self.assertBuilt(cab)
+        walls = {p.name: p.size[2] for _, p in cab.Proxy.parts(cab) if "wall" in p.name}
+        self.assertAlmostEqual(walls["Tray 1 left wall"], 8 * 25.4)
+        self.assertAlmostEqual(walls["Tray 2 left wall"], 4 * 25.4)
         cab.DoorStyle = "slab"
         cab.HingeSide = "right"
         cab.DoorOpenAngle = 95

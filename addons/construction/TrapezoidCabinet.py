@@ -63,6 +63,7 @@ PROPERTIES = [
     ("App::PropertyLength", "FirstTrayHeight", "Trays", "Underside of the lowest tray above the floor", 4 * IN),
     ("App::PropertyLength", "TraySpacing", "Trays", "Underside to underside of neighbouring trays", 12 * IN),
     ("App::PropertyLength", "TrayHeight", "Trays", "Tray wall height", 4 * IN),
+    ("App::PropertyLength", "BottomTrayHeight", "Trays", "Wall height of the lowest tray; 0 = TrayHeight", 0.0),
     ("App::PropertyLength", "SlideClearance", "Trays", "Per side, from the slide maker's data", 0.5 * IN),
     ("App::PropertyLength", "SlideStep", "Trays", "Slides are sold in steps of this length", 2 * IN),
     ("App::PropertyLength", "RearClearance", "Trays", "Behind the trays, in front of the back panel", 0.5 * IN),
@@ -289,14 +290,20 @@ def build(obj):
         inner = [(xm0, y_tfl + inset + slope * tw), (xm1, y_tfr + inset - slope * tw), (xm1, split), (xm0, split)]
         pull = -obj.TrayExtension / 100.0 * slide
         heights = [obj.FirstTrayHeight.Value + i * obj.TraySpacing.Value for i in range(n_trays)]
-        if heights[0] < T or heights[-1] + th > H - T:
+        walls_h = [th] * n_trays  # wall height of each tray
+        if obj.BottomTrayHeight.Value > 0:
+            walls_h[0] = obj.BottomTrayHeight.Value
+        if heights[0] < T or heights[-1] + walls_h[-1] > H - T:
             raise ValueError("trays do not fit between the bottom and the top")
-        top_of_trays = heights[-1] + th
+        for i in range(n_trays - 1):
+            if heights[i] + walls_h[i] > heights[i + 1]:
+                raise ValueError(f"tray {i + 1} reaches into tray {i + 2}: raise TraySpacing")
+        top_of_trays = heights[-1] + walls_h[-1]
         front_wall = (xm1 - xm0) * front_len / dx
         bl, br = split - inner[0][1], split - inner[1][1]
         tray_taper = f"taper {_inch(bl)} deep at left to {_inch(br)} at right"
         ends = f"ends cut {abs(theta):.1f} deg"
-        for i, z0 in enumerate(heights):
+        for i, (z0, th) in enumerate(zip(heights, walls_h)):
             z1 = z0 + th
             ring = _prism(plan, z0, z1).cut(_prism(inner, z0, z1))
             walls = [
@@ -308,7 +315,7 @@ def build(obj):
             for name, size, grain, ops, cutter in walls:
                 shape = ring.common(cutter)
                 shape.translate(V(0, pull, 0))
-                length = max(size)
+                length = size["xyz".index(grain)]  # along the grain
                 text = f"{_inch(length)} x {_inch(th)} x {_inch(tw, 32)}" + (f", {ops[0]}" if ops else "")
                 add(f"Tray {i + 1} {name}", "drawer_box", "TrayMaterial", size, grain, ops, text, shape)
             bottom = _prism(inner, z0, z0 + tbt)

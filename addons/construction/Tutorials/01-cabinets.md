@@ -227,6 +227,7 @@ and the cabinet lies in front of it (towards −y); move it with **Placement**.
 | **DoorStyle** | `shaker` (stiles, rails with stub tenons, a panel of the **BackMaterial** in grooves) or `slab` |
 | **HingeSide** | `left` or `right`; **DoorOpenAngle** shows the door swung open |
 | **TrayCount**, **FirstTrayHeight**, **TraySpacing**, **TrayHeight** | Pull-out trays on side-mount slides, fronts parallel to the door |
+| **BottomTrayHeight** | Wall height of the lowest tray, e.g. `8 in` for tall items; 0 = **TrayHeight**. It must stay below the next tray (raise **TraySpacing** if not) |
 | **SlideLength** (result) | Slide length: the left (shallower) side limits it; **TrayExtension** shows the trays pulled out |
 | **Parts** (result) | Every part with its size |
 | **CarcassMaterial**, **BackMaterial**, **TrayMaterial** | Sheet goods; the part thicknesses come from them |
