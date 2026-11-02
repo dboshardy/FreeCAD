@@ -228,6 +228,7 @@ Every size, part type and material is a property you can change at any time.
 |---|---|
 | **DoorStyle** | `shaker` (stiles, rails with stub tenons, a panel of the **BackMaterial** in grooves) or `slab`; **FrameWidth**, **GrooveDepth**, **PanelPlay**, **DoorGap** size it |
 | **HingeSide** | `left` or `right`; **DoorOpenAngle** shows the door swung open |
+| **Top** | `full` panel, `stretchers` (a front rail along the slanted front and a back rail, for a counter top), `front stretcher`, `back stretcher` or `none`; **StretcherWidth** sizes the rails |
 | **Interior** | The trays and shelves, one line each (see below) |
 | **TrayHeight**, **ShelfSetback**, **ShelfPinClearance** | Defaults for lines that do not give their own |
 | **SlideClearance**, **SlideStep**, **RearClearance**, **DoorClearance** | Tray slide and clearance rules; **TrayExtension** shows the trays pulled out |

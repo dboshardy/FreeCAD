@@ -379,6 +379,13 @@ class TestConstructionApp(unittest.TestCase):
         self.doc.recompute()
         self.assertIn("Invalid", cab.State)
         cab.Interior = ["tray 4 in"]
+        cab.Top = "stretchers"  # rails instead of a full top
+        self.doc.recompute()
+        self.assertBuilt(cab)
+        names = [p.name for _, p in cab.Proxy.parts(cab)]
+        self.assertIn("Front stretcher", names)
+        self.assertIn("Back stretcher", names)
+        self.assertNotIn("Top", names)
         cab.DoorStyle = "slab"
         cab.HingeSide = "right"
         cab.DoorOpenAngle = 95

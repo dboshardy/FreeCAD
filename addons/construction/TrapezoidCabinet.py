@@ -58,6 +58,10 @@ PROPERTIES = [
     ("App::PropertyLength", "LeftDepth", "Carcass", "Left side, outside, back face to front corner", 16 * IN),
     ("App::PropertyLength", "RightDepth", "Carcass", "Right side, outside, back face to front corner", 30 * IN),
     ("App::PropertyLength", "Height", "Carcass", "Floor to top of the carcass", 81.5 * IN),
+    ("App::PropertyEnumeration", "Top", "Carcass",
+     "full: a top panel; stretchers: a front and a back rail (for a counter top); "
+     "front stretcher / back stretcher: one rail; none: open", None),
+    ("App::PropertyLength", "StretcherWidth", "Carcass", "Width of the top stretchers", 4 * IN),
     ("App::PropertyEnumeration", "DoorStyle", "Door", "shaker: stiles, rails and a grooved panel; slab: one panel", None),
     ("App::PropertyEnumeration", "HingeSide", "Door", "Side the door is hinged on", None),
     ("App::PropertyLength", "DoorGap", "Door", "Total gap around the door, half each side", 0.125 * IN),
@@ -81,6 +85,7 @@ PROPERTIES = [
     ("App::PropertyStringList", "Parts", "Result", "Every part with its size", []),
 ]
 DEFAULT_TRAYS = (4 * IN, 16 * IN, 28 * IN, 40 * IN)
+TOP_STYLES = ("full", "stretchers", "front stretcher", "back stretcher", "none")
 # Properties of earlier versions: thicknesses now come from the materials, and the
 # trays and shelves from Interior (migrated in setProperties).
 OBSOLETE = ("Thickness", "BackThickness", "TrayWall", "TrayBottomThickness", "GrooveWidth",
@@ -179,6 +184,8 @@ class TrapezoidCabinet(CO.CabinetFeature):  # the cut list collects CabinetFeatu
             obj.DoorStyle = ["shaker", "slab"]
         if not obj.getEnumerationsOfProperty("HingeSide"):
             obj.HingeSide = ["left", "right"]
+        if not obj.getEnumerationsOfProperty("Top"):
+            obj.Top = list(TOP_STYLES)
         for prop, (default, tip) in MATERIALS.items():
             CO.add_library_choice(obj, prop, Library.SHEET_GOODS, default, "Materials", tip)
         CO.add_ifc_type(obj, self)
@@ -320,9 +327,33 @@ def model(obj):
     d_left, d_right = y_bi - front_y(T), y_bi - front_y(W - T)
     taper = taper_text(d_left, d_right)
     flat_text = f"{L(W - 2 * T)} x {L(d_right)} blank, {taper}, {L(T, 32)} thick"
-    add("Bottom", "carcass", carcass_m, (W - 2 * T, d_right, T), "x", [taper], flat_text, slab(T, W - T, 0, T))
-    add("Top", "carcass", carcass_m, (W - 2 * T, d_right, T), "x", [taper], flat_text,
-        slab(T, W - T, H - T, H))
+    screws_flat = fastener_count("joint.confirmat", d_left) + fastener_count("joint.confirmat", d_right)
+    add("Bottom", "carcass", carcass_m, (W - 2 * T, d_right, T), "x", [taper, f"{screws_flat} confirmat holes"],
+        flat_text, slab(T, W - T, 0, T))
+    fasten("hardware.confirmat_7x50", screws_flat)
+    top = obj.Top
+    if top == "full":
+        add("Top", "carcass", carcass_m, (W - 2 * T, d_right, T), "x", [taper, f"{screws_flat} confirmat holes"],
+            flat_text, slab(T, W - T, H - T, H))
+        fasten("hardware.confirmat_7x50", screws_flat)
+    sw = obj.StretcherWidth.Value
+    if top in ("stretchers", "front stretcher", "back stretcher") and not 0 < sw < d_left:
+        raise ValueError(f"StretcherWidth must be more than 0 and less than {L(d_left)} (the left depth inside)")
+    if top in ("stretchers", "front stretcher"):
+        # Along the slanted front, flush with it; ends cut to meet the sides.
+        length = (W - 2 * T) * front_len / dx
+        ends = f"ends cut {abs(theta):.1f} deg"
+        screws = 2 * fastener_count("joint.confirmat", sw)
+        shape = _prism([(T, front_y(T)), (W - T, front_y(W - T)), (W - T, front_y(W - T, sw)),
+                        (T, front_y(T, sw))], H - T, H)
+        add("Front stretcher", "carcass", carcass_m, (length, sw, T), "x", [ends, f"{screws} confirmat holes"],
+            f"{L(length)} x {L(sw)} x {L(T, 32)}, {ends}", shape)
+        fasten("hardware.confirmat_7x50", screws)
+    if top in ("stretchers", "back stretcher"):
+        screws = 2 * fastener_count("joint.confirmat", sw)
+        add("Back stretcher", "carcass", carcass_m, (W - 2 * T, sw, T), "x", [f"{screws} confirmat holes"],
+            f"{L(W - 2 * T)} x {L(sw)} x {L(T, 32)}", _box(T, W - T, y_bi - sw, y_bi, H - T, H))
+        fasten("hardware.confirmat_7x50", screws)
     add("Back", "back", back_m, (W, TB, H), "z", [], f"{L(W)} x {L(H)} x {L(TB, 32)}",
         _box(0, W, y_bi, 0, 0, H))
 
