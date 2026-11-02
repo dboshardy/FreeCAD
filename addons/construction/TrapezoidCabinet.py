@@ -31,6 +31,7 @@ import Part
 
 import Checks
 import ConstructionObjects as CO
+import CutList
 import Library
 import Parts as CParts
 
@@ -83,8 +84,11 @@ def _prism(points, z0, z1):
     return Part.Face(Part.makePolygon(pts + [pts[0]])).extrude(V(0, 0, z1 - z0))
 
 
-def _inch(mm):
-    return f'{mm / IN:.3f}"'
+def _length(units, mm, denominator=16):
+    """Text of a length in the cut list's units: 584.2 mm, or 23", 23/32"."""
+    if units == "mm":
+        return f"{mm:.1f} mm"
+    return CutList.format_length(mm, "in", denominator)
 
 
 def thickness(obj, prop):
@@ -192,7 +196,8 @@ class TrapezoidCabinet(CO.CabinetFeature):  # the cut list collects CabinetFeatu
         obj.SlideLength = geo["slide"]
         lines = [f"{e['name']} [{getattr(obj, e['material'])}]: {e['text']}" for e in entries]
         if geo["trays"]:
-            lines.append(f"Slides: {geo['trays']} pairs, {_inch(geo['slide'])} full extension")
+            slide = _length(CO.cut_list_units(obj.Document), geo["slide"])
+            lines.append(f"Slides: {geo['trays']} pairs, {slide} full extension")
         lines.append(f"Hinges: {hinge_count(geo['door_h'])}, hinged {obj.HingeSide}; hinge side meets "
                      f"the door at {geo['hinge_angle']:.1f} deg (use angled hinges)")
         obj.Parts = lines
@@ -233,6 +238,11 @@ def build(obj):
     """Every part: dict(name, role, material, size, grain, ops, text, shape).
     size is the rectangular blank (dx, dy, dz) with the grain along `grain`."""
     g = geometry(obj)
+    units = CO.cut_list_units(obj.Document)
+
+    def _inch(mm, denominator=16):
+        return _length(units, mm, denominator)
+
     W, H, T, TB = g["W"], g["H"], g["T"], g["TB"]
     y_fl, y_fr, y_bi, front_y, slope = g["y_fl"], g["y_fr"], g["y_bi"], g["front_y"], g["slope"]
     front_len, dx, theta = g["front_len"], g["dx"], g["theta"]
@@ -252,15 +262,15 @@ def build(obj):
     bevel = f"bevel front edge {abs(theta):.1f} deg"
     for name, x0, depth in (("Left side", 0, g["DL"] - TB), ("Right side", W - T, g["DR"] - TB)):
         add(name, "carcass", "CarcassMaterial", (T, depth, H), "z", [bevel],
-            f"{_inch(depth)} x {_inch(H)} x {_inch(T)}, {bevel}", slab(x0, x0 + T, 0, H))
+            f"{_inch(depth)} x {_inch(H)} x {_inch(T, 32)}, {bevel}", slab(x0, x0 + T, 0, H))
     d_left, d_right = y_bi - front_y(T), y_bi - front_y(W - T)
     taper = f"taper {_inch(d_left)} deep at left to {_inch(d_right)} at right"
     flat = ((W - 2 * T, d_right, T), "x", [taper],
-            f"{_inch(W - 2 * T)} x {_inch(d_right)} blank, {taper}, {_inch(T)} thick")
+            f"{_inch(W - 2 * T)} x {_inch(d_right)} blank, {taper}, {_inch(T, 32)} thick")
     add("Bottom", "carcass", "CarcassMaterial", *flat, slab(T, W - T, 0, T))
     add("Top", "carcass", "CarcassMaterial", *flat, slab(T, W - T, H - T, H))
     add("Back", "back", "BackMaterial", (W, TB, H), "z", [],
-        f"{_inch(W)} x {_inch(H)} x {_inch(TB)}", _box(0, W, y_bi, 0, 0, H))
+        f"{_inch(W)} x {_inch(H)} x {_inch(TB, 32)}", _box(0, W, y_bi, 0, 0, H))
 
     # ---- pull-out trays: slides along y on the side panels, as long as the
     # left (shallower) side allows; the tray front is parallel to the door.
@@ -299,12 +309,12 @@ def build(obj):
                 shape = ring.common(cutter)
                 shape.translate(V(0, pull, 0))
                 length = max(size)
-                text = f"{_inch(length)} x {_inch(th)} x {_inch(tw)}" + (f", {ops[0]}" if ops else "")
+                text = f"{_inch(length)} x {_inch(th)} x {_inch(tw, 32)}" + (f", {ops[0]}" if ops else "")
                 add(f"Tray {i + 1} {name}", "drawer_box", "TrayMaterial", size, grain, ops, text, shape)
             bottom = _prism(inner, z0, z0 + tbt)
             bottom.translate(V(0, pull, 0))
             add(f"Tray {i + 1} bottom", "drawer_bottom", "TrayMaterial", (xm1 - xm0, br, tbt), "y",
-                [tray_taper], f"{_inch(xm1 - xm0)} x {_inch(br)} blank, {tray_taper}, {_inch(tbt)} thick",
+                [tray_taper], f"{_inch(xm1 - xm0)} x {_inch(br)} blank, {tray_taper}, {_inch(tbt, 32)} thick",
                 bottom)
 
     for i in range(max(obj.Shelves, 0)):
@@ -317,7 +327,7 @@ def build(obj):
     door = []
     if obj.DoorStyle == "slab":
         door.append(("Door", "door", "CarcassMaterial", (dw, T, dh), "z", [hinge_op],
-                     f"{_inch(dw)} x {_inch(dh)} x {_inch(T)}", _box(0, dw, 0, T, 0, dh)))
+                     f"{_inch(dw)} x {_inch(dh)} x {_inch(T, 32)}", _box(0, dw, 0, T, 0, dh)))
     else:
         s, gd, play = obj.FrameWidth.Value, obj.GrooveDepth.Value, obj.PanelPlay.Value
         gw = TB  # the groove takes the panel
@@ -334,12 +344,12 @@ def build(obj):
             return body.fuse(tenons).cut(groove(s - gd, dw - s + gd, gz0, gz1))
 
         p = gd - play
-        groove_op = f"groove {_inch(gw)} x {_inch(gd)} deep"
+        groove_op = f"groove {_inch(gw, 32)} x {_inch(gd)} deep"
         rail_len = dw - 2 * s + 2 * gd
         tenon_op = f"stub tenons {_inch(gd)} long each end"
         pw, ph = dw - 2 * s + 2 * p, dh - 2 * s + 2 * p
-        stile_text = f"{_inch(s)} x {_inch(dh)} x {_inch(T)}, {groove_op}"
-        rail_text = f"{_inch(rail_len)} x {_inch(s)} x {_inch(T)}, {groove_op}, {tenon_op}"
+        stile_text = f"{_inch(s)} x {_inch(dh)} x {_inch(T, 32)}, {groove_op}"
+        rail_text = f"{_inch(rail_len)} x {_inch(s)} x {_inch(T, 32)}, {groove_op}, {tenon_op}"
         door += [
             ("Door stile left", "door_frame", "CarcassMaterial", (s, T, dh), "z",
              [groove_op] + ([hinge_op] if obj.HingeSide == "left" else []), stile_text,
@@ -352,7 +362,7 @@ def build(obj):
             ("Door rail", "door_frame", "CarcassMaterial", (rail_len, T, s), "x", [groove_op, tenon_op],
              rail_text, rail(dh - s, dh, dh - s, dh - s + gd)),
             ("Door panel", "door_panel", "BackMaterial", (pw, gw, ph), "z", [],
-             f"{_inch(pw)} x {_inch(ph)} x {_inch(gw)}", groove(s - p, dw - s + p, s - p, dh - s + p)),
+             f"{_inch(pw)} x {_inch(ph)} x {_inch(gw, 32)}", groove(s - p, dw - s + p, s - p, dh - s + p)),
         ]
     d = V(dx / front_len, (y_fr - y_fl) / front_len, 0)  # along the front, left to right
     n = V((y_fr - y_fl) / front_len, -dx / front_len, 0)  # outward normal of the front

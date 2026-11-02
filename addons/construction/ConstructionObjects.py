@@ -2266,16 +2266,18 @@ IMPERIAL_SCHEMAS = (2, 3, 5, 7)  # FreeCAD unit schemas in inches or feet
 def cut_list_units(doc):
     """Length units of the cut list, sheet layout, lumber plan and labels: "in"
     (fractional inches) or "mm". Preference Mod/Construction/CutListUnits:
-    "mm", "in" or "auto" (default): inches for a document in the US region or
-    with an inch or foot unit system, else mm."""
+    "mm", "in" or "auto" (default): inches when the document is in the US
+    region, or the document's or the preferences' unit system is in inches or
+    feet; else mm."""
     choice = FreeCAD.ParamGet(PARAMS).GetString("CutListUnits", "auto")
     if choice in CutList.UNITS:
         return choice
     if document_region(doc) == "US":
         return "in"
     system = getattr(doc, "UnitSystem", "") if doc else ""
-    if system:  # e.g. "US customary (in, lb)", "Building US (ft-in, sqft, cft)"
-        return "in" if re.search(r"\((in|ft)\b", system) else "mm"
+    # e.g. "US customary (in, lb)", "Building US (ft-in, sqft, cft)"
+    if re.search(r"\((in|ft)\b", system or ""):
+        return "in"
     return "in" if FreeCAD.Units.getSchema() in IMPERIAL_SCHEMAS else "mm"
 
 
